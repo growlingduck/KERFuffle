@@ -1,0 +1,63 @@
+
+
+/* ==========================================================================
+   Author's custom styles
+   ========================================================================== */
+#wrapper {
+    overflow: hidden;
+}
+
+#maincontent h1,
+#maincontent h2 {
+    text-align: center;
+}
+
+#maincontent .sub-head {
+    text-align: center;
+    font-weight: bold;
+}
+
+#maincontent fieldset.zenbox {
+    padding: 16px;
+    border: 1px solid #eee;
+}
+
+    #maincontent fieldset.zenbox legend {
+        border-width: 0;
+        margin-bottom: 0;
+        width: auto;
+    }
+
+    #maincontent fieldset.zenbox.variables {
+        border-color: #eea236;
+    }
+
+    #maincontent fieldset.zenbox.inputs {
+        border-color: #4cae4c;
+    }
+
+
+#maincontent h3.cabinet-name {
+    text-align: center;
+    font-size: 1.3em;
+    font-style: italic;
+}
+
+input[type='number'] {
+    -moz-appearance: textfield;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+hr {
+    margin: 50px 0;
+}
+
+footer {
+    margin-top: 2.5%;
+    text-align: center;
+}

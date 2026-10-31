@@ -1,0 +1,413 @@
+﻿<!doctype html>
+<html class="no-js" lang="en">
+<head><meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <title>Cutlist Calculator</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="stylesheet" href="includes/css/bootstrap.min.css">
+    <link rel="stylesheet" href="includes/css/main.css">
+    <script src="includes/js/vendor/modernizr-2.8.3-respond-1.4.2.min.js"></script>
+</head>
+<body>
+    <div id="wrapper">
+        <div id="maincontent">
+            <h1>Cut List Calculator</h1>
+            <hr />
+            <div class="row">
+                <div class="col-sm-3 col-sm-offset-1">
+
+
+                    <form>
+
+                        <div class="col-sm-12">
+
+                            <fieldset id="variables" class="zenbox variables">
+                                <legend class="">Variables</legend>
+
+                                <div class="form-horizontal">
+                                    <div class="form-group">
+                                        <label for="v1" class="col-sm-6 control-label">Panel Thickness</label>
+                                        <div class="col-sm-6">
+                                            <input type="number" step="001" required="required" class="form-control" id="v1" placeholder="0.0">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="v2" class="col-sm-6 control-label">Toe Kick Height</label>
+                                        <div class="col-sm-6">
+                                            <input type="number" step="001" required="required" class="form-control" id="v2" placeholder="0.0">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="v3" class="col-sm-6 control-label">Countertop Thickness</label>
+                                        <div class="col-sm-6">
+                                            <input type="number" step="001" required="required" class="form-control" id="v3" placeholder="0.0">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="v4" class="col-sm-6 control-label">Shelf Thickness</label>
+                                        <div class="col-sm-6">
+                                            <input type="number" step="001" required="required" disabled="disabled" class="form-control" id="v4" placeholder="0.0">
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </fieldset>
+
+                        </div>
+
+                        <div class="col-sm-12">
+
+                            <fieldset id="inputs" class="zenbox inputs">
+                                <legend>Input</legend>
+
+                                <div class="form-horizontal">
+                                    <div class="form-group">
+                                        <label for="i1" class="col-sm-6 control-label">Width</label>
+                                        <div class="col-sm-6">
+                                            <input type="number" step="0.001" min="0" class="form-control" required="required" id="i1" placeholder="0.0">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="i2" class="col-sm-6 control-label">Height</label>
+                                        <div class="col-sm-6">
+                                            <input type="number" step="0.001" min="0" class="form-control" required="required" id="i2" placeholder="0.0">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="i3" class="col-sm-6 control-label">Depth</label>
+                                        <div class="col-sm-6">
+                                            <input type="number" step="0.001" min="0" class="form-control" required="required" id="i3" placeholder="0.0">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="i4" class="col-sm-6 control-label"># of Shelfs</label>
+                                        <div class="col-sm-6">
+                                            <input type="number" class="form-control" required="required" id="i4" placeholder="0.0">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="i5" class="col-sm-6 control-label">Cabinet ID</label>
+                                        <div class="col-sm-6">
+                                            <input type="text" class="form-control" required="required" id="i5" placeholder="0.0">
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="i6" class="col-sm-6 control-label">Finished Ends</label>
+                                        <div class="col-sm-6">
+                                            <select class="form-control" id="i6" required="required">
+                                                <option value="">...</option>
+                                                <option value="N">Neither</option>
+                                                <option value="R">Right Side</option>
+                                                <option value="L">Left Side</option>
+                                                <option value="B">Both Sides</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <div class="col-sm-offset-6 col-sm-6">
+                                            <div class="btn-group" data-toggle="buttons">
+                                                <label id="base-rdo" class="btn btn-primary active">
+                                                    <input type="radio" name="options" id="base" checked> BASE
+                                                </label>
+                                                <label id="wall-rdo" class="btn btn-primary">
+                                                    <input type="radio" name="options" id="wall"> WALL
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <div class="col-sm-offset-6 col-sm-6">
+                                            <button type="submit" id="add-cabinet" class="btn btn-default"><span class="glyphicon glyphicon-plus"></span> Add Cabinet</button>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                            </fieldset>
+
+                        </div>
+                    </form>
+                </div>
+
+                <div class="col-sm-7">
+                    <div class="row" id="output">
+                        <div class="col-sm-10 col-sm-offset-1">
+                            <h2>Output</h2>
+
+                            <div class="row">
+                                <div class="col-sm-12">
+                                    <p class="sub-head">Base Cabinet</p>
+                                    <h3 class="cabinet-name"><em class="sr-only">noname</em></h3>
+                                    <table class="table table-hover table-bordered" id="base-out">
+                                        <caption class="sr-only">Base Cabinet Pieces</caption>
+                                        <thead>
+                                            <tr>
+                                                <th></th>
+                                                <th>W</th>
+                                                <th>L</th>
+                                                <th>D</th>
+                                                <th>#</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr class="cab" id="bback">
+                                                <th>Back</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr class="cab" id="bbottom">
+                                                <th>Bottom</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr class="cab" id="bleft">
+                                                <th>Left</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr class="cab" id="bright">
+                                                <th>Right</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr class="cab" id="btop">
+                                                <th>Top</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr class="cab" id="bfront">
+                                                <th>Front</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr class="cab" id="bshelf">
+                                                <th>Shelf</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="blaml" class="lam warning">
+                                                <th>LamLeft</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td class="empty"></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="blamr" class="lam warning">
+                                                <th>LamRight</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td class="empty"></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="blamf" class="lam warning">
+                                                <th>LamFront</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td class="empty"></td>
+                                                <td></td>
+                                            </tr>
+
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="col-sm-12">
+                                    <p class="sub-head">Wall Cabinet</p>
+                                    <h3 class="cabinet-name"><em class="sr-only">noname</em></h3>
+                                    <table class="table table-hover table-bordered" id="wall-out">
+                                        <caption class="sr-only">Base Cabinet Pieces</caption>
+                                        <thead>
+                                            <tr>
+                                                <th></th>
+                                                <th>W</th>
+                                                <th>L</th>
+                                                <th>D</th>
+                                                <th>#</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr id="wback" class="cab">
+                                                <th>Back</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="wbottom" class="cab">
+                                                <th>Bottom</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="wleft" class="cab">
+                                                <th>Left</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="wright" class="cab">
+                                                <th>Right</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="wtop" class="cab">
+                                                <th>Top</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="wfront" class="cab">
+                                                <th>Front</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="wshelf" class="cab">
+                                                <th>Shelf</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="wlaml" class="lam warning">
+                                                <th>LamLeft</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td class="empty"></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="wlamr" class="lam warning">
+                                                <th>LamRight</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td class="empty"></td>
+                                                <td></td>
+                                            </tr>
+                                            <tr id="wlamf" class="lam warning">
+                                                <th>LamFront</th>
+                                                <td></td>
+                                                <td></td>
+                                                <td class="empty"></td>
+                                                <td></td>
+                                            </tr>
+
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr />
+
+            <div class="row hidden" id="cutlist">
+
+                <h2>Cutlist</h2>
+
+                <div class="col-sm-5 col-sm-offset-1">
+                    <table class="table table-hover table-bordered" id="cab-cutlist">
+                        <caption class="sr-only">Cabinet Cutlist</caption>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>W</th>
+                                <th>L</th>
+                                <th>D</th>
+                                <th>#</th>
+                                <th>ID</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+
+                </div>
+                <div class="col-sm-5">
+
+                    <table class="table table-hover table-bordered" id="lam-cutlist">
+                        <caption class="sr-only">Base Cabinet Pieces</caption>
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>W</th>
+                                <th>L</th>
+                                <th>#</th>
+                                <th>ID</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+            </div>
+
+            <footer>
+                <p>&copy; Cabinet Guy 2016</p>
+            </footer>
+
+        </div>
+
+    </div>
+
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+    <script>window.jQuery || document.write('<script src="includes/js/vendor/jquery-1.11.2.min.js"><\/script>')</script>
+    <script src="includes/js/vendor/bootstrap.min.js"></script>
+    <script src="includes/js/main.js"></script>
+    <!-- Google Analytics: change UA-XXXXX-X to be your site's ID. -->
+    <script>
+        (function () {
+            //Set Up Defaults
+            var $v1 = $('#v1'),
+                $v2 = $('#v2'),
+                $v3 = $('#v3');
+
+            if (!$v1.val()) {
+                $v1.val('0.75');
+            }
+            if (!$v2.val()) {
+                $v2.val('1.5');
+            }
+            if (!$v3.val()) {
+                $v3.val('.75');
+            }
+        })();
+
+        (function (b, o, i, l, e, r) {
+            b.GoogleAnalyticsObject = l; b[l] || (b[l] =
+            function () { (b[l].q = b[l].q || []).push(arguments) }); b[l].l = +new Date;
+            e = o.createElement(i); r = o.getElementsByTagName(i)[0];
+            e.src = '//www.google-analytics.com/analytics.js';
+            r.parentNode.insertBefore(e, r)
+        }(window, document, 'script', 'ga'));
+        ga('create', 'UA-XXXXX-X', 'auto'); ga('send', 'pageview');
+    </script>
+</body>
+</html>
