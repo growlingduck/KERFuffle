@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shop settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&amp;family=IBM+Plex+Sans+Condensed:wght@500;600;700&amp;family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F2F1EB}
+a{color:#1F4FA3}a:hover{color:#163A7A}
+.paper{background-color:#F2F1EB;background-image:linear-gradient(#E2E0D7 1px,transparent 1px),linear-gradient(90deg,#E2E0D7 1px,transparent 1px),linear-gradient(#EBE9E1 1px,transparent 1px),linear-gradient(90deg,#EBE9E1 1px,transparent 1px);background-size:96px 96px,96px 96px,16px 16px,16px 16px}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.cap{font-family:'IBM Plex Sans Condensed','IBM Plex Sans',sans-serif;font-weight:600;letter-spacing:.09em;text-transform:uppercase}
+.sheet{position:relative;background:#FFFFFF;border:1px solid #2B2D30;box-sizing:border-box}
+.sheet::before,.sheet::after{content:"";position:absolute;width:10px;height:10px;pointer-events:none}
+.sheet::before{left:-6px;top:-6px;border-left:1px solid #1B1D1F;border-top:1px solid #1B1D1F}
+.sheet::after{right:-6px;bottom:-6px;border-right:1px solid #1B1D1F;border-bottom:1px solid #1B1D1F}
+.vt{display:flex;align-items:center;gap:10px;min-width:0}
+.bub{display:inline-flex;align-items:center;justify-content:center;flex:none;width:26px;height:26px;box-sizing:border-box;border:1.5px solid #1B1D1F;border-radius:50%;font:700 13px 'IBM Plex Sans Condensed',sans-serif;background:#FFFFFF;color:#1B1D1F}
+.vt-t{font:700 15px/1.2 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;border-bottom:2px solid #1B1D1F;padding-bottom:1px}
+.vt-s{font:500 11px 'IBM Plex Mono',monospace;color:#4A4C50;margin-top:3px;letter-spacing:.03em}
+.btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border:1px solid #9A9C9F;border-radius:3px;background:#FFFFFF;font:500 14px 'IBM Plex Sans',system-ui,sans-serif;color:#1B1D1F;cursor:pointer;text-decoration:none;box-sizing:border-box;transition:background-color 120ms,border-color 120ms,transform 80ms}
+.btn:hover{background:#EEEDE7;border-color:#5E6066;color:#1B1D1F}
+.btn:active{transform:translateY(1px)}
+.btn-pri{background:#1F4FA3;border-color:#1F4FA3;color:#FFFFFF}
+.btn-pri:hover{background:#163A7A;border-color:#163A7A;color:#FFFFFF}
+.btn[disabled]{color:#8E9095;border-color:#D9D7CF;background:#F7F6F1;cursor:not-allowed}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #1F4FA3;outline-offset:2px}
+.tab{position:relative;display:inline-flex;align-items:center;min-height:56px;padding:0 14px;font:600 13px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#4A4C50;text-decoration:none}
+.tab::after{content:"";position:absolute;left:14px;right:14px;bottom:-2px;height:3px;background:#1F4FA3;transform:scaleX(0);transition:transform 180ms cubic-bezier(.2,0,0,1)}
+.tab:hover{color:#1B1D1F}.tab:hover::after{transform:scaleX(.35)}
+.tab[aria-current="page"]{color:#1B1D1F}.tab[aria-current="page"]::after{transform:scaleX(1)}
+.snav{display:flex;align-items:center;gap:10px;min-height:42px;padding:0 12px;border-radius:2px;text-decoration:none;color:#2B2D30;font:600 13px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.snav:hover{background:#FFFFFF;color:#1B1D1F}
+.snav.on{background:#1B1D1F;color:#FFFFFF}
+.row{display:grid;grid-template-columns:minmax(0,1.3fr) 150px minmax(0,1fr);align-items:center;gap:14px;padding:10px 12px;border-bottom:1px dashed #D9D7CF;transition:background-color 120ms}
+.row:hover{background:#F7F6F1}
+.row.hot{background:#EEF3FB}
+.inp{box-sizing:border-box;width:100%;height:42px;padding:0 30px 0 10px;border:1px solid #9A9C9F;border-radius:3px;background:#FFFFFF;font:500 16px 'IBM Plex Mono',monospace;color:#1B1D1F;transition:border-color 120ms,box-shadow 120ms,background-color 120ms}
+.inp:hover{border-color:#5E6066}
+.inp:focus{outline:none;border-color:#1F4FA3;box-shadow:0 0 0 3px #C9D8F0}
+.inp.bad{border-color:#B3261E;background:#FDF3F2}
+.inp.mod{border-color:#1B1D1F;border-width:1.5px}
+.unit{position:absolute;right:10px;top:13px;font:500 13px 'IBM Plex Mono',monospace;color:#63656A;pointer-events:none}
+.modmark{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#1B1D1F}
+.rst{border:0;background:transparent;padding:2px 4px;font:600 12px 'IBM Plex Sans',sans-serif;color:#1F4FA3;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.radio{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 12px;border:1px solid #9A9C9F;border-radius:3px;background:#FFFFFF;cursor:pointer;font:500 14px 'IBM Plex Sans',sans-serif}
+.radio.on{border:2px solid #1F4FA3;background:#E3EBF7;padding:0 11px}
+.radio[aria-disabled="true"]{color:#8E9095;border-style:dashed;cursor:not-allowed}
+.dirty{position:sticky;bottom:16px;z-index:30;display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:18px;padding:10px 12px 10px 16px;background:#1B1D1F;color:#FFFFFF;border-radius:3px;box-shadow:0 10px 28px rgba(27,29,31,.3);animation:kfUp 200ms cubic-bezier(.2,0,0,1)}
+.dirty .btn{min-height:38px}
+.ghost{background:transparent;color:#FFFFFF;border-color:#7FA2DC}
+.ghost:hover{background:#2B3A55;color:#FFFFFF;border-color:#7FA2DC}
+.swap{animation:kfIn 200ms ease-out}
+.toast{position:fixed;left:50%;bottom:28px;z-index:70;transform:translateX(-50%);display:flex;align-items:center;gap:14px;min-height:48px;padding:0 16px;background:#1B1D1F;color:#FFFFFF;border-radius:3px;box-shadow:0 10px 28px rgba(27,29,31,.3);font:500 14px 'IBM Plex Sans',sans-serif;animation:kfToast 200ms cubic-bezier(.2,0,0,1)}
+@keyframes kfUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes kfIn{from{opacity:.2}to{opacity:1}}
+@keyframes kfToast{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:1ms!important;transition-duration:1ms!important}}
+</style>
+</helmet>
+<div class="paper" style="min-height: 1040px; display: flex; flex-direction: column; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #1B1D1F">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: stretch; background: #FFFFFF; border-bottom: 2px solid #1B1D1F">
+    <a href="Home.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 20px; min-height: 56px; color: #1B1D1F; text-decoration: none; border-right: 1px solid #1B1D1F">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #1B1D1F; stroke-width: 1.75px"><rect x="3" y="3" width="18" height="18"></rect><path d="M3 10h7M14 10h7M12 3v18" style="stroke-dasharray: 2 2"></path></svg>
+      <span style="font: 700 17px 'IBM Plex Sans Condensed', sans-serif; letter-spacing: 0.04em">KERF<span style="font-weight: 500">uffle</span></span>
+    </a>
+    <nav aria-label="App sections" style="display: flex; flex-wrap: wrap; padding: 0 6px">
+      <a class="tab" href="Home.dc.html">Jobs</a>
+      <a class="tab" href="#" aria-current="page">Settings</a>
+    </nav>
+  </header>
+
+  <main style="flex: 1; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 24px; width: 100%; max-width: 1440px; margin: 0 auto; padding: 28px 24px 40px; box-sizing: border-box">
+
+    <nav aria-label="Settings sections" style="flex: 0 1 200px; display: flex; flex-direction: column; gap: 2px">
+      <div class="cap" style="font-size: 11px; color: #4A4C50; padding: 0 12px 8px">Settings</div>
+      <a class="snav on" href="#construction" aria-current="true"><span class="mono" style="font-size: 11px">01</span>Construction</a>
+      <a class="snav" href="#display"><span class="mono" style="font-size: 11px">02</span>Display</a>
+      <a class="snav" href="#backups"><span class="mono" style="font-size: 11px">03</span>Backups</a>
+    </nav>
+
+    <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 22px">
+      <section id="construction" class="sheet" aria-labelledby="c-h" style="padding: 18px 20px 12px">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px">
+          <div class="vt"><span class="bub" aria-hidden="true">1</span><div><div class="vt-t" id="c-h">Construction defaults</div><div class="vt-s">USED BY NEW JOBS</div></div></div>
+          <div style="max-width: 360px; font-size: 13px; color: #2B2D30; line-height: 1.45; padding: 8px 10px; border: 1px dashed #9A9C9F; background: #FAF9F5">New jobs copy these. <strong>Existing jobs keep their own copy</strong>, so changing a default never changes a cut list you already made.</div>
+        </div>
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+          <div class="cap" style="font-size: 11px; color: #4A4C50; margin: 16px 12px 2px">{{g.label}}</div>
+          <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="2">
+            <div class="{{r.cls}}" onMouseEnter="{{r.enter}}" onMouseLeave="{{r.leave}}">
+              <div>
+                <label for="{{r.id}}" style="font-weight: 600; font-size: 14px">{{r.label}}</label>
+                <div style="font-size: 12px; color: #4A4C50; margin-top: 2px">{{r.help}}</div>
+              </div>
+              <div style="position: relative">
+                <input class="{{r.inCls}}" id="{{r.id}}" value="{{r.val}}" onChange="{{r.change}}" onFocus="{{r.focus}}" onBlur="{{r.blur}}" aria-invalid="{{r.bad}}" aria-describedby="{{r.msgId}}" autocomplete="off" spellcheck="false">
+                <span class="unit">in</span>
+              </div>
+              <div id="{{r.msgId}}" style="font-size: 12px; line-height: 1.4">
+                <sc-if value="{{r.isErr}}" hint-placeholder-val="{{ false }}"><span style="color: #B3261E">⚠ {{r.err}}</span></sc-if>
+                <sc-if value="{{r.isMod}}" hint-placeholder-val="{{ false }}"><span class="modmark"><span aria-hidden="true" style="width: 8px; height: 8px; background: #1B1D1F; transform: rotate(45deg)"></span>Changed from <span class="mono">{{r.def}}</span> <button type="button" class="rst" onClick="{{r.reset}}">Reset</button></span></sc-if>
+                <sc-if value="{{r.isPlain}}" hint-placeholder-val="{{ true }}"><span style="color: #63656A">Default <span class="mono">{{r.def}}</span></span></sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </sc-for>
+        <div class="row" onMouseEnter="{{cmpHv.enter}}" onMouseLeave="{{cmpHv.leave}}" style="border-bottom: 0">
+          <div><span style="font-weight: 600; font-size: 14px" id="cmp-l">Wide shelves start at</span><div style="font-size: 12px; color: #4A4C50; margin-top: 2px">Shop decision Q1: a cabinet exactly 36″ wide gets the wide shelf.</div></div>
+          <div role="radiogroup" aria-labelledby="cmp-l" style="display: flex; flex-direction: column; gap: 6px; grid-column: span 2">
+            <sc-for list="{{cmpOpts}}" as="o" hint-placeholder-count="2">
+              <button type="button" role="radio" aria-checked="{{o.on}}" class="{{o.cls}}" onClick="{{o.pick}}">{{o.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section id="display" class="sheet" aria-labelledby="d-h" style="padding: 18px 20px 18px">
+        <div class="vt" style="margin-bottom: 14px"><span class="bub" aria-hidden="true">2</span><div><div class="vt-t" id="d-h">Display</div><div class="vt-s">HOW SIZES ARE SHOWN</div></div></div>
+        <div style="display: flex; flex-wrap: wrap; gap: 24px">
+          <div>
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px" id="u-l">Units</div>
+            <div role="radiogroup" aria-labelledby="u-l" style="display: flex; gap: 6px">
+              <button type="button" role="radio" aria-checked="true" class="radio on">Inches</button>
+              <button type="button" role="radio" aria-checked="false" aria-disabled="true" class="radio" title="Planned for a later release">Millimetres · later</button>
+            </div>
+          </div>
+          <div>
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px" id="p-l">Round shown sizes to</div>
+            <div role="radiogroup" aria-labelledby="p-l" style="display: flex; gap: 6px">
+              <sc-for list="{{precOpts}}" as="o" hint-placeholder-count="3">
+                <button type="button" role="radio" aria-checked="{{o.on}}" class="{{o.cls}}" onClick="{{o.pick}}">{{o.label}}</button>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 16px; border: 1px solid #1B1D1F">
+          <sc-for list="{{samples}}" as="s" hint-placeholder-count="3">
+            <div style="padding: 10px 12px; border-right: 1px solid #D9D7CF">
+              <div class="cap" style="font-size: 10px; color: #4A4C50">{{s.what}}</div>
+              <div class="mono" style="font-size: 18px; font-weight: 600; margin-top: 2px">{{s.shown}}</div>
+              <div class="mono" style="font-size: 11px; color: #4A4C50">exact {{s.exact}}</div>
+            </div>
+          </sc-for>
+        </div>
+        <p style="margin: 10px 0 0; font-size: 12px; color: #4A4C50">Sizes are always stored exactly (to 1/64″). Rounding changes only what you see and print, and <span class="mono">≈</span> marks any size that was rounded.</p>
+      </section>
+
+      <section id="backups" class="sheet" aria-labelledby="b-h" style="padding: 18px 20px 18px">
+        <div class="vt" style="margin-bottom: 14px"><span class="bub" aria-hidden="true">3</span><div><div class="vt-t" id="b-h">Backups</div><div class="vt-s">AUTOMATIC, EVERY DAY THE APP IS OPENED</div></div></div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+          <div>
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 6px">Backup folder</div>
+            <div class="mono" style="font-size: 12.5px; padding: 10px; border: 1px solid #D9D7CF; background: #FAF9F5; word-break: break-all">C:\Users\[you]\Documents\KERFuffle\Backups</div>
+            <div style="display: flex; gap: 8px; margin-top: 8px"><button class="btn" type="button" style="min-height: 36px">Open folder</button><button class="btn" type="button" style="min-height: 36px">Change…</button></div>
+          </div>
+          <div>
+            <label for="keep" style="display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px">Keep the latest</label>
+            <div style="display: flex; align-items: center; gap: 8px">
+              <button type="button" class="btn" onClick="{{keepDown}}" aria-label="Keep fewer backups" style="width: 40px; padding: 0">−</button>
+              <input id="keep" class="inp" value="{{keep}}" onChange="{{onKeep}}" inputMode="numeric" style="width: 70px; text-align: center; padding: 0 8px">
+              <button type="button" class="btn" onClick="{{keepUp}}" aria-label="Keep more backups" style="width: 40px; padding: 0">+</button>
+              <span style="font-size: 14px">backups</span>
+            </div>
+            <div style="font-size: 12px; color: #4A4C50; margin-top: 8px">Older ones are deleted automatically. About {{keepMb}} MB.</div>
+          </div>
+        </div>
+      </section>
+
+      <sc-if value="{{isDirty}}" hint-placeholder-val="{{ false }}">
+        <div class="dirty" role="region" aria-label="Unsaved changes">
+          <span style="display: inline-flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 8px; height: 8px; background: #FFFFFF; transform: rotate(45deg)"></span>{{dirtyText}}</span>
+          <span style="flex: 1"></span>
+          <button type="button" class="btn ghost" onClick="{{discard}}">Discard</button>
+          <button type="button" class="btn btn-pri" onClick="{{save}}" disabled="{{hasErr}}">Save defaults</button>
+        </div>
+      </sc-if>
+    </div>
+
+    <aside class="sheet" aria-labelledby="det-h" style="flex: 1 1 380px; max-width: 440px; min-width: 0; position: sticky; top: 16px; padding: 16px">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px">
+        <div class="vt"><span class="bub" aria-hidden="true">{{det.letter}}</span><div><div class="vt-t" id="det-h">Detail · {{det.title}}</div><div class="vt-s">{{det.scale}}</div></div></div>
+      </div>
+      <div class="{{swapCls}}">
+        <svg viewBox="0 0 400 300" role="img" aria-label="{{det.label}}" style="display: block; width: 100%; height: auto; background: #FAF9F5; border: 1px dashed #9A9C9F">
+          <defs>
+            <pattern id="kf-h2" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" style="fill: #FFFFFF"></rect><line x1="0" y1="0" x2="0" y2="5" style="stroke: #1B1D1F; stroke-width: 0.9px"></line></pattern>
+          </defs>
+          <sc-for list="{{det.rects}}" as="r" hint-placeholder-count="3"><rect x="{{r.x}}" y="{{r.y}}" width="{{r.w}}" height="{{r.h}}" style="{{r.st}}"></rect></sc-for>
+          <sc-for list="{{det.paths}}" as="p" hint-placeholder-count="3"><path d="{{p.d}}" style="{{p.st}}"></path></sc-for>
+          <sc-for list="{{det.texts}}" as="t" hint-placeholder-count="3"><text x="{{t.x}}" y="{{t.y}}" transform="{{t.tf}}" style="{{t.st}}">{{t.t}}</text></sc-for>
+        </svg>
+        <p style="margin: 12px 0 0; font-size: 13px; line-height: 1.5; color: #2B2D30">{{det.text}}</p>
+        <div class="mono" style="margin-top: 10px; padding: 8px 10px; border: 1px solid #1B1D1F; font-size: 12.5px; background: #FFFFFF">{{det.effect}}</div>
+      </div>
+      <p style="margin: 12px 0 0; font-size: 12px; color: #4A4C50">Point at or edit a setting to see its detail. The drawing redraws as you type.</p>
+    </aside>
+  </main>
+
+  <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+    <div class="toast" role="status">{{toastText}}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+var FACTORY = { p: '3/4', toe: '4', ctop: '1 1/2', shelfT: '3/4', wideT: '1', wideW: '36', cl: '1/8', sb: '1/8', lam: '1' };
+var DEFS = {
+  p: ['Panel thickness', 'Backs, sides, top, bottom and front.', false],
+  toe: ['Toe-kick height', 'Base cabinets only.', false],
+  ctop: ['Countertop thickness', 'Base cabinets only.', false],
+  shelfT: ['Shelf thickness', 'Shelves in narrower cabinets.', false],
+  wideT: ['Wide-shelf thickness', 'Shelves in wide cabinets.', false],
+  wideW: ['Wide-shelf cabinet width', 'Cabinet width where wide shelves start.', false],
+  cl: ['Shelf clearance, each side', 'Gap at each end; shelf loses twice this.', true],
+  sb: ['Shelf setback', 'How far shelves sit back from the front.', true],
+  lam: ['Laminate oversize, each edge', 'Extra past every edge, trimmed after gluing.', true]
+};
+var GROUPS = [['Panels', ['p']], ['Base allowances', ['toe', 'ctop']], ['Shelves', ['shelfT', 'wideT', 'wideW', 'cl', 'sb']], ['Laminate', ['lam']]];
+var INK = '#1B1D1F', BLUE = '#1F4FA3';
+
+function parseDim(raw, zeroOk) {
+  var s = String(raw == null ? '' : raw).trim().replace(/["″]\s*$/, '').trim();
+  if (!s) return { err: 'Enter a size' };
+  if (/^-/.test(s)) return { err: 'Can’t be negative' };
+  var m, v;
+  if (/^\d*\.?\d+$/.test(s)) v = parseFloat(s);
+  else if ((m = s.match(/^(\d+)(?:\s+|\s*-\s*)(\d+)\/(\d+)$/))) { if (+m[3] === 0 || +m[2] >= +m[3]) return { err: 'Check the fraction' }; v = +m[1] + m[2] / m[3]; }
+  else if ((m = s.match(/^(\d+)\/(\d+)$/))) { if (+m[2] === 0) return { err: 'Check the fraction' }; v = m[1] / m[2]; }
+  else return { err: 'Use a size like 3/4 or 1 1/2' };
+  if (Math.abs(v * 64 - Math.round(v * 64)) > 1e-6) return { err: 'Finer than 1/64″' };
+  if (!(v > 0) && !(zeroOk && v === 0)) return { err: zeroOk ? 'Can’t be negative' : 'Must be more than 0' };
+  return { v: v };
+}
+function frac(x, den) {
+  var n = Math.round(x * den), w = Math.floor(n / den), r = n % den, d = den;
+  while (r && r % 2 === 0) { r /= 2; d /= 2; }
+  return r ? (w ? w + ' ' + r + '/' + d : r + '/' + d) : String(w);
+}
+function fmtP(x, den) { return (Math.abs(Math.round(x * den) - x * den) > 1e-6 ? '≈ ' : '') + frac(x, den) + '″'; }
+
+function dimH(x1, x2, y, label, hot) {
+  var c = hot ? BLUE : '#4A4C50';
+  return {
+    p: { d: 'M' + x1 + ' ' + y + 'H' + x2 + 'M' + (x1 - 4) + ' ' + (y + 4) + 'l8 -8M' + (x2 - 4) + ' ' + (y + 4) + 'l8 -8', st: 'fill: none; stroke: ' + c + '; stroke-width: ' + (hot ? 1.6 : 0.9) + 'px' },
+    t: { x: (x1 + x2) / 2, y: y - 6, tf: 'rotate(0)', t: label, st: 'font: 700 12px IBM Plex Mono, monospace; fill: ' + c + '; text-anchor: middle' }
+  };
+}
+function dimV(x, y1, y2, label, hot) {
+  var c = hot ? BLUE : '#4A4C50';
+  return {
+    p: { d: 'M' + x + ' ' + y1 + 'V' + y2 + 'M' + (x - 4) + ' ' + (y1 + 4) + 'l8 -8M' + (x - 4) + ' ' + (y2 + 4) + 'l8 -8', st: 'fill: none; stroke: ' + c + '; stroke-width: ' + (hot ? 1.6 : 0.9) + 'px' },
+    t: { x: x + 8, y: (y1 + y2) / 2 + 4, tf: 'rotate(0)', t: label, st: 'font: 700 12px IBM Plex Mono, monospace; fill: ' + c + '; text-anchor: start' }
+  };
+}
+function lbl(x, y, t) { return { x: x, y: y, tf: 'rotate(0)', t: t, st: 'font: 600 10px IBM Plex Sans Condensed, sans-serif; letter-spacing: 0.1em; fill: #4A4C50' }; }
+var CUT = 'fill: url(#kf-h2); stroke: #1B1D1F; stroke-width: 1.2px';
+var FACE = 'fill: #FFFFFF; stroke: #1B1D1F; stroke-width: 1.2px';
+var HOT = 'fill: #E3EBF7; stroke: #1F4FA3; stroke-width: 1.6px';
+var EXT = 'fill: none; stroke: #9A9C9F; stroke-width: 0.7px';
+
+function detail(key, V) {
+  var rects = [], paths = [], texts = [], d;
+  var add = function (dd) { paths.push(dd.p); texts.push(dd.t); };
+  var p = V.p, out = { rects: rects, paths: paths, texts: texts };
+  if (key === 'p') {
+    var k = 90, pw = p * k;
+    rects.push({ x: 70, y: 40, w: pw, h: 210, st: CUT });
+    rects.push({ x: 70 + pw, y: 250 - pw, w: 250, h: pw, st: CUT });
+    add(dimH(70, 70 + pw, 28, fmtP(p, 16), true));
+    paths.push({ d: 'M70 36V22M' + (70 + pw) + ' 36V22', st: EXT });
+    add(dimV(340, 250 - pw, 250, fmtP(p, 16), true));
+    paths.push({ d: 'M324 ' + (250 - pw) + 'H346M324 250H346', st: EXT });
+    texts.push(lbl(76 + pw, 120, 'SIDE'), lbl(200, 238 - pw, 'BOTTOM (BETWEEN SIDES)'));
+    return Object.assign(out, { letter: 'A', title: 'Panel joint', scale: 'ENLARGED ' + (k / 96).toFixed(2) + ':1', text: 'Every box part is cut from this thickness. The bottom and top fit between the sides, so they lose two panel thicknesses.', effect: '30″ cabinet → bottom ' + fmtP(30 - 2 * p, 16) + ' long' });
+  }
+  if (key === 'toe' || key === 'ctop') {
+    var s = 7, top = 30, H = 36, x0 = 80, w = 150;
+    var ct = V.ctop * s, toe = V.toe * s, floor = top + H * s;
+    rects.push({ x: x0 - 6, y: top, w: w + 10, h: ct, st: key === 'ctop' ? HOT : 'fill: #ECEBE5; stroke: #63656A; stroke-width: 1px' });
+    rects.push({ x: x0, y: top + ct, w: w, h: H * s - ct - toe, st: FACE });
+    rects.push({ x: x0 + 18, y: floor - toe, w: w - 18, h: toe, st: key === 'toe' ? HOT : 'fill: #F7F6F1; stroke: #63656A; stroke-width: 1px; stroke-dasharray: 4 3' });
+    paths.push({ d: 'M40 ' + floor + 'H360', st: 'stroke: #1B1D1F; stroke-width: 1.6px' });
+    var hatch = '';
+    for (var i = 46; i < 360; i += 10) hatch += 'M' + i + ' ' + (floor + 1) + 'l-7 8';
+    paths.push({ d: hatch, st: 'stroke: #9A9C9F; stroke-width: 0.8px' });
+    paths.push({ d: 'M' + (x0 + w + 6) + ' ' + top + 'H' + (x0 + w + 40) + 'M' + (x0 + w + 6) + ' ' + (top + ct) + 'H' + (x0 + w + 40) + 'M' + (x0 + w + 6) + ' ' + (floor - toe) + 'H' + (x0 + w + 40) + 'M' + (x0 + w + 6) + ' ' + floor + 'H' + (x0 + w + 40), st: EXT });
+    add(dimV(x0 + w + 32, top, top + ct, 'T ' + fmtP(V.ctop, 16), key === 'ctop'));
+    add(dimV(x0 + w + 32, top + ct, floor - toe, 'BOX ' + fmtP(H - V.ctop - V.toe, 16), false));
+    add(dimV(x0 + w + 32, floor - toe, floor, 't ' + fmtP(V.toe, 16), key === 'toe'));
+    texts.push(lbl(x0 + 6, top + ct + 16, 'BASE BOX'), lbl(x0 + 24, floor - toe / 2 + 4, 'TOE KICK'));
+    return Object.assign(out, { letter: 'B', title: key === 'toe' ? 'Toe kick' : 'Countertop', scale: 'BASE CABINET, 36″ OVERALL · NTS', text: 'Base cabinets subtract the toe kick and countertop from the overall height to get the box height. Wall cabinets never use either.', effect: '36″ base → box height ' + fmtP(36 - V.toe - V.ctop, 16) });
+  }
+  if (key === 'cl') {
+    var k2 = 110, pw2 = p * k2, gap = V.cl * k2, st2 = V.shelfT * k2;
+    rects.push({ x: 40, y: 30, w: pw2, h: 240, st: CUT });
+    rects.push({ x: 40 + pw2 + gap, y: 140, w: 330 - pw2 - gap, h: st2, st: HOT });
+    paths.push({ d: 'M' + (40 + pw2) + ' 136V104M' + (40 + pw2 + gap) + ' 136V104', st: 'fill: none; stroke: #1F4FA3; stroke-width: 0.8px' });
+    add(dimH(40 + pw2, 40 + pw2 + gap, 110, fmtP(V.cl, 32), true));
+    texts[texts.length - 1].x = 40 + pw2 + gap + 8; texts[texts.length - 1].st = texts[texts.length - 1].st.replace('middle', 'start');
+    texts.push(lbl(46, 290, 'SIDE'), lbl(60 + pw2 + gap, 135 + st2 + 22, 'SHELF END'));
+    return Object.assign(out, { letter: 'C', title: 'Shelf clearance', scale: 'ENLARGED ' + (k2 / 96).toFixed(2) + ':1', text: 'Shelves are cut short so they drop in without binding. The gap is left at each end, so the shelf loses twice this amount.', effect: '30″ cabinet → shelf ' + fmtP(30 - 2 * p - 2 * V.cl, 16) + ' long' });
+  }
+  if (key === 'sb') {
+    var k3 = 60, front = 70, sbw = V.sb * k3;
+    rects.push({ x: front, y: 60, w: 280, h: 180, st: 'fill: #FFFFFF; stroke: #9A9C9F; stroke-width: 1px' });
+    rects.push({ x: front + sbw, y: 140, w: 280 - sbw, h: V.shelfT * k3, st: HOT });
+    paths.push({ d: 'M' + front + ' 30V270', st: 'fill: none; stroke: #63656A; stroke-width: 0.9px; stroke-dasharray: 12 3 2 3' });
+    add(dimH(front, front + sbw, 120, fmtP(V.sb, 32), true));
+    texts[texts.length - 1].x = front + sbw + 8; texts[texts.length - 1].st = texts[texts.length - 1].st.replace('middle', 'start');
+    paths.push({ d: 'M' + (front + sbw) + ' 136V114', st: EXT });
+    texts.push(lbl(front - 30, 26, 'FRONT EDGE OF BOX'), lbl(front + 120, 80, 'SIDE (SEEN FROM INSIDE)'), lbl(front + sbw + 8, 140 + V.shelfT * k3 + 18, 'SHELF'));
+    return Object.assign(out, { letter: 'D', title: 'Shelf setback', scale: 'SECTION · ENLARGED ' + (k3 / 96).toFixed(2) + ':1', text: 'Shelves stop short of the front edge so doors close cleanly. Set to 0 for full-depth shelves.', effect: '24″ deep → shelf ' + fmtP(24 - p - V.sb, 16) + ' wide' });
+  }
+  if (key === 'lam') {
+    var k4 = 22, ox = 110, oy = 70, w4 = 220, h4 = 190, l = V.lam * k4;
+    rects.push({ x: ox - l, y: oy - l, w: w4 + l + 40, h: h4 + l + 40, st: 'fill: rgba(31,79,163,0.06); stroke: #1F4FA3; stroke-width: 1.5px; stroke-dasharray: 6 4' });
+    rects.push({ x: ox, y: oy, w: w4 + 60, h: h4 + 60, st: FACE });
+    paths.push({ d: 'M' + (ox - l) + ' ' + (oy - l - 4) + 'V' + (oy - 34) + 'M' + ox + ' ' + (oy - 4) + 'V' + (oy - 34), st: EXT });
+    add(dimH(ox - l, ox, oy - 26, fmtP(V.lam, 16), true));
+    texts[texts.length - 1].x = ox + 30; texts[texts.length - 1].st = texts[texts.length - 1].st.replace('middle', 'start');
+    paths.push({ d: 'M' + (ox - l - 4) + ' ' + (oy - l) + 'H' + (ox - 40) + 'M' + (ox - 4) + ' ' + oy + 'H' + (ox - 40), st: EXT });
+    add(dimV(ox - 32, oy - l, oy, fmtP(V.lam, 16), true));
+    texts[texts.length - 1].x = ox - 30; texts[texts.length - 1].y = oy + 22;
+    texts.push(lbl(ox + 14, oy + 30, 'CABINET FACE'), lbl(ox - l + 4, oy + h4 + 54, 'LAMINATE, CUT OVERSIZE'));
+    return Object.assign(out, { letter: 'E', title: 'Laminate oversize', scale: 'CORNER · NTS', text: 'Laminate is cut larger than the face it covers, past every edge, then trimmed flush after gluing.', effect: '30″ × 30 1/2″ face → laminate ' + fmtP(30 + 2 * V.lam, 16) + ' × ' + fmtP(30.5 + 2 * V.lam, 16) });
+  }
+  // wide-shelf rule
+  var below = V.wideW - (V.gte ? 0.25 : 0), at = V.wideW + (V.gte ? 0 : 0.25);
+  var sc = 4.2, bx = 30, by = 70, b2 = 210;
+  [[bx, below, V.shelfT, false], [b2, at, V.wideT, true]].forEach(function (c) {
+    var w5 = Math.min(150, c[1] * sc), th = c[2] * 22;
+    rects.push({ x: c[0], y: by, w: w5, h: 150, st: FACE });
+    rects.push({ x: c[0] + 5, y: by + 70 - th / 2, w: w5 - 10, h: th, st: c[3] ? HOT : CUT });
+    add(dimH(c[0], c[0] + w5, by + 172, fmtP(c[1], 16), c[3]));
+    paths.push({ d: 'M' + c[0] + ' ' + (by + 154) + 'V' + (by + 178) + 'M' + (c[0] + w5) + ' ' + (by + 154) + 'V' + (by + 178), st: EXT });
+    texts.push({ x: c[0] + w5 / 2, y: by - 12, tf: 'rotate(0)', t: fmtP(c[2], 16) + ' SHELF', st: 'font: 700 12px IBM Plex Mono, monospace; fill: ' + (c[3] ? BLUE : INK) + '; text-anchor: middle' });
+  });
+  return Object.assign(out, { letter: 'F', title: 'Wide shelves', scale: 'TWO CABINETS COMPARED · NTS', text: 'Wider cabinets get thicker shelves so they don’t sag. The rule switches at the cabinet width below.', effect: (V.gte ? 'Width ≥ ' : 'Width > ') + fmtP(V.wideW, 16) + ' → ' + fmtP(V.wideT, 16) + ' shelves' });
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.timers = [];
+    var saved = Object.assign({ gte: true, prec: 16, keep: '14' }, FACTORY);
+    this.state = { saved: saved, cur: Object.assign({}, saved), focus: null, hover: null, last: 'cl', swap: 0, toast: null };
+  }
+  componentWillUnmount() { this.timers.forEach(clearTimeout); }
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+  set(patch) { this.setState({ cur: Object.assign({}, this.state.cur, patch) }); }
+  renderVals() {
+    var self = this, st = this.state, cur = st.cur;
+    var V = { gte: cur.gte }, errs = {}, hasErr = false;
+    Object.keys(FACTORY).forEach(function (k) {
+      var r = parseDim(cur[k], DEFS[k][2]);
+      if (r.err) { errs[k] = r.err; hasErr = true; V[k] = parseDim(st.saved[k], DEFS[k][2]).v; } else V[k] = r.v;
+    });
+    if (!errs.p && V.p * 2 >= 12) { errs.p = 'That’s thicker than a panel can be'; hasErr = true; }
+    var active = st.hover || st.focus || st.last;
+    var dkey = active === 'shelfT' || active === 'wideT' || active === 'wideW' || active === 'cmp' ? 'wide' : active;
+    var det = detail(dkey, V);
+    det.label = 'Detail drawing: ' + det.title + '. ' + det.effect;
+    var changed = Object.keys(st.saved).filter(function (k) { return String(st.saved[k]) !== String(cur[k]); });
+    function hv(key) {
+      return {
+        enter: function () { self.setState({ hover: key, last: key }); },
+        leave: function () { self.setState({ hover: null }); }
+      };
+    }
+    var sampleVals = [['28 7/16″ part', 28 + 7 / 16], ['23/32″ plywood', 23 / 32], ['shelf, 3/64″ off', 28.25 + 3 / 64]];
+    return {
+      groups: GROUPS.map(function (g) {
+        return {
+          label: g[0],
+          rows: g[1].map(function (k) {
+            var err = errs[k], mod = !err && parseDim(cur[k], DEFS[k][2]).v !== parseDim(FACTORY[k], true).v, h = hv(k);
+            return {
+              id: 's-' + k, msgId: 's-' + k + '-m', label: DEFS[k][0], help: DEFS[k][1], val: cur[k],
+              cls: 'row' + (active === k ? ' hot' : ''), inCls: 'inp' + (err ? ' bad' : (mod ? ' mod' : '')), bad: err ? 'true' : 'false',
+              isErr: !!err, err: err || '', isMod: mod, isPlain: !err && !mod, def: FACTORY[k] + '″',
+              change: function (e) { var o = {}; o[k] = e.target.value; self.set(o); },
+              focus: function () { self.setState({ focus: k, last: k }); },
+              blur: function () { self.setState({ focus: null }); },
+              reset: function () { var o = {}; o[k] = FACTORY[k]; self.set(o); },
+              enter: h.enter, leave: h.leave
+            };
+          })
+        };
+      }),
+      cmpHv: hv('cmp'),
+      cmpOpts: [[true, '“36″ and wider” (shop rule, old web page)'], [false, '“Wider than 36″” (old spreadsheet)']].map(function (o) {
+        var on = cur.gte === o[0];
+        return { label: o[1], on: on ? 'true' : 'false', cls: 'radio' + (on ? ' on' : ''), pick: function () { self.set({ gte: o[0] }); self.setState({ last: 'cmp' }); } };
+      }),
+      precOpts: [[8, '1/8″'], [16, '1/16″ (shop)'], [32, '1/32″']].map(function (o) {
+        var on = cur.prec === o[0];
+        return { label: o[1], on: on ? 'true' : 'false', cls: 'radio' + (on ? ' on' : ''), pick: function () { self.set({ prec: o[0] }); } };
+      }),
+      samples: sampleVals.map(function (s) { return { what: s[0], shown: fmtP(s[1], cur.prec), exact: frac(s[1], 64) + '″' }; }),
+      keep: cur.keep, keepMb: Math.max(1, Math.round((parseInt(cur.keep, 10) || 0) * 0.4)),
+      onKeep: function (e) { self.set({ keep: e.target.value.replace(/[^0-9]/g, '') }); },
+      keepDown: function () { self.set({ keep: String(Math.max(1, (parseInt(cur.keep, 10) || 1) - 1)) }); },
+      keepUp: function () { self.set({ keep: String((parseInt(cur.keep, 10) || 0) + 1) }); },
+      det: det, swapCls: 'swap',
+      isDirty: changed.length > 0, hasErr: hasErr,
+      dirtyText: changed.length + (changed.length === 1 ? ' unsaved change' : ' unsaved changes') + (hasErr ? ' · fix the marked field first' : ' · applies to new jobs only'),
+      discard: function () { self.setState({ cur: Object.assign({}, st.saved) }); },
+      save: function () {
+        self.setState({ saved: Object.assign({}, cur), toast: 'Shop defaults saved. Existing jobs are unchanged.' });
+        self.later(function () { self.setState({ toast: null }); }, 4000);
+      },
+      hasToast: !!st.toast, toastText: st.toast || ''
+    };
+  }
+}
+</script>
+</body>
+</html>

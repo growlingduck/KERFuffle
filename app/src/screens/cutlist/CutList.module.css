@@ -1,0 +1,658 @@
+/*
+ * Cut list (interaction-design §7). The sheets on screen are the printed pages:
+ * the same DOM is printed and saved as PDF, with the print rules at the end.
+ * Paper is black only: rules, glyphs and text, never a fill that has to print.
+ */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ---- Toolbar (screen only) ---- */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  padding: 10px 24px;
+  background: var(--white);
+  border-bottom: 2px solid var(--ink);
+}
+
+.listLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.listLabel > span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.toolbarEnd {
+  flex: 1 1 200px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.done {
+  border-color: var(--green);
+  color: #1d4f2c;
+  background: #eef5f0;
+}
+.done:hover {
+  border-color: var(--green);
+  background: #e3efe7;
+}
+
+.notices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 1200px;
+  margin: 18px auto 0;
+  padding: 0 24px;
+  width: 100%;
+}
+
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--red);
+  border-left-width: 4px;
+  background: var(--red-tint);
+  font-size: 14px;
+}
+.noticeWarn {
+  border-color: var(--amber);
+  background: var(--white);
+}
+
+/* ---- Layout: sheets + rail ---- */
+.content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 28px;
+  padding: 24px 24px 56px;
+}
+
+.pages {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 100%;
+}
+
+/* ---- One sheet ---- */
+.frame {
+  position: relative;
+  display: flex;
+  width: var(--page-w);
+  height: var(--page-h);
+  padding: 0.42in 0.42in 0.38in;
+  background: var(--white);
+  color: #000;
+  box-shadow:
+    0 1px 0 #bdbcb5,
+    0 12px 30px rgb(27 29 31 / 12%);
+}
+
+.measure {
+  position: absolute;
+  top: 0;
+  left: -99999px;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.border {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 2px solid #000;
+  padding: 16px 22px 14px;
+}
+
+.zone {
+  position: absolute;
+  font: 600 10px var(--font-cond);
+  letter-spacing: 0.08em;
+  color: #000;
+}
+.tickH,
+.tickV {
+  position: absolute;
+  background: #000;
+}
+.tickH {
+  top: -9px;
+  width: 1px;
+  height: 7px;
+}
+.tickV {
+  left: -9px;
+  width: 7px;
+  height: 1px;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid #000;
+}
+.kicker {
+  font-size: 11px;
+}
+.jobName {
+  margin-top: 2px;
+  font: 700 28px/1.1 var(--font-cond);
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+.modeLine {
+  flex: none;
+  max-width: 50%;
+  text-align: right;
+  font-size: 11.5px;
+  line-height: 1.6;
+  text-transform: uppercase;
+}
+
+.excludes {
+  margin-top: 8px;
+  padding: 5px 8px;
+  border: 1.5px solid #000;
+  font: 700 13px var(--font-sans);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ---- Cabinet chips (first sheet) ---- */
+.intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding-top: 12px;
+}
+.introLabel {
+  margin-right: 4px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--rule-input);
+  border-radius: 2px;
+  background: var(--white);
+  font: 600 12px var(--font-cond);
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.chip:hover {
+  border-color: var(--ink);
+}
+.chipSize {
+  font: 500 11px var(--font-mono);
+  letter-spacing: 0;
+}
+.chipHot {
+  background: var(--blue-tint);
+  border-color: var(--blue);
+  color: var(--blue-hover);
+}
+.chipPinned {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: var(--white);
+}
+.chipPinned:hover {
+  border-color: var(--blue-hover);
+}
+.chipBlocked {
+  border-style: dashed;
+  text-decoration: line-through;
+}
+.chipShowAll {
+  border-style: dashed;
+}
+
+/* ---- Groups ---- */
+.group {
+  transition: opacity 160ms var(--ease-out);
+}
+.groupHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 20px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #000;
+}
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.groupTitle h2 {
+  font: 700 15px var(--font-cond);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.cont {
+  font: 600 12px var(--font-cond);
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.groupSub {
+  font-size: 12.5px;
+}
+.groupCount {
+  flex: none;
+  font-size: 12px;
+}
+.thumb {
+  flex: none;
+}
+
+.tbl {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+}
+.tbl th {
+  height: 30px;
+  padding: 0 6px;
+  text-align: left;
+  font: 700 11px var(--font-cond);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-bottom: 2px solid #000;
+}
+.tbl td {
+  padding: 5px 6px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--rule-input);
+}
+.tbl .right {
+  text-align: right;
+}
+.tbl .center {
+  text-align: center;
+}
+.num {
+  text-align: right;
+  font: 600 var(--text-dim-paper) / 1.35 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.colCheck {
+  width: 26px;
+}
+.colMark {
+  width: 50px;
+}
+.colGrain {
+  width: 46px;
+}
+.colDim {
+  width: 100px;
+}
+.colThick {
+  width: 78px;
+}
+.colQty {
+  width: 54px;
+}
+.colRefs {
+  width: 168px;
+}
+
+.sortBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.sortBtn:hover {
+  color: var(--blue);
+}
+.sortArrow {
+  display: inline-block;
+  min-width: 1em;
+}
+
+.row {
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    opacity 160ms var(--ease-out);
+}
+.row:hover {
+  background: var(--blue-tint-faint);
+}
+.rowHot,
+.rowHot:hover {
+  background: var(--blue-tint-row);
+}
+.rowPinned {
+  background: #eef3fb;
+}
+.dim {
+  opacity: 0.28;
+}
+
+.box {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border: 1.5px solid #000;
+}
+
+.markBtn {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.pm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 20px;
+  padding: 0 3px;
+  border: 1.25px solid #000;
+  font: 700 11.5px var(--font-cond);
+  letter-spacing: 0.04em;
+}
+.markBtn[aria-pressed='true'] .pm {
+  box-shadow: 0 0 0 2px var(--blue);
+}
+.ref {
+  font: 500 12.5px var(--font-cond);
+  letter-spacing: 0.03em;
+}
+.optional {
+  font-style: italic;
+}
+.refHot {
+  padding: 0 2px;
+  border-radius: 2px;
+  background: var(--blue);
+  color: var(--white);
+}
+.grainIcon {
+  display: block;
+  margin: 3px auto 0;
+  fill: none;
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+
+/* ---- Footer: general notes + title block ---- */
+.foot {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  padding-top: 14px;
+}
+.notes {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.notesHidden {
+  visibility: hidden;
+}
+.notesTitle {
+  display: inline-block;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #000;
+  font-size: 11px;
+}
+.notes ol {
+  margin: 0;
+  padding-left: 18px;
+}
+.tbWrap {
+  position: relative;
+  flex: 0 0 440px;
+}
+.titleBlock {
+  border-width: 1.5px;
+}
+.titleBlock dt {
+  color: #000;
+}
+.sheetNo {
+  font: 700 16px var(--font-mono);
+}
+.signature {
+  display: block;
+  height: 24px;
+}
+/* Over the sign-off row: a draft isn't ready to be cut or checked. Light, but legible in grayscale. */
+.draftStamp {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  padding: 0 10px;
+  border: 3px double #8a8c90;
+  color: #8a8c90;
+  font: 700 17px/1.15 var(--font-cond);
+  letter-spacing: 0.24em;
+  transform: translateX(-50%) rotate(-3deg);
+  pointer-events: none;
+}
+
+/* ---- Part sketch rail (screen only) ---- */
+.rail {
+  position: sticky;
+  top: 16px;
+  flex: 0 1 330px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.railPanel {
+  background: var(--white);
+  border: 1px solid var(--ink-2);
+  padding: 14px 16px;
+}
+.sketchHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.sketchBubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 3px;
+  border: 1.5px solid var(--ink);
+  border-radius: 13px;
+  font: 700 12px var(--font-cond);
+}
+.sketchTitle {
+  font: 700 14px var(--font-cond);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--ink);
+}
+.sketchState {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.sketchSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.sketchFacts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 6px 0 0;
+  border: 1px solid var(--ink);
+}
+.sketchFacts > div {
+  padding: 6px 8px;
+}
+.sketchFacts > div + div {
+  border-left: 1px solid var(--ink);
+}
+.sketchFacts dt {
+  font-size: 9px;
+  color: var(--muted);
+}
+.sketchFacts dd {
+  margin: 0;
+  font-weight: 600;
+}
+.sketchFrom {
+  margin-top: 10px;
+  font-size: 13px;
+}
+.railHelp {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.totals {
+  margin: 0;
+}
+.totals > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--rule-divider);
+  font-size: 13px;
+}
+.totals dd {
+  margin: 0;
+  font-weight: 600;
+}
+.totalsTitle {
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+
+/* ---- Print and PDF ---- */
+@media print {
+  .toolbar,
+  .notices,
+  .rail,
+  .measure {
+    display: none !important;
+  }
+  .content {
+    display: block;
+    padding: 0;
+  }
+  .pages {
+    display: block;
+  }
+  .frame {
+    /* A hair under the paper size, so rounding never spills onto an extra blank page. */
+    height: calc(var(--page-h) - 0.02in);
+    box-shadow: none;
+    break-after: page;
+    break-inside: avoid;
+  }
+  .frame:last-child {
+    break-after: auto;
+  }
+  .tbl tr {
+    break-inside: avoid;
+  }
+  /* Screen states never print: no tints, no fading, no pinned outline. */
+  .row,
+  .rowHot,
+  .rowPinned,
+  .row:hover {
+    background: none !important;
+  }
+  .dim,
+  .group {
+    opacity: 1 !important;
+  }
+  .tbl td {
+    border-bottom-color: #000;
+  }
+  .markBtn[aria-pressed='true'] .pm {
+    box-shadow: none;
+  }
+  .refHot {
+    background: none;
+    color: #000;
+    padding: 0;
+  }
+  .chip,
+  .chipHot,
+  .chipPinned {
+    min-height: 0;
+    padding: 2px 6px;
+    border: 1px solid #000;
+    background: none;
+    color: #000;
+  }
+  .chipShowAll {
+    display: none;
+  }
+  .introLabel,
+  .cont {
+    color: #000;
+  }
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}

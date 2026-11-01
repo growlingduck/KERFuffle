@@ -1,0 +1,19 @@
+{
+  "name": "Wall 30 W x 30 H x 12 D, 2 shelves, both ends finished",
+  "status": "unconfirmed",
+  "notes": "Wall cabinets use the full height everywhere (no toe kick, no countertop), so laminate is 30 + 2 = 32 long (1 inch all around). Both legacy versions gave 25 1/2 here, which the shop confirmed was wrong.",
+  "spec": { "id": "W1", "type": "wall", "width": "30", "height": "30", "depth": "12", "shelfCount": 2, "finishedEnds": "both", "quantity": 1 },
+  "rules": { "preset": "DEFAULT_RULES" },
+  "expected": [
+    { "role": "back",                "category": "panel",    "name": "Back",                 "length": "30",     "width": "30",     "thickness": "3/4", "quantity": 1 },
+    { "role": "bottom",              "category": "panel",    "name": "Bottom",               "length": "28 1/2", "width": "11 1/4", "thickness": "3/4", "quantity": 1 },
+    { "role": "side-left",           "category": "panel",    "name": "Left side",            "length": "30",     "width": "11 1/4", "thickness": "3/4", "quantity": 1 },
+    { "role": "side-right",          "category": "panel",    "name": "Right side",           "length": "30",     "width": "11 1/4", "thickness": "3/4", "quantity": 1 },
+    { "role": "top",                 "category": "panel",    "name": "Top",                  "length": "28 1/2", "width": "11 1/4", "thickness": "3/4", "quantity": 1 },
+    { "role": "front",               "category": "panel",    "name": "Front (door/laminate size)", "length": "30",     "width": "30",     "thickness": "3/4", "quantity": 1, "optional": true },
+    { "role": "shelf",               "category": "panel",    "name": "Shelf",                "length": "28 1/4", "width": "11 1/8", "thickness": "3/4", "quantity": 2 },
+    { "role": "laminate-side-left",  "category": "laminate", "name": "Laminate, left side",  "length": "32",     "width": "14",     "thickness": null,  "quantity": 1 },
+    { "role": "laminate-side-right", "category": "laminate", "name": "Laminate, right side", "length": "32",     "width": "14",     "thickness": null,  "quantity": 1 },
+    { "role": "laminate-front",      "category": "laminate", "name": "Laminate, front",      "length": "32",     "width": "32",     "thickness": null,  "quantity": 1 }
+  ]
+}

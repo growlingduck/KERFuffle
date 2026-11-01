@@ -1,0 +1,70 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 80px 16px;
+  overflow-y: auto;
+  background: var(--scrim);
+  animation: kf-fade-in 160ms var(--ease-out);
+}
+:root[data-motion='reduce'] .scrim {
+  animation: none;
+}
+
+.panel {
+  position: relative;
+  max-width: 100%;
+  background: var(--white);
+  border: 1px solid var(--ink-2);
+  box-shadow: var(--shadow-pop);
+  animation: kf-pop var(--dur-base) var(--ease-base);
+}
+.panel:focus {
+  outline: none;
+}
+
+/* Registration ticks, as on every sheet. */
+.panel::before,
+.panel::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+}
+.panel::before {
+  left: -6px;
+  top: -6px;
+  border-left: 1px solid var(--white);
+  border-top: 1px solid var(--white);
+}
+.panel::after {
+  right: -6px;
+  bottom: -6px;
+  border-right: 1px solid var(--white);
+  border-bottom: 1px solid var(--white);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 12px 20px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.body {
+  padding: 18px 20px;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--rule-divider);
+}

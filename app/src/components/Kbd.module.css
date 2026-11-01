@@ -1,0 +1,19 @@
+.kbd {
+  display: inline-block;
+  min-width: 14px;
+  padding: 0 5px;
+  border: 1px solid var(--rule-input);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-control);
+  background: var(--white);
+  color: var(--ink);
+  font: 500 11px/18px var(--font-mono);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.combo {
+  display: inline-flex;
+  gap: 3px;
+  white-space: nowrap;
+}

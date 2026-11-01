@@ -1,0 +1,46 @@
+[package]
+name = "kerfuffle"
+version = "0.1.0"
+description = "KERFuffle cabinet cut-list desktop app"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+# The _lib suffix avoids a name clash with the binary on Windows (cargo issue #8519).
+name = "kerfuffle_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+# Remembers window size, position and maximized state between runs.
+tauri-plugin-window-state = "2"
+# The job database. "bundled" compiles SQLite in, so no system library is needed;
+# "backup" adds the online backup API used for rotating backups.
+rusqlite = { version = "0.32", features = ["bundled", "backup"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+uuid = { version = "1", features = ["v4"] }
+# The Save dialog for cut-list exports. Used from Rust only; the webview has no dialog permission.
+tauri-plugin-dialog = "2"
+# One-shot channels to await WebView2 and dialog callbacks (already pulled in by tauri).
+tokio = { version = "1", features = ["sync"] }
+
+# Print and print-to-PDF go straight to WebView2, the same engine that draws the
+# screen, so the PDF can't disagree with the printout. Versions match wry's.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

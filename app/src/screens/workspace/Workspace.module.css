@@ -1,0 +1,871 @@
+/* Job workspace (interaction-design §5). Three columns that wrap on narrow windows. */
+
+.listPanel {
+  flex: 1 1 260px;
+  max-width: 320px;
+  min-width: 0;
+}
+.editorPanel {
+  flex: 999 1 440px;
+  min-width: 0;
+}
+.drawColumn {
+  flex: 1 1 470px;
+}
+.loading,
+.empty {
+  padding: 24px 2px 10px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.panelHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+/* ---- 1 Cabinets ---- */
+.cabList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.cabRow {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--rule-divider);
+  border-radius: var(--radius-control);
+  background: var(--white);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color 160ms var(--ease-out),
+    opacity 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
+}
+.cabRow:hover {
+  border-color: var(--hover-border);
+}
+.cabRowOn {
+  border-color: var(--blue);
+  background: var(--blue-tint-faint);
+}
+.cabRowOn::before,
+.cabRowOn::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+}
+.cabRowOn::before {
+  left: -5px;
+  top: -5px;
+  border-left: 2px solid var(--blue);
+  border-top: 2px solid var(--blue);
+}
+.cabRowOn::after {
+  right: -5px;
+  bottom: -5px;
+  border-right: 2px solid var(--blue);
+  border-bottom: 2px solid var(--blue);
+}
+.cabRowFresh {
+  animation: kf-sweep var(--dur-slow) var(--ease-out);
+}
+.cabRowOut {
+  opacity: 0;
+  transform: translateX(-14px);
+  pointer-events: none;
+}
+
+.pick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 58px;
+  padding: 8px 6px 8px 10px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.pickText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.pickHead {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.cabId {
+  font: 700 15px var(--font-cond);
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cabType {
+  font: 600 10px var(--font-cond);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cabDup {
+  font-size: 11px;
+  color: var(--amber);
+  white-space: nowrap;
+}
+.qtyBadge {
+  margin-left: auto;
+  padding: 0 5px;
+  border: 1px solid var(--ink);
+  font: 600 12px/16px var(--font-mono);
+}
+.cabSize {
+  font: 400 12.5px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cabBad {
+  color: var(--red);
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+.cabEnds {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* Duplicate / Remove: revealed on hover and focus, always shown on the selected row. */
+.rowActs {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 3px;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.cabRow:hover .rowActs,
+.cabRow:focus-within .rowActs,
+.cabRowOn .rowActs {
+  opacity: 1;
+}
+.removeBtn:hover:not([aria-disabled='true']) {
+  color: var(--red);
+  border-color: var(--red);
+  background: var(--red-tint);
+}
+
+.mini {
+  flex: none;
+}
+.miniBox {
+  fill: var(--white);
+  stroke: var(--ink);
+  stroke-width: 1.2px;
+}
+.miniTop {
+  fill: var(--rule-divider);
+}
+.miniToe {
+  fill: none;
+  stroke: #8e9095;
+  stroke-width: 0.75px;
+  stroke-dasharray: 2 1.5;
+}
+.miniShelf {
+  stroke: var(--muted-2);
+  stroke-width: 0.9px;
+}
+.miniEnd {
+  fill: var(--ink);
+}
+.miniBad {
+  fill: var(--red-tint);
+  stroke: var(--red);
+  stroke-width: 1px;
+  stroke-dasharray: 3 2;
+}
+.miniBadText {
+  font: 700 14px var(--font-mono);
+  fill: var(--red);
+  text-anchor: middle;
+}
+
+.addSplit {
+  margin-top: 14px;
+}
+.preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.presetText {
+  display: flex;
+  flex-direction: column;
+}
+.presetName {
+  font-weight: 600;
+}
+.presetSize {
+  font: 400 11px var(--font-mono);
+  color: var(--muted);
+}
+.listHint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* ---- 2 Cabinet editor ---- */
+.editorHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 560px) {
+  .grid3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin: 4px 0 18px;
+  padding: 9px 12px;
+  border: 1px dashed var(--rule-input);
+  background: var(--vellum);
+  font: 400 13px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.tapeLabel {
+  margin-right: 6px;
+  font: 600 11px var(--font-cond);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.term {
+  padding: 1px 4px;
+  border-radius: 2px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.term:hover,
+.termOn {
+  background: var(--blue-tint);
+  color: var(--blue);
+}
+.tapeNote {
+  margin-left: auto;
+  font: 400 12px var(--font-sans);
+  color: var(--muted);
+}
+
+.idInput {
+  font: 700 17px var(--font-cond);
+  letter-spacing: 0.04em;
+}
+
+.ends {
+  margin-top: 8px;
+}
+.endsLabel {
+  display: block;
+  margin-bottom: 6px;
+  font: 600 13px var(--font-sans);
+  color: var(--ink-2);
+}
+.endsSub {
+  font-weight: 400;
+  color: var(--muted);
+}
+.endsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.endTile {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 78px;
+  min-height: 64px;
+  padding: 6px 10px;
+  border: 1px solid var(--rule-input);
+  border-radius: var(--radius-control);
+  background: var(--white);
+  cursor: pointer;
+  font: 600 12px var(--font-cond);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-instant) linear;
+}
+.endTile:hover {
+  border-color: var(--ink);
+  background: #f7f6f1;
+}
+.endTile:active {
+  transform: translateY(1px);
+}
+.endTileOn,
+.endTileOn:hover {
+  border: 2px solid var(--blue);
+  background: var(--blue-tint);
+  color: var(--blue-hover);
+  padding: 5px 9px;
+}
+.endBox {
+  fill: var(--white);
+  stroke: currentColor;
+  stroke-width: 1.3px;
+}
+.endBar {
+  fill: currentColor;
+}
+
+.construction {
+  margin-top: 22px;
+  padding-top: 4px;
+  border-top: 1px solid var(--ink);
+}
+.disclosure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink);
+}
+.chev {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8px;
+  transition: transform var(--dur-base) var(--ease-base);
+}
+.chevOpen {
+  transform: rotate(90deg);
+}
+.disclosureTitle {
+  font: 600 13px var(--font-cond);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.disclosureSub {
+  font-size: 13px;
+  color: var(--muted);
+}
+.matches,
+.differs {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.matches {
+  color: var(--green);
+}
+.differs {
+  color: var(--amber);
+}
+.disclosureBody {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms var(--ease-base);
+}
+.disclosureBodyOpen {
+  grid-template-rows: 1fr;
+}
+.disclosureInner {
+  overflow: hidden;
+  min-height: 0;
+}
+.rules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
+  margin: 0;
+  padding: 6px 0 4px;
+}
+.rule {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 8px;
+  border-bottom: 1px dashed var(--rule-divider);
+  font-size: 13px;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.rule dt {
+  margin: 0;
+}
+.rule dd {
+  margin: 0;
+  font: 600 13px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.rule:hover {
+  background: var(--blue-tint-faint);
+}
+.ruleOn,
+.ruleOn:hover {
+  background: var(--blue-tint);
+}
+.rulesNote {
+  margin: 10px 0 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---- 3 Drawing ---- */
+.toggles {
+  display: flex;
+  gap: 6px;
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--rule-input);
+  border-radius: var(--radius-control);
+  background: var(--white);
+  font: 600 11px var(--font-cond);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+}
+.toggle svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2px;
+}
+.toggle:hover {
+  border-color: var(--hover-border);
+}
+.toggle[aria-pressed='true'] {
+  border-color: var(--ink);
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.frame {
+  width: 100%;
+}
+.drawing {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 100%;
+  padding: 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+.placeholder p {
+  margin: 0;
+}
+.placeholderMark {
+  fill: none;
+  stroke: var(--red);
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 3;
+}
+.placeholderMark path {
+  stroke: #e5b3ae;
+}
+.viewTitles {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 4px 0;
+}
+
+/* Parts in the drawing. Hot fills blue in both views; others fade to 30%. */
+.shape {
+  cursor: pointer;
+  stroke: var(--ink);
+  stroke-width: 1.1px;
+  transition:
+    opacity 150ms var(--ease-out),
+    fill 150ms var(--ease-out),
+    stroke 150ms var(--ease-out);
+}
+.shape_edge {
+  fill: #fbfaf6;
+}
+.shape_face {
+  stroke: #8e9095;
+  stroke-width: 0.75px;
+}
+.shape_lam {
+  fill: var(--ink);
+}
+.shape[data-dep] {
+  stroke: var(--blue);
+  stroke-width: 1.4px;
+}
+.shape_edge[data-dep],
+.shape_face[data-dep] {
+  fill: var(--blue-tint);
+}
+.shape_lam[data-dep] {
+  fill: var(--blue);
+}
+.shape[data-hot] {
+  stroke: var(--blue);
+  stroke-width: 2px;
+}
+.shape_edge[data-hot],
+.shape_face[data-hot] {
+  fill: var(--blue-tint-strong);
+}
+.shape_lam[data-hot] {
+  fill: var(--blue);
+}
+.shape[data-faded],
+.ctx[data-faded] {
+  opacity: 0.3;
+}
+
+/* Countertop band and toe kick: not parts, but they trace their rules. */
+.ctx {
+  fill: #ecebe5;
+  stroke: var(--muted-2);
+  stroke-width: 0.8px;
+  cursor: pointer;
+  transition:
+    fill var(--dur-fast) var(--ease-out),
+    stroke var(--dur-fast) var(--ease-out);
+}
+.ctxDashed {
+  fill: transparent;
+  stroke-dasharray: 4 3;
+}
+.ctx[data-traced] {
+  fill: var(--blue-tint);
+  stroke: var(--blue);
+  stroke-width: 1.6px;
+}
+.passive {
+  pointer-events: none;
+}
+
+.ghost {
+  pointer-events: none;
+}
+.ghostRef,
+.ghostLam {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1px;
+}
+.ghostRef {
+  stroke-dasharray: 8 3 2 3;
+}
+.ghostLam {
+  stroke-dasharray: 4 3;
+}
+.ghost[data-on] .ghostRef,
+.ghost[data-on] .ghostLam {
+  fill: rgb(31 79 163 / 6%);
+  stroke: var(--blue);
+  stroke-width: 1.5px;
+}
+.ghostLabel {
+  font: 600 9px var(--font-cond);
+  letter-spacing: 0.08em;
+  fill: var(--muted);
+}
+.ghost[data-on] .ghostLabel {
+  fill: var(--blue);
+}
+
+/* Caption: one fixed-height line, so tracing never moves anything. */
+.caption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--rule-input);
+  font-size: 13px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.capName {
+  font: 600 13px var(--font-cond);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.capValue {
+  font: 600 13px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.capExtra,
+.capHint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+
+/* ---- 4 Parts ---- */
+.smallLink {
+  min-height: 40px;
+  font-size: 13px;
+}
+.tableWrap {
+  overflow-x: auto;
+}
+.parts {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.lamTable {
+  margin-top: 14px;
+}
+.parts th {
+  text-align: left;
+  font: 600 11px var(--font-cond);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 6px;
+  border-bottom: 1.5px solid var(--ink);
+  white-space: nowrap;
+}
+.parts td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--rule-table);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.parts th.right,
+.right {
+  text-align: right;
+}
+.parts th.center,
+.center {
+  text-align: center;
+}
+.num {
+  text-align: right;
+  font: 400 var(--text-dim-table) var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.grain {
+  text-align: center;
+  color: var(--muted);
+}
+.partRow {
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.partRowHot {
+  background: var(--blue-tint-row);
+}
+.partRowPinned {
+  background: #eef3fb;
+}
+.partBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 1.25px solid var(--ink);
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--ink);
+  font: 600 11px var(--font-cond);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.balDep {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.balOn {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: var(--white);
+}
+.refName {
+  font-style: italic;
+  color: var(--muted);
+}
+.refTag {
+  display: inline-block;
+  padding: 0 4px;
+  border: 1px solid var(--muted-2);
+  font: 600 10px/15px var(--font-cond);
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.rowNote {
+  margin: -2px 0 2px 28px;
+  font-size: 11px;
+  color: var(--amber);
+  white-space: normal;
+}
+.cellTraced {
+  background-color: var(--blue-tint);
+  box-shadow: inset 0 -2px 0 var(--blue);
+  color: var(--blue);
+  font-weight: 600;
+}
+
+/* The highlighter: two names so a new revision restarts the flash on the same cell. */
+.flashA {
+  animation: kf-flash-a var(--dur-highlight) var(--ease-out);
+  font-weight: 600;
+}
+.flashB {
+  animation: kf-flash-b var(--dur-highlight) var(--ease-out);
+  font-weight: 600;
+}
+@keyframes kf-flash-a {
+  0% {
+    background-color: var(--highlighter);
+  }
+  100% {
+    background-color: rgb(251 231 161 / 0%);
+  }
+}
+@keyframes kf-flash-b {
+  0% {
+    background-color: var(--highlighter);
+  }
+  100% {
+    background-color: rgb(251 231 161 / 0%);
+  }
+}
+/* Reduced motion keeps the end state: the highlight shows while the marks do. */
+:global([data-motion='reduce']) .flashA,
+:global([data-motion='reduce']) .flashB {
+  animation: none;
+  background-color: var(--highlighter);
+}
+
+.deltaCell {
+  width: 32px;
+}
+.delta {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  font: 700 12px var(--font-mono);
+  color: var(--blue);
+  cursor: help;
+  animation: kf-delta-fade 4s ease-in both;
+}
+@keyframes kf-delta-fade {
+  0%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+:global([data-motion='reduce']) .delta {
+  animation: none;
+}
+
+.footnote {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.footDelta {
+  color: var(--blue);
+  font-weight: 600;
+}
+.partsEmpty {
+  margin: 0;
+  padding: 24px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}

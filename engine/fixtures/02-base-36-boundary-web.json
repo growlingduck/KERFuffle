@@ -1,0 +1,17 @@
+{
+  "name": "Base 36 W x 34 1/2 H x 24 D at the shelf-thickness boundary (web rules)",
+  "status": "legacy-derived",
+  "notes": "Web version: width 36 or more gets a 1-inch shelf. Box height 34 1/2 - 4 - 1 1/2 = 29. Compare with 03: only the shelf thickness differs.",
+  "spec": { "id": "B36", "type": "base", "width": "36", "height": "34 1/2", "depth": "24", "shelfCount": 1, "finishedEnds": "none", "quantity": 1 },
+  "rules": { "preset": "LEGACY_WEB_RULES" },
+  "expected": [
+    { "role": "back",           "category": "panel",    "name": "Back",            "length": "29",     "width": "36",     "thickness": "3/4", "quantity": 1 },
+    { "role": "bottom",         "category": "panel",    "name": "Bottom",          "length": "34 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+    { "role": "side-left",      "category": "panel",    "name": "Left side",       "length": "29",     "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+    { "role": "side-right",     "category": "panel",    "name": "Right side",      "length": "29",     "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+    { "role": "top",            "category": "panel",    "name": "Top",             "length": "34 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+    { "role": "front",          "category": "panel",    "name": "Front (door/laminate size)", "length": "29",     "width": "36",     "thickness": "3/4", "quantity": 1, "optional": true },
+    { "role": "shelf",          "category": "panel",    "name": "Shelf",           "length": "34 3/8", "width": "23 1/4", "thickness": "1",   "quantity": 1 },
+    { "role": "laminate-front", "category": "laminate", "name": "Laminate, front", "length": "30",     "width": "37",     "thickness": null,  "quantity": 1 }
+  ]
+}

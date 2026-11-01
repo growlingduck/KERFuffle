@@ -1,0 +1,116 @@
+/*
+ * KERFuffle design tokens. Source of truth: docs/interaction-design.md §2 (visual
+ * language) and §3 (motion). Every color, font, radius and duration used by the
+ * app comes from here; components never hard-code them.
+ */
+:root {
+  /* ---- Ink and neutrals ---- */
+  --ink: #1b1d1f; /* text, borders, drawing lines */
+  --ink-2: #2b2d30; /* panel borders */
+  --muted: #4a4c50; /* secondary text, >= 7:1 on white */
+  --muted-2: #63656a; /* units, captions, >= 5.5:1 */
+  --hover-border: #5e6066; /* control border on hover (prototype) */
+  --disabled-text: #6f7177; /* disabled labels; 4.9:1 on white so they stay readable */
+  --rule-input: #9a9c9f; /* input borders */
+  --rule-divider: #d9d7cf; /* dividers */
+  --rule-table: #e6e4dc; /* table rules */
+  --white: #ffffff;
+
+  /* ---- Ground ---- */
+  --paper: #f2f1eb;
+  --paper-grid-major: #e2e0d7;
+  --paper-grid-minor: #ebe9e1;
+  --paper-hover: #eeede7; /* button hover fill */
+  --paper-press: #e3e1d8; /* button pressed fill */
+  --vellum: #faf9f5; /* calc tape, drawing backgrounds */
+
+  /* ---- Blue: selection, primary action, traced dimensions ---- */
+  --blue: #1f4fa3;
+  --blue-hover: #163a7a;
+  --blue-tint: #e3ebf7;
+  --blue-tint-strong: #c9d8f0;
+  --blue-tint-row: #dce6f6;
+  --blue-tint-faint: #f1f5fb; /* selected row background */
+  --blue-on-dark: #7fa2dc; /* outlines and bars on the dark toast */
+  --blue-dark-hover: #2b3a55;
+
+  /* ---- Red: errors only ---- */
+  --red: #b3261e;
+  --red-tint: #fdf3f2;
+  --red-ring: #f3c9c5;
+
+  /* ---- Amber: warnings and the "just changed" highlighter ---- */
+  --amber: #7a4300;
+  --highlighter: #fbe7a1;
+
+  /* ---- Green: saved, completed ---- */
+  --green: #2b6b3f;
+
+  /* ---- Status stamp colors (glyph + text always accompany them) ---- */
+  --status-draft: var(--muted);
+  --status-ready: var(--blue);
+  --status-completed: var(--green);
+  --status-archived: var(--muted-2);
+
+  /* ---- Type ---- */
+  --font-sans: 'IBM Plex Sans', system-ui, 'Segoe UI', sans-serif;
+  --font-cond: 'IBM Plex Sans Condensed', 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+  --text-dim-input: 17px; /* dimension inputs */
+  --text-dim-table: 15px; /* dimensions in tables */
+  --text-dim-paper: 16px; /* dimensions on printed paper */
+  --tracking-caps: 0.09em;
+
+  /* ---- Shape ---- */
+  --radius-control: 3px;
+  --radius-sheet: 0;
+  --focus-ring: 2px solid var(--blue);
+  --focus-offset: 2px;
+  --input-ring: 0 0 0 3px var(--blue-tint-strong);
+  --traced-ring: 0 0 0 3px var(--blue-tint);
+  --shadow-pop: 0 10px 28px rgb(27 29 31 / 20%);
+  --shadow-toast: 0 10px 28px rgb(27 29 31 / 30%);
+  --scrim: rgb(27 29 31 / 38%);
+
+  /* ---- Sizes ---- */
+  --control-h: 40px;
+  --control-h-primary: 44px;
+  --grid-minor: 16px;
+  --grid-major: 96px;
+
+  /* ---- Motion (§3) ---- */
+  --dur-instant: 80ms; /* linear: button press offset */
+  --dur-fast: 120ms; /* ease-out: hover fills, border color */
+  --dur-tip: 140ms; /* tooltip fade-in */
+  --dur-base: 200ms; /* segmented thumb, tab underline, menus, toast in */
+  --dur-slow: 1300ms; /* new-row sweep, fade-outs */
+  --dur-highlight: 2600ms; /* highlighter fading from changed cells */
+  --delay-tip: 400ms; /* hover intent before a tooltip */
+  --ease-out: ease-out;
+  --ease-base: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/*
+ * Reduced motion: durations go to ~0, end states are kept. The data-motion
+ * attribute is set by src/motion.ts from the media query; the @media block covers
+ * the moment before scripts run.
+ */
+:root[data-motion='reduce'] {
+  --dur-instant: 0ms;
+  --dur-fast: 0ms;
+  --dur-tip: 0ms;
+  --dur-base: 0ms;
+  --dur-slow: 0ms;
+  --dur-highlight: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) {
+    --dur-instant: 0ms;
+    --dur-fast: 0ms;
+    --dur-tip: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+    --dur-highlight: 0ms;
+  }
+}

@@ -1,0 +1,133 @@
+import { inches } from '@kerfuffle/engine';
+import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import axe from 'axe-core';
+import type { Result } from 'axe-core';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { App } from '../src/App';
+import Gallery from '../src/dev/Gallery';
+import { testCabinet, testJob, useTestDatabase } from './storage';
+
+/** Serious and critical axe violations only (interaction-design §10). */
+async function seriousViolations(root: Element): Promise<Result[]> {
+  // jsdom can't render, so axe can't measure contrast; test/contrast.test.ts checks the token pairs instead.
+  const results = await axe.run(root, { resultTypes: ['violations'], rules: { 'color-contrast': { enabled: false } } });
+  return results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+}
+
+function describeViolations(violations: Result[]): string {
+  return violations.map((v) => `${v.impact} ${v.id}: ${v.help}\n  ${v.nodes.map((n) => n.html).join('\n  ')}`).join('\n');
+}
+
+// axe takes a couple of seconds per screen alone, and several times that while the whole suite runs in parallel.
+describe('accessibility (axe)', { timeout: 20_000 }, () => {
+  beforeEach(async () => {
+    await useTestDatabase();
+  });
+
+  it('the component gallery has no serious or critical violations', async () => {
+    const { container } = render(<Gallery />);
+    const violations = await seriousViolations(container);
+    expect(violations, describeViolations(violations)).toEqual([]);
+  });
+
+  it.each(['#/jobs', '#/jobs/j-0014/workspace', '#/jobs/j-0014/cut-list', '#/settings'])('%s has no serious or critical violations', async (hash) => {
+    window.location.hash = hash;
+    const { container } = render(<App />);
+    await act(async () => {});
+    const violations = await seriousViolations(container);
+    expect(violations, describeViolations(violations)).toEqual([]);
+  });
+
+  describe('Jobs screen', () => {
+    beforeEach(async () => {
+      window.location.hash = '#/jobs';
+      await useTestDatabase([
+        testJob(),
+        testJob({ id: 'j-0009', number: 9, name: 'Office storage', status: 'archived', cabinets: [testCabinet('c-o1', 'B1', { width: inches(0) })] }),
+      ]);
+    });
+
+    it('has no serious or critical violations with a row menu open', async () => {
+      const user = userEvent.setup();
+      const { container } = render(<App />);
+      await act(async () => {});
+      await user.click(screen.getByRole('button', { name: 'More actions for Kitchen remodel' }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+      const violations = await seriousViolations(container);
+      expect(violations, describeViolations(violations)).toEqual([]);
+    });
+
+    it('has no serious or critical violations with the New job dialog open, including its error', async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      await act(async () => {});
+      await user.click(screen.getByRole('button', { name: 'New job' }));
+      await user.click(screen.getByRole('button', { name: 'Create and open' }));
+      expect(screen.getByRole('dialog', { name: 'New job' })).toBeInTheDocument();
+      const violations = await seriousViolations(document.body);
+      expect(violations, describeViolations(violations)).toEqual([]);
+    });
+
+    it('has no serious or critical violations in the empty and archived views', async () => {
+      const user = userEvent.setup();
+      const { container } = render(<App />);
+      await act(async () => {});
+      await user.click(screen.getByRole('button', { name: /^Archived/ }));
+      await user.type(screen.getByRole('searchbox', { name: 'Search' }), 'nothing like this');
+      const violations = await seriousViolations(container);
+      expect(violations, describeViolations(violations)).toEqual([]);
+    });
+  });
+  describe('Workspace', () => {
+    /** Not a React hook, despite the name. */
+    const seedDatabase = useTestDatabase;
+    const open = async () => {
+      await seedDatabase([
+        testJob({
+          cabinets: [
+            testCabinet('c-b1', 'B1', { height: inches(36), finishedEnds: 'left' }),
+            testCabinet('c-b2', 'B2', { height: inches(0) }),
+            testCabinet('c-w1', 'W1', { type: 'wall', height: inches(30), depth: inches(12) }),
+          ],
+        }),
+      ]);
+      window.location.hash = '#/jobs/j-0014/workspace';
+      const user = userEvent.setup();
+      const view = render(<App />);
+      await screen.findByRole('heading', { name: 'Cabinet B1' });
+      return { user, ...view };
+    };
+
+    it.each([
+      ['the status menu', 'Job status'],
+      ['the Add cabinet preset menu', 'Add from a preset size'],
+    ])('has no serious or critical violations with %s open', async (_name, trigger) => {
+      const { user, container } = await open();
+      await user.click(screen.getByRole('button', { name: new RegExp(trigger) }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+      const violations = await seriousViolations(container);
+      expect(violations, describeViolations(violations)).toEqual([]);
+    });
+
+    it('has no serious or critical violations while tracing, with revision marks and Construction open', async () => {
+      const { user, container } = await open();
+      await user.click(screen.getByRole('button', { name: /^Construction/ }));
+      await user.click(screen.getByRole('button', { name: 'Oversize' }));
+      const width = screen.getByLabelText(/^Width/, { selector: 'input' });
+      await user.clear(width);
+      await user.type(width, '32{Enter}');
+      await user.hover(width);
+      const violations = await seriousViolations(container);
+      expect(violations, describeViolations(violations)).toEqual([]);
+    });
+
+    it('has no serious or critical violations on an invalid cabinet', async () => {
+      const { user, container } = await open();
+      await user.click(screen.getByRole('button', { name: /^B2/ }));
+      expect(screen.getByRole('button', { name: 'Go to height' })).toBeInTheDocument();
+      const violations = await seriousViolations(container);
+      expect(violations, describeViolations(violations)).toEqual([]);
+    });
+  });
+});

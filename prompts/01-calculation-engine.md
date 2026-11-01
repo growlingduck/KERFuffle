@@ -2,6 +2,12 @@
 
 > Paste everything below the line into a fresh coding-agent session at the repo root.
 > Prerequisite reading for the agent: `APPLICATION-VISION.md`.
+>
+> **Status: done (2026-10-31).** Later shop answers changed some rules after this
+> prompt was written: clearance and laminate oversize are now per side/edge
+> (`shelfClearancePerSide`, `laminateOversizePerEdge`), and the shelf setback
+> defaults to 1/8″. `docs/calculation-rules.md` and `engine/src/rules.ts` are the
+> current source of truth.
 
 ---
 
@@ -57,6 +63,19 @@ Shelf thickness `S` is 1" for wide cabinets, otherwise 3/4".
   This corrects two legacy bugs: the spreadsheet's wall back (`H − t − T`) and the
   wall laminate in both versions (`H − t − T + 1`). The web version is treated
   as the corrected one where the two differ.
+- **The Front panel is a reference size, not a carcass part.** It gives the size
+  needed to cut doors from or to size front laminate. The engine always calculates
+  it, but marks it `optional: true` so the cut list can include or leave out fronts
+  (a user toggle, on by default). Its human label is "Front (door/laminate size)".
+- **Shelf thickness depends on cabinet width: wider cabinets get thicker shelves.**
+  Make this a shop setting, not a hard-coded rule: `shelfThickWidthThreshold`
+  (default 36"), `shelfThickComparison: 'gt' | 'gte'` (default `gte`, the web
+  behavior, so a cabinet exactly 36" wide gets the thicker shelf),
+  `shelfThicknessNarrow` (default 3/4"), and `shelfThicknessWide` (default 1").
+- **Shelves run full depth by default.** Add `shelfSetback` (default 0), which
+  reduces shelf depth when set: shelf width = `D − p − shelfSetback`.
+- **Laminate oversize is a setting.** Add `laminateOversize` (default 1"), applied
+  to each laminate dimension.
 
 ## Known discrepancies: model these, don't resolve them
 
@@ -64,22 +83,17 @@ Each item below becomes an explicit, named field in `ConstructionRules` with a
 default, and is listed in `docs/calculation-rules.md` as **OPEN**. Never silently
 pick one interpretation in code without a rule field behind it.
 
-1. **Shelf-thickness boundary.** Web: `W >= 36` gives 1". Spreadsheet: `W > 36` gives 1".
-   → `shelfThickWidthThreshold` + `shelfThickComparison: 'gt' | 'gte'`. Default to
-   the web (`gte`), since the shop treats the web as the corrected version, but keep it OPEN
-   until a 36" example is confirmed.
+1. *(Resolved; see "Confirmed by the shop". Record in the rules doc that the
+   spreadsheet used `W > 36` and the web used `W >= 36`.)*
 2. *(Resolved; see "Confirmed by the shop".)*
 3. *(Resolved; see "Confirmed by the shop".)*
-4. **Laminate oversize** is a hard-coded 1" on each laminate dimension
-   → `laminateOversize` (default 1").
+4. *(Resolved; see "Confirmed by the shop".)*
 5. **Shelf side clearance** is a hard-coded 1/8" → `shelfClearance` (default 1/8").
 6. **Top vs Bottom orientation.** Same dimensions, but Width/Length are swapped
    between the two. → Normalize. Define `length` as the dimension that runs with the
    grain (see Units and orientation below) and record the legacy swap in the rules doc.
-7. **"Front" panel meaning** (door blank? face? sub-front?) is unknown. Keep it as a
-   part named `Front`, add a rule flag `includeFront` (default true), and mark OPEN.
-8. **Shelf depth equals side depth** (`D − p`), so there is no front setback. Add
-   `shelfSetback` (default 0) and mark OPEN.
+7. *(Resolved; see "Confirmed by the shop".)*
+8. *(Resolved; see "Confirmed by the shop".)*
 9. **Laminate thickness** is blank in legacy. Laminate parts carry `thickness: null`.
 
 ## Units and orientation
@@ -149,6 +163,7 @@ interface Part {
   length: Ticks; width: Ticks;
   thickness: Ticks | null;
   quantity: number;
+  optional: boolean;           // true only for the Front reference size
 }
 
 interface ValidationIssue {
@@ -211,13 +226,18 @@ Write this for the two shop users, not for developers. Include:
 
 ## Out of scope
 
-UI, persistence, Tauri, PDF/CSV, millimeters, part consolidation across cabinets,
-edge banding, sheet layouts, and new cabinet families.
+UI, persistence, Tauri, PDF/CSV, millimeters, edge banding, sheet layouts, and new
+cabinet families. Part consolidation and the include-fronts option belong to the
+cut-list layer (a later prompt), which shows parts either merged across cabinets or
+listed cabinet by cabinet, as a user toggle. Keep `Part` shaped so consolidation is easy:
+identical `category` + `length` + `width` + `thickness` means the same cut.
 
 ## Done when
 
 - `npm test` in `engine/` passes, with TypeScript strict mode and no `any`.
-- Every rule field from "Known discrepancies" exists and is covered by a test.
+- Every rule field named in "Confirmed by the shop" and "Known discrepancies"
+  exists and is covered by a test, including a non-zero `shelfSetback` and a
+  non-default `laminateOversize`.
 - The golden fixtures above exist and pass.
 - `docs/calculation-rules.md` exists with the Open Questions table filled in except
   for the "Shop answer" column.

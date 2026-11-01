@@ -1,0 +1,146 @@
+.page {
+  width: 100%;
+  max-width: 1640px;
+  margin: 0 auto;
+  padding: 22px 22px 120px;
+}
+
+.h1 {
+  font: 700 26px/1.15 var(--font-cond);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lead {
+  margin: 6px 0 22px;
+  color: var(--muted);
+}
+
+.section {
+  margin-bottom: 24px;
+}
+
+.sectionBody {
+  margin-top: 16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table th {
+  padding: 6px 10px;
+  border-bottom: 1.5px solid var(--ink);
+  font: 600 11px var(--font-cond);
+  letter-spacing: 0.1em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.table td,
+.rowHead {
+  padding: 18px 10px;
+  border-bottom: 1px solid var(--rule-table);
+  vertical-align: middle;
+}
+.rowHead {
+  font: 600 13px var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--ink) !important;
+  white-space: nowrap;
+}
+.na {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.live {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--rule-input);
+}
+
+.menuDemo {
+  width: 280px;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px 20px;
+}
+
+.liveField {
+  width: 260px;
+}
+
+.readout {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.overlays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.overlayDemo {
+  position: relative;
+  min-width: 220px;
+  min-height: 90px;
+}
+.toastStatic > * {
+  position: static;
+}
+
+.motifs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px;
+}
+.stamps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+.titleBlock {
+  margin-top: 20px;
+}
+
+.drawing {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  overflow: visible;
+  background: var(--vellum);
+}
+.drawing + .drawing {
+  margin-top: 12px;
+}
+
+.countertop {
+  fill: var(--rule-divider);
+  stroke: var(--ink);
+  stroke-width: 1px;
+}
+.box {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5px;
+}
+.toe {
+  fill: none;
+  stroke: #8e9095;
+  stroke-width: 1px;
+  stroke-dasharray: 4 3;
+}

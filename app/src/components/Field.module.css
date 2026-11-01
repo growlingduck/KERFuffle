@@ -1,0 +1,187 @@
+/* Shared field anatomy: label row with symbol chip, control, fixed-height message line. */
+.field {
+  min-width: 0;
+}
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font: 600 13px var(--font-sans);
+  color: var(--ink-2);
+}
+
+/* Symbol chip (W, H, D, n, ×): ties a field to its dimension in the drawing. */
+.sym {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0 3px;
+  border: 1px solid currentColor;
+  color: var(--muted);
+  font: 700 11px var(--font-mono);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+.symOn {
+  color: var(--white);
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+.control {
+  position: relative;
+}
+
+.input {
+  width: 100%;
+  height: var(--control-h-primary);
+  padding: 0 12px;
+  border: 1px solid var(--rule-input);
+  border-radius: var(--radius-control);
+  background: var(--white);
+  color: var(--ink);
+  font: 500 var(--text-dim-input) var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+.input:hover,
+.input[data-force~='hover'] {
+  border-color: var(--hover-border);
+}
+.input:focus,
+.input[data-force~='focus'] {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: var(--input-ring);
+}
+
+/* Traced ("linked") ring: the field's dimension is being pointed at elsewhere (§5.5). */
+.traced:not(:focus) {
+  border-color: var(--blue);
+  box-shadow: var(--traced-ring);
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--red);
+  background: var(--red-tint);
+}
+.input[aria-invalid='true']:focus,
+.input[aria-invalid='true'][data-force~='focus'] {
+  box-shadow: 0 0 0 3px var(--red-ring);
+}
+
+.input:disabled {
+  border-style: dashed;
+  border-color: var(--rule-input);
+  background: var(--vellum);
+  color: var(--disabled-text);
+  cursor: not-allowed;
+}
+
+.withUnit {
+  padding-right: 34px;
+}
+
+.unit {
+  position: absolute;
+  top: 50%;
+  right: 11px;
+  transform: translateY(-50%);
+  font: 500 13px var(--font-mono);
+  color: var(--muted-2);
+  pointer-events: none;
+}
+
+/* Fixed 18 px message line: nothing jumps while typing. */
+.msg {
+  height: 18px;
+  margin-top: 5px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+.msgError {
+  color: var(--red);
+}
+.msgWarning {
+  color: var(--amber);
+}
+
+/* Busy: a thin bar along the bottom edge (e.g. a value being recomputed or saved). */
+.busy::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--blue), transparent);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: field-busy 1.1s linear infinite;
+}
+@keyframes field-busy {
+  from {
+    background-position: -50% 0;
+  }
+  to {
+    background-position: 150% 0;
+  }
+}
+
+/* Stepper: − / input / + */
+.stepper {
+  display: flex;
+  align-items: stretch;
+}
+.stepper .input {
+  min-width: 0;
+  padding: 0 6px;
+  border-radius: 0;
+  text-align: center;
+}
+.stepBtn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  border: 1px solid var(--rule-input);
+  background: var(--white);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.stepBtn:hover,
+.stepBtn[data-force~='hover'] {
+  background: var(--paper-hover);
+}
+.stepBtn:active,
+.stepBtn[data-force~='active'] {
+  background: var(--paper-press);
+}
+.stepBtn[aria-disabled='true'] {
+  color: var(--disabled-text);
+  background: var(--white);
+  cursor: not-allowed;
+}
+.stepDown {
+  border-right: 0;
+  border-radius: var(--radius-control) 0 0 var(--radius-control);
+}
+.stepUp {
+  border-left: 0;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+}

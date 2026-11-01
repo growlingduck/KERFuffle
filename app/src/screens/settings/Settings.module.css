@@ -1,0 +1,458 @@
+/* Settings (interaction-design §8, docs/wireframes/Settings.dc.html). */
+
+.layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+/* ---- Section nav ---- */
+.nav {
+  position: sticky;
+  top: 16px;
+  flex: 0 1 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.navLabel {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 12px 8px;
+}
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--control-h);
+  padding: 0 12px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink-2);
+  font: 600 13px var(--font-cond);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.navItem:hover {
+  background: var(--white);
+  color: var(--ink);
+}
+.navItem[aria-current='true'] {
+  background: var(--ink);
+  color: var(--white);
+}
+.navNum {
+  font: 500 11px var(--font-mono);
+}
+
+/* ---- Main column ---- */
+.main {
+  flex: 999 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.section {
+  scroll-margin-top: 16px;
+}
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.banner {
+  max-width: 380px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px dashed var(--rule-input);
+  background: var(--vellum);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.groupLabel {
+  margin: 16px 12px 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* One rule: the field on the left, help and status on the right. */
+.row {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  align-items: start;
+  gap: 4px 18px;
+  padding: 10px 12px 2px;
+  border-bottom: 1px dashed var(--rule-divider);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.row:hover {
+  background: #f7f6f1;
+}
+.row[data-hot] {
+  background: var(--blue-tint-faint);
+}
+.rowLast {
+  border-bottom: 0;
+}
+.side {
+  padding-top: 26px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.help {
+  color: var(--muted);
+}
+/* The engine's message for this rule, in full (the field itself shows a short marker). */
+.noteError {
+  color: var(--red);
+}
+.noteWarning {
+  color: var(--amber);
+}
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-height: 24px;
+  margin-top: 4px;
+}
+.statusDefault {
+  color: var(--muted-2);
+}
+.diamond {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--ink);
+  transform: rotate(45deg);
+}
+.link {
+  min-height: 24px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font: 600 12px var(--font-sans);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.link:hover {
+  color: var(--blue-hover);
+}
+/* A rule that differs from the built-in default: 1.5 px ink border (errors stay red). */
+.modified input {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 0.5px var(--ink);
+}
+
+/* ---- Radio choices (wide-shelf rule, units, rounding) ---- */
+.choiceRow {
+  padding: 12px 12px 14px;
+}
+.choiceLabel {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.choiceHelp {
+  flex-basis: 100%;
+  margin: -4px 0 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.choice {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--control-h);
+  padding: 0 12px;
+  border: 1px solid var(--rule-input);
+  border-radius: var(--radius-control);
+  background: var(--white);
+  font: 500 14px var(--font-sans);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.choice:hover {
+  border-color: var(--hover-border);
+}
+/* The real radio covers its label, invisible, so a click anywhere on it is a click on the radio. */
+.choice input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.choice:has(input:checked) {
+  padding: 0 11px;
+  border: 2px solid var(--blue);
+  background: var(--blue-tint);
+}
+.choice:has(input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.choice:has(input:disabled) {
+  border-style: dashed;
+  color: var(--disabled-text);
+  cursor: not-allowed;
+}
+.choiceMark {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+  background: var(--white);
+}
+.choice:has(input:checked) .choiceMark {
+  border-color: var(--blue);
+  box-shadow: inset 0 0 0 3px var(--white);
+  background: var(--blue);
+}
+
+/* ---- Display ---- */
+.displayControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.samples {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 16px;
+  border: 1px solid var(--ink);
+}
+.sample {
+  padding: 10px 12px;
+  border-right: 1px solid var(--rule-divider);
+}
+.sample:last-child {
+  border-right: 0;
+}
+.sampleWhat {
+  font-size: 10px;
+  color: var(--muted);
+}
+.sampleShown {
+  margin-top: 2px;
+  font: 600 18px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.sampleExact {
+  font: 500 11px var(--font-mono);
+  color: var(--muted);
+}
+.footnote {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---- Backups ---- */
+.backupGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px 24px;
+}
+.fieldTitle {
+  margin-bottom: 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.path {
+  padding: 10px;
+  border: 1px solid var(--rule-divider);
+  background: var(--vellum);
+  font: 500 12.5px var(--font-mono);
+  word-break: break-all;
+}
+.pathNote {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.keep {
+  max-width: 200px;
+}
+
+/* ---- Dirty bar ---- */
+.dirty {
+  position: sticky;
+  bottom: 16px;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  border-radius: var(--radius-control);
+  background: var(--ink);
+  color: var(--white);
+  box-shadow: var(--shadow-toast);
+  animation: dirty-up var(--dur-base) var(--ease-base);
+}
+.dirtyText {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.dirtyText .diamond {
+  background: var(--white);
+}
+.dirtyGhost {
+  border-color: var(--blue-on-dark);
+  background: transparent;
+  color: var(--white);
+}
+.dirtyGhost:hover {
+  border-color: var(--blue-on-dark);
+  background: var(--blue-dark-hover);
+  color: var(--white);
+}
+@keyframes dirty-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+/* ---- Detail panel ---- */
+.detail {
+  position: sticky;
+  top: 16px;
+  flex: 1 1 360px;
+  max-width: 440px;
+  min-width: 0;
+}
+.detailSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 10px;
+  border: 1px dashed var(--rule-input);
+  background: var(--vellum);
+}
+.detailText {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.effect {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--ink);
+  background: var(--white);
+  font: 500 12.5px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.effectBlocked {
+  border-style: dashed;
+  color: var(--muted);
+  font-family: var(--font-sans);
+}
+.detailHint {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Drawing parts. */
+.note {
+  font: 600 10px var(--font-cond);
+  letter-spacing: 0.1em;
+  fill: var(--muted);
+}
+.call {
+  font: 700 12px var(--font-mono);
+  fill: var(--ink);
+}
+.callHot {
+  font: 700 12px var(--font-mono);
+  fill: var(--blue);
+}
+.face {
+  fill: var(--white);
+  stroke: var(--ink);
+  stroke-width: 1.2px;
+}
+.sideFace {
+  fill: var(--white);
+  stroke: var(--rule-input);
+  stroke-width: 1px;
+}
+.hotFace {
+  fill: var(--blue-tint);
+  stroke: var(--blue);
+  stroke-width: 1.6px;
+}
+.mutedFace {
+  fill: #ecebe5;
+  stroke: var(--muted-2);
+  stroke-width: 1px;
+}
+.dashedFace {
+  fill: #f7f6f1;
+  stroke: var(--muted-2);
+  stroke-width: 1px;
+  stroke-dasharray: 4 3;
+}
+.laminate {
+  fill: rgb(31 79 163 / 6%);
+  stroke: var(--blue);
+  stroke-width: 1.5px;
+  stroke-dasharray: 6 4;
+}
+.centerline {
+  fill: none;
+  stroke: var(--muted-2);
+  stroke-width: 0.9px;
+  stroke-dasharray: 12 3 2 3;
+}
+.floor {
+  stroke: var(--ink);
+  stroke-width: 1.6px;
+}
+.floorHatch {
+  stroke: var(--rule-input);
+  stroke-width: 0.8px;
+}
+
+.loading {
+  padding: 28px 2px;
+  color: var(--muted);
+}

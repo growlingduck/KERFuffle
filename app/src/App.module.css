@@ -1,0 +1,176 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* ---- Header title block ---- */
+.header {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  background: var(--white);
+  border-bottom: 2px solid var(--ink);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 0 20px;
+  border-right: 1px solid var(--ink);
+  color: var(--ink);
+  text-decoration: none;
+}
+.logo:hover {
+  color: var(--ink);
+  background: var(--vellum);
+}
+.logo:focus-visible {
+  outline-offset: -3px;
+}
+
+.wordmark {
+  font: 700 17px var(--font-cond);
+  letter-spacing: 0.04em;
+}
+.wordmarkLight {
+  font-weight: 500;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0 6px;
+}
+
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 56px;
+  padding: 0 14px;
+  color: var(--muted);
+  font: 600 13px var(--font-cond);
+  letter-spacing: var(--tracking-caps);
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.tab::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: -2px;
+  height: 3px;
+  background: var(--blue);
+  transform: scaleX(0);
+  transition: transform var(--dur-base) var(--ease-base);
+}
+.tab:hover {
+  color: var(--ink);
+}
+.tab:hover::after {
+  transform: scaleX(0.35);
+}
+.tab[aria-current='page'] {
+  color: var(--ink);
+}
+.tab[aria-current='page']::after {
+  transform: scaleX(1);
+}
+.tab:focus-visible {
+  outline-offset: -4px;
+}
+
+.spacer {
+  flex: 1 1 20px;
+}
+
+.cells {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: 6px 14px;
+  border-left: 1px solid var(--ink);
+}
+
+.cellLabel {
+  font: 600 10px var(--font-cond);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.jobCell {
+  min-width: 170px;
+}
+.jobName {
+  font-size: 15px;
+  font-weight: 600;
+}
+.customer {
+  font-size: 14px;
+}
+
+.stampButton {
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.savedCell {
+  min-width: 128px;
+}
+.saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.savedCheck {
+  color: var(--green);
+}
+
+.saveError {
+  color: var(--red);
+  font-weight: 600;
+}
+
+.retry {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.actionsCell {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---- Routed outlet ---- */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}

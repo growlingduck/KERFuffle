@@ -1,0 +1,49 @@
+.vt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.bubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--ink);
+  font: 700 13px var(--font-cond);
+}
+
+.text {
+  min-width: 0;
+}
+
+.title {
+  display: inline-block;
+  padding-bottom: 1px;
+  border-bottom: 2px solid var(--ink);
+  font: 700 15px/1.2 var(--font-cond);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sub {
+  margin-top: 3px;
+  font: 500 11px var(--font-mono);
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.sm .bubble {
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+}
+.sm .title {
+  font-size: 12px;
+}

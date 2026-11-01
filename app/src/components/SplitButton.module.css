@@ -1,0 +1,32 @@
+.split {
+  display: flex;
+}
+
+/* The two Tooltip wrappers are the flex children. */
+.split > span:first-child {
+  flex: 1;
+}
+
+.main {
+  width: 100%;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.chevron {
+  min-height: var(--control-h-primary);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left-width: 0;
+}
+
+.chevronPrimary {
+  border-left: 1px solid var(--blue-on-dark);
+}
+
+.chev {
+  transition: transform var(--dur-base) var(--ease-base);
+}
+.chevOpen {
+  transform: rotate(180deg);
+}

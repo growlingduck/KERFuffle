@@ -1,0 +1,14 @@
+{
+  "panelThickness": 48,
+  "toeKickHeight": 256,
+  "countertopThickness": 96,
+  "shelfThickness": 48,
+  "wideShelfThickness": 64,
+  "shelfThickWidthThreshold": 2304,
+  "shelfThickComparison": "gte",
+  "shelfClearancePerSide": 8,
+  "shelfSetback": 8,
+  "laminateOversizePerEdge": 64,
+  "legacyWallBackDeductsBaseAllowances": false,
+  "legacyWallLaminateDeductsBaseAllowances": false
+}

@@ -1,0 +1,699 @@
+/* Jobs / home (interaction-design §6, docs/wireframes/Home.dc.html). */
+.page {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px;
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 28px 24px 40px;
+}
+
+.register {
+  flex: 999 1 640px;
+  min-width: 0;
+}
+
+/* ---- Heading ---- */
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.eyebrow {
+  font-size: 12px;
+  color: var(--muted);
+}
+.h1 {
+  margin: 2px 0 0;
+  font: 700 32px/1.1 var(--font-cond);
+  letter-spacing: 0.02em;
+}
+.headActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---- Search and Show ---- */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.controlLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.search {
+  flex: 1 1 280px;
+}
+.searchBox {
+  position: relative;
+}
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 14px;
+  color: var(--muted-2);
+  pointer-events: none;
+}
+.searchInput {
+  width: 100%;
+  height: var(--control-h-primary);
+  padding: 0 44px 0 36px;
+  border: 1px solid var(--rule-input);
+  border-radius: var(--radius-control);
+  background: var(--white);
+  color: var(--ink);
+  font: 400 15px var(--font-sans);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.searchInput:hover {
+  border-color: var(--hover-border);
+}
+.searchInput:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: var(--input-ring);
+}
+.searchInput::-webkit-search-cancel-button {
+  appearance: none;
+}
+.searchInput::placeholder {
+  color: var(--muted-2);
+}
+.searchClear {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  border-color: transparent;
+}
+.searchKey {
+  position: absolute;
+  right: 12px;
+  top: 11px;
+  pointer-events: none;
+}
+.filterCount {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+/* ---- Register table ---- */
+.tableSheet {
+  margin-bottom: 22px;
+}
+.tableScroll {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table th {
+  height: 38px;
+  padding: 0 12px;
+  border-bottom: 1.5px solid var(--ink);
+  text-align: left;
+  white-space: nowrap;
+  font: 600 11px var(--font-cond);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rule-table);
+  vertical-align: middle;
+}
+.colNo {
+  width: 74px;
+}
+.sortButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.sortButton:hover {
+  color: var(--ink);
+}
+.sortArrow {
+  display: inline-block;
+  min-width: 10px;
+  font-size: 9px;
+}
+
+.row {
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+.row:hover,
+.row:focus-within,
+.peeked {
+  background: var(--blue-tint-faint);
+}
+.fresh {
+  animation: kf-sweep var(--dur-slow) var(--ease-out);
+}
+/* Archive (or a status the filter hides): slide out 24 px, then the row leaves. */
+.leaving {
+  opacity: 0;
+  transform: translateX(24px);
+  pointer-events: none;
+}
+
+.no {
+  font-size: 12px;
+  color: var(--muted);
+}
+.name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.name:hover {
+  color: var(--blue);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.customer {
+  font-size: 13px;
+  color: var(--muted);
+}
+.row mark {
+  padding: 0 1px;
+  background: var(--highlighter);
+  color: inherit;
+}
+.cabinets {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 10px;
+  font-size: 13px;
+}
+.edited {
+  white-space: nowrap;
+  color: var(--ink-2);
+}
+.actions {
+  text-align: right;
+  white-space: nowrap;
+}
+.actions > * {
+  vertical-align: middle;
+}
+/* Open and Cut list appear on hover or focus; the ⋯ menu is always there. */
+.rowActions {
+  display: inline-flex;
+  gap: 6px;
+  margin-right: 6px;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.row:hover .rowActions,
+.row:focus-within .rowActions,
+.peeked .rowActions {
+  opacity: 1;
+}
+.markGlyph {
+  width: 14px;
+}
+
+/* ---- Strip and elevation drawings ---- */
+.strip {
+  display: block;
+  flex: none;
+}
+.stripFloor {
+  stroke: var(--rule-input);
+  stroke-width: 1px;
+}
+.stripBox {
+  fill: var(--white);
+  stroke: var(--ink);
+  stroke-width: 0.9px;
+}
+.boxInvalid {
+  fill: none;
+  stroke: var(--muted-2);
+  stroke-dasharray: 3 2;
+}
+
+.elevation {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--vellum);
+  border: 1px dashed var(--rule-input);
+}
+.floor {
+  stroke: var(--ink);
+  stroke-width: 1.4px;
+}
+.floorHatch {
+  fill: none;
+  stroke: var(--rule-input);
+  stroke-width: 0.8px;
+}
+.box {
+  fill: var(--white);
+  stroke: var(--ink);
+  stroke-width: 1.1px;
+}
+.box.boxInvalid {
+  fill: var(--vellum);
+  stroke-dasharray: 4 3;
+}
+.boxLabel {
+  font: 600 9px var(--font-cond);
+  letter-spacing: 0.05em;
+  fill: var(--muted);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.emptyDrawing {
+  font: 500 12px var(--font-sans);
+  fill: var(--muted);
+  text-anchor: middle;
+}
+/* The base-run dimension is drawn in blue (§6). */
+.runDim line,
+.runDim path {
+  stroke: var(--blue);
+}
+.runDim rect:first-of-type {
+  fill: var(--vellum);
+}
+.runDim text {
+  font: 600 10px var(--font-mono);
+  fill: var(--blue);
+}
+
+/* ---- Empty states ---- */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 16px 56px;
+  text-align: center;
+  font-size: 15px;
+}
+.empty p {
+  margin: 0;
+}
+.emptySheet {
+  fill: none;
+  stroke: var(--rule-input);
+  stroke-width: 1.2px;
+}
+
+/* ---- Backup strip ---- */
+.backup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.backupStatus {
+  flex: 1 1 320px;
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+}
+.backupActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.backupCheck {
+  color: var(--green);
+  font-weight: 700;
+}
+/* Indeterminate: backups don't report progress, and the bar never pretends to. */
+.backupBar {
+  position: relative;
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  overflow: hidden;
+  background: var(--rule-table);
+}
+.backupBar span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 30%;
+  background: var(--blue);
+  animation: backup-sweep 1.1s var(--ease-base) infinite;
+}
+@keyframes backup-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .backupBar span {
+    width: 100%;
+    animation: none;
+    opacity: 0.6;
+  }
+}
+.restoreAnchor {
+  position: relative;
+}
+.restorePopover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 40;
+  width: 340px;
+  max-height: 420px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--ink-2);
+  border-radius: var(--radius-control);
+  background: var(--white);
+  box-shadow: var(--shadow-pop);
+  animation: restore-in var(--dur-base) var(--ease-base);
+}
+@keyframes restore-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.restoreHead {
+  padding: 0 4px 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.restoreList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.restoreItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: var(--control-h);
+  padding: 0 8px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  font: 500 14px var(--font-sans);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.restoreItem:hover,
+.restoreItem:focus-visible {
+  background: var(--blue-tint);
+}
+.restoreItem .mono {
+  font-size: 12px;
+  color: var(--muted);
+}
+.restoreEmpty {
+  margin: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.restoreConfirm {
+  padding: 4px 4px 0;
+}
+.restoreConfirm p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.restoreTitle {
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.restoreButtons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---- Job preview ---- */
+.preview {
+  flex: 1 1 380px;
+  max-width: 460px;
+  min-width: 0;
+  padding: 16px;
+}
+.previewTitle {
+  margin-bottom: 14px;
+}
+.previewBody {
+  animation: kf-fade-in var(--dur-base) var(--ease-out);
+}
+.previewBlock {
+  margin-top: 14px;
+}
+.tbCount {
+  font-size: 18px;
+  font-weight: 600;
+}
+.tbStatus {
+  font-size: 12px;
+}
+.tbNotes {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.status_draft {
+  color: var(--status-draft);
+}
+.status_ready {
+  color: var(--status-ready);
+}
+.status_completed {
+  color: var(--status-completed);
+}
+.status_archived {
+  color: var(--status-archived);
+}
+.previewWarn {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--amber);
+}
+.previewActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.grow {
+  flex: 1;
+}
+.previewNone {
+  margin: 0;
+  padding: 40px 0;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* ---- New job dialog ---- */
+.newForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+.span2 {
+  grid-column: span 2;
+}
+.label {
+  display: block;
+  margin-bottom: 6px;
+  font: 600 13px var(--font-sans);
+}
+.optional {
+  font-weight: 400;
+  color: var(--muted);
+}
+.input {
+  width: 100%;
+  height: var(--control-h-primary);
+  padding: 0 12px;
+  border: 1px solid var(--rule-input);
+  border-radius: var(--radius-control);
+  background: var(--white);
+  color: var(--ink);
+  font: 400 15px var(--font-sans);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.input:hover {
+  border-color: var(--hover-border);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: var(--input-ring);
+}
+.input[aria-invalid='true'] {
+  border-color: var(--red);
+  background: var(--red-tint);
+}
+.input[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px var(--red-ring);
+}
+.input::placeholder {
+  color: var(--muted-2);
+}
+.textarea {
+  height: auto;
+  padding: 10px 12px;
+  resize: vertical;
+}
+/* Fixed-height message line: nothing jumps while typing. */
+.msg {
+  min-height: 18px;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 18px;
+}
+.msgError {
+  color: var(--red);
+}
+.msgWarning {
+  color: var(--amber);
+}
+.createError {
+  margin: 12px 0 0;
+}
+.rulesPanel {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px dashed var(--rule-input);
+  background: var(--vellum);
+  font-size: 13px;
+}
+.rulesHead {
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.ruleValues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 12.5px;
+}
+.rulesNote {
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+/* ---- Import job ---- */
+.importText {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.importNote {
+  padding: 8px 10px;
+  border: 1px solid var(--amber);
+  border-left-width: 4px;
+  background: #fdf8ea;
+  color: var(--ink);
+}
+.importError {
+  color: var(--red);
+}
+.flagList {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.importChoices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+}
+.importChoices legend {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.importChoice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule-input);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.importChoice:has(input:checked) {
+  padding: 9px 11px;
+  border: 2px solid var(--blue);
+  background: var(--blue-tint);
+}
+.importChoice input {
+  margin-top: 3px;
+  accent-color: var(--blue);
+}
+.importChoiceHelp {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* A .kerfjob dragged over the register. */
+.dropTarget {
+  position: fixed;
+  inset: 12px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--blue);
+  background: rgb(227 235 247 / 86%);
+  font: 700 20px var(--font-cond);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--blue);
+  pointer-events: none;
+}

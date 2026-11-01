@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Job library</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&amp;family=IBM+Plex+Sans+Condensed:wght@500;600;700&amp;family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F2F1EB}
+a{color:#1F4FA3}a:hover{color:#163A7A}
+.paper{background-color:#F2F1EB;background-image:linear-gradient(#E2E0D7 1px,transparent 1px),linear-gradient(90deg,#E2E0D7 1px,transparent 1px),linear-gradient(#EBE9E1 1px,transparent 1px),linear-gradient(90deg,#EBE9E1 1px,transparent 1px);background-size:96px 96px,96px 96px,16px 16px,16px 16px}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.cap{font-family:'IBM Plex Sans Condensed','IBM Plex Sans',sans-serif;font-weight:600;letter-spacing:.09em;text-transform:uppercase}
+.sheet{position:relative;background:#FFFFFF;border:1px solid #2B2D30;box-sizing:border-box}
+.sheet::before,.sheet::after{content:"";position:absolute;width:10px;height:10px;pointer-events:none}
+.sheet::before{left:-6px;top:-6px;border-left:1px solid #1B1D1F;border-top:1px solid #1B1D1F}
+.sheet::after{right:-6px;bottom:-6px;border-right:1px solid #1B1D1F;border-bottom:1px solid #1B1D1F}
+.vt{display:flex;align-items:center;gap:10px;min-width:0}
+.bub{display:inline-flex;align-items:center;justify-content:center;flex:none;width:26px;height:26px;box-sizing:border-box;border:1.5px solid #1B1D1F;border-radius:50%;font:700 13px 'IBM Plex Sans Condensed',sans-serif;background:#FFFFFF;color:#1B1D1F}
+.vt-t{font:700 15px/1.2 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;border-bottom:2px solid #1B1D1F;padding-bottom:1px}
+.vt-s{font:500 11px 'IBM Plex Mono',monospace;color:#4A4C50;margin-top:3px;letter-spacing:.03em}
+.btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border:1px solid #9A9C9F;border-radius:3px;background:#FFFFFF;font:500 14px 'IBM Plex Sans',system-ui,sans-serif;color:#1B1D1F;cursor:pointer;text-decoration:none;box-sizing:border-box;transition:background-color 120ms,border-color 120ms,transform 80ms}
+.btn:hover{background:#EEEDE7;border-color:#5E6066;color:#1B1D1F}
+.btn:active{transform:translateY(1px)}
+.btn-pri{background:#1F4FA3;border-color:#1F4FA3;color:#FFFFFF}
+.btn-pri:hover{background:#163A7A;border-color:#163A7A;color:#FFFFFF}
+.btn-sm{min-height:34px;padding:0 12px;font-size:13px}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #1F4FA3;outline-offset:2px}
+[data-tip]{position:relative}
+[data-tip]:hover::after,[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);background:#1B1D1F;color:#FFFFFF;font:500 12px/1.35 'IBM Plex Sans',sans-serif;letter-spacing:0;text-transform:none;padding:6px 9px;border-radius:3px;white-space:nowrap;z-index:60;pointer-events:none;animation:kfTip 140ms ease-out 400ms both}
+.kbd{display:inline-block;min-width:14px;text-align:center;font:500 11px 'IBM Plex Mono',monospace;color:#1B1D1F;background:#FFFFFF;border:1px solid #9A9C9F;border-bottom-width:2px;border-radius:3px;padding:0 5px;line-height:18px}
+.stamp{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border:2px solid currentColor;box-shadow:0 0 0 2px #FFFFFF,0 0 0 3px currentColor;font:700 12px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;transform:rotate(-2deg);white-space:nowrap;background:#FFFFFF}
+.tab{position:relative;display:inline-flex;align-items:center;min-height:56px;padding:0 14px;font:600 13px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#4A4C50;text-decoration:none}
+.tab::after{content:"";position:absolute;left:14px;right:14px;bottom:-2px;height:3px;background:#1F4FA3;transform:scaleX(0);transition:transform 180ms cubic-bezier(.2,0,0,1)}
+.tab:hover{color:#1B1D1F}.tab:hover::after{transform:scaleX(.35)}
+.tab[aria-current="page"]{color:#1B1D1F}.tab[aria-current="page"]::after{transform:scaleX(1)}
+.inp{box-sizing:border-box;width:100%;height:44px;padding:0 12px;border:1px solid #9A9C9F;border-radius:3px;background:#FFFFFF;font:400 15px 'IBM Plex Sans',sans-serif;color:#1B1D1F;transition:border-color 120ms,box-shadow 120ms}
+.inp:hover{border-color:#5E6066}
+.inp:focus{outline:none;border-color:#1F4FA3;box-shadow:0 0 0 3px #C9D8F0}
+.inp.bad{border-color:#B3261E;background:#FDF3F2}
+.seg{position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;border:1px solid #2B2D30;border-radius:3px;background:#FFFFFF;padding:2px}
+.seg-thumb{position:absolute;top:2px;bottom:2px;left:2px;background:#1B1D1F;border-radius:2px;transition:transform 200ms cubic-bezier(.2,0,0,1)}
+.seg-b{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:38px;padding:0 16px;border:0;background:transparent;font:600 13px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.09em;text-transform:uppercase;cursor:pointer;transition:color 200ms;white-space:nowrap}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;min-width:780px}
+.tbl th{text-align:left;font:600 11px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#4A4C50;padding:0 12px;height:38px;border-bottom:1.5px solid #1B1D1F;white-space:nowrap}
+.tbl td{padding:8px 12px;border-bottom:1px solid #E6E4DC;vertical-align:middle}
+.sortb{display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;padding:4px 0;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;cursor:pointer}
+.sortb:hover{color:#1B1D1F}
+.jrow{transition:background-color 120ms,opacity 200ms,transform 200ms}
+.jrow:hover,.jrow.peek{background:#F1F5FB}
+.jrow.new{animation:kfSweep 1.4s ease-out}
+.jrow.out{opacity:0;transform:translateX(24px)}
+.jname{font-weight:600;color:#1B1D1F;text-decoration:none;font-size:15px}
+.jname:hover{color:#1F4FA3;text-decoration:underline;text-underline-offset:3px}
+mark{background:#FBE7A1;color:inherit;padding:0 1px}
+.rowacts{display:inline-flex;gap:6px;opacity:.0;transition:opacity 120ms}
+.jrow:hover .rowacts,.jrow:focus-within .rowacts,.jrow.peek .rowacts{opacity:1}
+.ibtn{width:34px;min-height:34px;padding:0}
+.menu{position:absolute;z-index:50;background:#FFFFFF;border:1px solid #2B2D30;box-shadow:0 10px 28px rgba(27,29,31,.20);animation:kfPop 140ms cubic-bezier(.2,0,0,1);padding:6px;box-sizing:border-box;text-align:left}
+.mi{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:4px 10px;border:0;border-radius:2px;background:transparent;font:500 14px 'IBM Plex Sans',sans-serif;color:#1B1D1F;text-align:left;cursor:pointer;text-decoration:none;box-sizing:border-box}
+.mi:hover,.mi:focus-visible{background:#E3EBF7;color:#1B1D1F}
+.mi.warn:hover{background:#FDF3F2;color:#8E1F18}
+.msep{height:1px;background:#E2E0D7;margin:4px 2px}
+.scrim{position:fixed;inset:0;z-index:45;border:0;padding:0;margin:0;background:transparent;cursor:default}
+.modal{position:fixed;inset:0;z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:80px 16px;background:rgba(27,29,31,.38);animation:kfFadeIn 160ms ease-out;box-sizing:border-box;overflow-y:auto}
+.dlg{width:640px;max-width:100%;animation:kfPop 200ms cubic-bezier(.2,0,0,1)}
+.tb{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border-top:1px solid #1B1D1F;border-left:1px solid #1B1D1F}
+.tbc{border-right:1px solid #1B1D1F;border-bottom:1px solid #1B1D1F;padding:8px 10px;box-sizing:border-box;min-width:0}
+.tbk{display:block;font:600 10px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#4A4C50;margin-bottom:4px}
+.toast{position:fixed;left:50%;bottom:28px;z-index:70;transform:translateX(-50%);display:flex;align-items:center;gap:14px;min-height:48px;padding:0 8px 0 16px;background:#1B1D1F;color:#FFFFFF;border-radius:3px;box-shadow:0 10px 28px rgba(27,29,31,.3);font:500 14px 'IBM Plex Sans',sans-serif;overflow:hidden;animation:kfToast 200ms cubic-bezier(.2,0,0,1)}
+.toast .drain{position:absolute;left:0;right:0;bottom:0;height:3px;background:#7FA2DC;transform-origin:left;animation:kfDrain 6s linear both}
+.toast button,.toast a{display:inline-flex;align-items:center;min-height:36px;padding:0 12px;border:1px solid #7FA2DC;border-radius:3px;background:transparent;color:#FFFFFF;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer;text-decoration:none}
+.toast button:hover,.toast a:hover{background:#2B3A55;color:#FFFFFF}
+.bar{height:6px;background:#E6E4DC;overflow:hidden;border-radius:1px}
+.bar>span{display:block;height:100%;background:#1F4FA3;transform-origin:left;animation:kfFill 1.4s cubic-bezier(.4,0,.2,1) both}
+.chk{stroke-dasharray:14;animation:kfDraw 320ms ease-out both}
+@keyframes kfTip{from{opacity:0;transform:translate(-50%,3px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes kfPop{from{opacity:0;transform:translateY(-4px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes kfFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes kfToast{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes kfDrain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@keyframes kfFill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes kfSweep{0%{background-color:#C9D8F0}100%{background-color:transparent}}
+@keyframes kfDraw{from{stroke-dashoffset:14}to{stroke-dashoffset:0}}
+@keyframes kfSwap{from{opacity:.25}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:1ms!important;animation-delay:0ms!important;transition-duration:1ms!important}}
+</style>
+</helmet>
+<div class="paper" style="min-height: 1000px; display: flex; flex-direction: column; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #1B1D1F">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: stretch; background: #FFFFFF; border-bottom: 2px solid #1B1D1F">
+    <a href="#" style="display: flex; align-items: center; gap: 10px; padding: 0 20px; min-height: 56px; color: #1B1D1F; text-decoration: none; border-right: 1px solid #1B1D1F">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #1B1D1F; stroke-width: 1.75px"><rect x="3" y="3" width="18" height="18"></rect><path d="M3 10h7M14 10h7M12 3v18" style="stroke-dasharray: 2 2"></path></svg>
+      <span style="font: 700 17px 'IBM Plex Sans Condensed', sans-serif; letter-spacing: 0.04em">KERF<span style="font-weight: 500">uffle</span></span>
+    </a>
+    <nav aria-label="App sections" style="display: flex; flex-wrap: wrap; padding: 0 6px">
+      <a class="tab" href="#" aria-current="page">Jobs</a>
+      <a class="tab" href="Settings.dc.html">Settings</a>
+    </nav>
+  </header>
+
+  <main style="flex: 1; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 24px; width: 100%; max-width: 1440px; margin: 0 auto; padding: 28px 24px 40px; box-sizing: border-box">
+
+    <div style="flex: 999 1 640px; min-width: 0">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px">
+        <div>
+          <div class="cap" style="font-size: 12px; color: #4A4C50">Drawing register</div>
+          <h1 style="margin: 2px 0 0; font: 700 32px/1.1 'IBM Plex Sans Condensed', sans-serif; letter-spacing: 0.02em">Jobs</h1>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <button class="btn" type="button" onClick="{{importJob}}">
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.5px"><path d="M8 2v8M4.5 6.5L8 10l3.5-3.5M2.5 11v2.5h11V11"></path></svg>
+            Import job…
+          </button>
+          <button class="btn btn-pri" type="button" onClick="{{openNew}}">
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 2px"><path d="M8 2v12M2 8h12"></path></svg>
+            New job
+          </button>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 14px">
+        <div style="flex: 1 1 280px">
+          <label for="q" class="cap" style="display: block; font-size: 11px; color: #4A4C50; margin-bottom: 6px">Search</label>
+          <div style="position: relative">
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="position: absolute; left: 12px; top: 14px; fill: none; stroke: #63656A; stroke-width: 1.6px"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5L14 14"></path></svg>
+            <input class="inp" id="q" type="search" value="{{query}}" onChange="{{onQuery}}" onKeyDown="{{queryKey}}" placeholder="Job, customer or job number" autocomplete="off" style="padding-left: 36px; padding-right: 40px">
+            <sc-if value="{{hasQuery}}" hint-placeholder-val="{{ false }}">
+              <button type="button" onClick="{{clearQuery}}" aria-label="Clear search" style="position: absolute; right: 6px; top: 6px; width: 32px; height: 32px; border: 0; background: transparent; cursor: pointer; color: #4A4C50; border-radius: 3px"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style="stroke: currentColor; stroke-width: 1.8px"><path d="M2 2l8 8M10 2l-8 8"></path></svg></button>
+            </sc-if>
+            <sc-if value="{{noQuery}}" hint-placeholder-val="{{ true }}">
+              <span class="kbd" aria-hidden="true" style="position: absolute; right: 12px; top: 12px">/</span>
+            </sc-if>
+          </div>
+        </div>
+        <div>
+          <span class="cap" id="flt-l" style="display: block; font-size: 11px; color: #4A4C50; margin-bottom: 6px">Show</span>
+          <div class="seg" role="group" aria-labelledby="flt-l">
+            <span class="seg-thumb" aria-hidden="true" style="width: calc(33.333% - 1.4px); transform: {{thumbX}}"></span>
+            <sc-for list="{{filters}}" as="f" hint-placeholder-count="3">
+              <button type="button" class="seg-b" onClick="{{f.pick}}" aria-pressed="{{f.selected}}" style="color: {{f.color}}">{{f.label}} <span class="mono" style="font-size: 11px; opacity: 0.8">{{f.count}}</span></button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div class="sheet" style="overflow-x: auto">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th scope="col" style="width: 74px">No.</th>
+              <th scope="col" aria-sort="{{sortName}}"><button type="button" class="sortb" onClick="{{sortByName}}">Job <span aria-hidden="true">{{arrowName}}</span></button></th>
+              <th scope="col" aria-sort="{{sortStatus}}"><button type="button" class="sortb" onClick="{{sortByStatus}}">Status <span aria-hidden="true">{{arrowStatus}}</span></button></th>
+              <th scope="col">Cabinets</th>
+              <th scope="col" aria-sort="{{sortEdited}}"><button type="button" class="sortb" onClick="{{sortByEdited}}">Last edited <span aria-hidden="true">{{arrowEdited}}</span></button></th>
+              <th scope="col"><span style="position: absolute; left: -9999px">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{jobs}}" as="j" hint-placeholder-count="5">
+              <tr class="{{j.cls}}" onMouseEnter="{{j.peek}}" onFocus="{{j.peek}}">
+                <td class="mono" style="font-size: 12px; color: #4A4C50">{{j.no}}</td>
+                <td>
+                  <a class="jname" href="Main.dc.html">{{j.n1}}<mark>{{j.n2}}</mark>{{j.n3}}</a>
+                  <div style="font-size: 13px; color: #4A4C50">{{j.c1}}<mark>{{j.c2}}</mark>{{j.c3}}</div>
+                </td>
+                <td><span class="stamp" style="color: {{j.color}}"><span aria-hidden="true" class="mono">{{j.glyph}}</span>{{j.status}}</span></td>
+                <td>
+                  <span style="display: inline-flex; align-items: flex-end; gap: 10px">
+                    <svg width="120" height="34" viewBox="0 0 120 34" aria-hidden="true">
+                      <line x1="0" x2="120" y1="33" y2="33" style="stroke: #9A9C9F; stroke-width: 1px"></line>
+                      <sc-for list="{{j.strip}}" as="r" hint-placeholder-count="5"><rect x="{{r.x}}" y="{{r.y}}" width="{{r.w}}" height="{{r.h}}" style="fill: #FFFFFF; stroke: #1B1D1F; stroke-width: 0.9px"></rect></sc-for>
+                    </svg>
+                    <span class="mono" style="font-size: 13px">{{j.count}}</span>
+                  </span>
+                </td>
+                <td style="color: #2B2D30; white-space: nowrap">{{j.edited}}</td>
+                <td style="text-align: right; white-space: nowrap; position: relative">
+                  <span class="rowacts">
+                    <a class="btn btn-sm" href="Main.dc.html">Open</a>
+                    <a class="btn btn-sm ibtn" href="CutList.dc.html" aria-label="{{j.cutTip}}" data-tip="Cut list">
+                      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.4px"><rect x="3" y="1.5" width="10" height="13"></rect><path d="M5.5 5h5M5.5 8h5M5.5 11h3"></path></svg>
+                    </a>
+                  </span>
+                  <button type="button" class="btn btn-sm ibtn" onClick="{{j.toggleMenu}}" aria-haspopup="menu" aria-expanded="{{j.menuExp}}" aria-label="{{j.moreTip}}" style="margin-left: 6px">
+                    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="fill: currentColor"><circle cx="3.5" cy="8" r="1.4"></circle><circle cx="8" cy="8" r="1.4"></circle><circle cx="12.5" cy="8" r="1.4"></circle></svg>
+                  </button>
+                  <sc-if value="{{j.menuOpen}}" hint-placeholder-val="{{ false }}">
+                    <button type="button" class="scrim" tabindex="-1" aria-label="Close menu" onClick="{{closeMenus}}"></button>
+                    <div class="menu" role="menu" aria-label="{{j.moreTip}}" onKeyDown="{{menuKey}}" style="top: calc(100% - 6px); right: 12px; width: 236px">
+                      <a class="mi" role="menuitem" href="Main.dc.html">Open</a>
+                      <button type="button" class="mi" role="menuitem" onClick="{{j.dup}}">Duplicate</button>
+                      <button type="button" class="mi" role="menuitem" onClick="{{j.export}}">Export job file…</button>
+                      <div class="msep"></div>
+                      <div class="cap" style="font-size: 10px; color: #4A4C50; padding: 4px 10px">Mark as</div>
+                      <sc-for list="{{j.marks}}" as="m" hint-placeholder-count="3">
+                        <button type="button" class="mi" role="menuitem" onClick="{{m.pick}}"><span class="mono" aria-hidden="true" style="width: 14px; color: {{m.color}}">{{m.glyph}}</span>{{m.label}}</button>
+                      </sc-for>
+                      <div class="msep"></div>
+                      <button type="button" class="mi warn" role="menuitem" onClick="{{j.archive}}">{{j.archiveLabel}}</button>
+                    </div>
+                  </sc-if>
+                </td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+        <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 48px 16px 56px; text-align: center">
+            <svg width="120" height="84" viewBox="0 0 120 84" aria-hidden="true" style="fill: none; stroke: #9A9C9F; stroke-width: 1.2px"><rect x="6" y="4" width="108" height="76" style="stroke-dasharray: 5 3"></rect><rect x="66" y="58" width="44" height="18"></rect><path d="M66 67h44M88 58v18"></path></svg>
+            <div style="font-size: 15px">{{emptyText}}</div>
+            <sc-if value="{{hasQuery}}" hint-placeholder-val="{{ true }}"><button class="btn btn-sm" type="button" onClick="{{clearQuery}}">Clear search</button></sc-if>
+          </div>
+        </sc-if>
+      </div>
+
+      <div class="sheet" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; padding: 14px 16px">
+        <div style="display: flex; align-items: center; gap: 12px; font-size: 14px; flex: 1 1 320px; min-width: 0">
+          <sc-if value="{{bkIdle}}" hint-placeholder-val="{{ true }}">
+            <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true" style="fill: none; stroke: #2B6B3F; stroke-width: 2px"><path class="chk" d="M3 8.5l3 3 7-7"></path></svg>
+            <span role="status">Last automatic backup <strong>{{lastBackup}}</strong> · {{kept}} backups kept</span>
+          </sc-if>
+          <sc-if value="{{bkRunning}}" hint-placeholder-val="{{ false }}">
+            <div role="status" style="flex: 1; display: flex; flex-direction: column; gap: 6px"><span>Backing up 5 jobs…</span><div class="bar"><span></span></div></div>
+          </sc-if>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; position: relative">
+          <button class="btn" type="button" onClick="{{backupNow}}" disabled="{{bkRunning}}">Back up now</button>
+          <button class="btn" type="button" onClick="{{toggleRestore}}" aria-haspopup="dialog" aria-expanded="{{restoreExp}}">Restore backup…</button>
+          <sc-if value="{{restoreOpen}}" hint-placeholder-val="{{ false }}">
+            <button type="button" class="scrim" tabindex="-1" aria-label="Close" onClick="{{closeMenus}}"></button>
+            <div class="menu" role="dialog" aria-label="Restore a backup" onKeyDown="{{menuKey}}" style="bottom: calc(100% + 8px); right: 0; width: 340px; padding: 12px">
+              <sc-if value="{{noPick}}" hint-placeholder-val="{{ true }}">
+                <div class="cap" style="font-size: 11px; color: #4A4C50; padding: 0 4px 6px">Choose a backup</div>
+                <sc-for list="{{backups}}" as="b" hint-placeholder-count="5">
+                  <button type="button" class="mi" onClick="{{b.pick}}"><span style="flex: 1">{{b.when}}</span><span class="mono" style="font-size: 12px; color: #4A4C50">{{b.jobs}}</span></button>
+                </sc-for>
+              </sc-if>
+              <sc-if value="{{hasPick}}" hint-placeholder-val="{{ false }}">
+                <div style="padding: 4px 4px 0">
+                  <div style="font-weight: 600; margin-bottom: 6px">Restore the backup from {{pickWhen}}?</div>
+                  <p style="margin: 0 0 12px; font-size: 13px; color: #2B2D30; line-height: 1.5">Your jobs go back to how they were then. KERFuffle backs up the current jobs first, so you can undo this by restoring that backup.</p>
+                  <div style="display: flex; justify-content: flex-end; gap: 8px">
+                    <button type="button" class="btn btn-sm" onClick="{{unpick}}">Back</button>
+                    <button type="button" class="btn btn-sm btn-pri" onClick="{{doRestore}}">Restore</button>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+
+    <aside class="sheet" aria-labelledby="pv-h" style="flex: 1 1 380px; max-width: 460px; min-width: 0; padding: 16px">
+      <div class="vt" style="margin-bottom: 14px"><span class="bub" aria-hidden="true">A</span><div><div class="vt-t" id="pv-h">Job preview</div><div class="vt-s">{{pv.no}} · ELEVATION, NTS</div></div></div>
+      <sc-if value="{{pv.has}}" hint-placeholder-val="{{ true }}">
+        <div style="animation: kfSwap 180ms ease-out" data-k="{{pv.no}}">
+          <svg viewBox="0 0 400 190" role="img" aria-label="{{pv.label}}" style="display: block; width: 100%; height: auto; background: #FAF9F5; border: 1px dashed #9A9C9F">
+            <line x1="12" x2="388" y1="{{pv.floor}}" y2="{{pv.floor}}" style="stroke: #1B1D1F; stroke-width: 1.4px"></line>
+            <path d="{{pv.floorHatch}}" style="stroke: #9A9C9F; stroke-width: 0.8px"></path>
+            <sc-for list="{{pv.boxes}}" as="b" hint-placeholder-count="6">
+              <rect x="{{b.x}}" y="{{b.y}}" width="{{b.w}}" height="{{b.h}}" style="fill: #FFFFFF; stroke: #1B1D1F; stroke-width: 1.1px"></rect>
+              <text x="{{b.tx}}" y="{{b.ty}}" style="font: 600 9px IBM Plex Sans Condensed, sans-serif; fill: #4A4C50; text-anchor: middle; letter-spacing: 0.05em">{{b.id}}</text>
+            </sc-for>
+            <sc-if value="{{pv.hasRun}}" hint-placeholder-val="{{ true }}">
+              <line x1="{{pv.runX1}}" x2="{{pv.runX2}}" y1="{{pv.runY}}" y2="{{pv.runY}}" style="stroke: #1F4FA3; stroke-width: 1px"></line>
+              <path d="{{pv.runTicks}}" style="stroke: #1F4FA3; stroke-width: 1px"></path>
+              <rect x="{{pv.runBx}}" y="{{pv.runBy}}" width="{{pv.runBw}}" height="14" style="fill: #FAF9F5"></rect>
+              <text x="{{pv.runTx}}" y="{{pv.runTy}}" style="font: 600 10px IBM Plex Mono, monospace; fill: #1F4FA3; text-anchor: middle">{{pv.runText}}</text>
+            </sc-if>
+          </svg>
+          <div class="tb" style="margin-top: 14px">
+            <div class="tbc" style="grid-column: span 4"><span class="tbk">Job</span><span style="font-weight: 600">{{pv.name}}</span></div>
+            <div class="tbc" style="grid-column: span 2"><span class="tbk">No.</span><span class="mono">{{pv.no}}</span></div>
+            <div class="tbc" style="grid-column: span 4"><span class="tbk">Customer</span>{{pv.customer}}</div>
+            <div class="tbc" style="grid-column: span 2"><span class="tbk">Status</span><span class="cap" style="font-size: 12px; color: {{pv.color}}">{{pv.glyph}} {{pv.status}}</span></div>
+            <div class="tbc" style="grid-column: span 2"><span class="tbk">Boxes</span><span class="mono" style="font-size: 18px; font-weight: 600">{{pv.count}}</span></div>
+            <div class="tbc" style="grid-column: span 2"><span class="tbk">Panel pcs</span><span class="mono" style="font-size: 18px; font-weight: 600">{{pv.panels}}</span></div>
+            <div class="tbc" style="grid-column: span 2"><span class="tbk">Laminate pcs</span><span class="mono" style="font-size: 18px; font-weight: 600">{{pv.lams}}</span></div>
+            <div class="tbc" style="grid-column: span 6"><span class="tbk">Notes</span><span style="font-size: 13px; color: #2B2D30">{{pv.notes}}</span></div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px">
+            <a class="btn btn-pri" href="Main.dc.html" style="flex: 1">Open job</a>
+            <a class="btn" href="CutList.dc.html">Cut list</a>
+            <button class="btn" type="button" onClick="{{pv.dup}}">Duplicate</button>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{pv.none}}" hint-placeholder-val="{{ false }}">
+        <p style="margin: 0; padding: 40px 0; text-align: center; color: #4A4C50">Point at a job to preview it.</p>
+      </sc-if>
+    </aside>
+  </main>
+
+  <sc-if value="{{newOpen}}" hint-placeholder-val="{{ false }}">
+    <div class="modal" onKeyDown="{{newKey}}">
+      <div class="sheet dlg" role="dialog" aria-modal="true" aria-labelledby="nj-h" style="padding: 22px 24px 20px">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px">
+          <div class="vt"><span class="bub" aria-hidden="true">+</span><div><div class="vt-t" id="nj-h">New job</div><div class="vt-s">{{nextNo}} · STARTS AS DRAFT</div></div></div>
+          <button type="button" class="btn btn-sm ibtn" onClick="{{closeNew}}" aria-label="Close"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style="stroke: currentColor; stroke-width: 1.8px"><path d="M2 2l8 8M10 2l-8 8"></path></svg></button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px">
+          <div style="grid-column: span 2">
+            <label for="nj-name" style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px">Job name</label>
+            <input class="{{nameCls}}" id="nj-name" ref="{{nameRef}}" value="{{newName}}" onChange="{{onNewName}}" aria-invalid="{{nameBad}}" aria-describedby="nj-name-msg" placeholder="e.g. Kitchen remodel" autocomplete="off">
+            <div id="nj-name-msg" style="min-height: 18px; margin-top: 4px; font-size: 12px; color: #B3261E">{{nameMsg}}</div>
+          </div>
+          <div>
+            <label for="nj-cust" style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px">Customer or project <span style="font-weight: 400; color: #4A4C50">(optional)</span></label>
+            <input class="inp" id="nj-cust" value="{{newCust}}" onChange="{{onNewCust}}" autocomplete="off">
+          </div>
+          <div>
+            <label for="nj-room" style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px">Start with</label>
+            <select id="nj-room" class="inp" style="padding-right: 8px">
+              <option>An empty job</option>
+              <option>A copy of “Kitchen remodel”</option>
+            </select>
+          </div>
+          <div style="grid-column: span 2">
+            <label for="nj-notes" style="display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px">Notes <span style="font-weight: 400; color: #4A4C50">(optional)</span></label>
+            <textarea id="nj-notes" class="inp" rows="2" style="height: auto; padding: 10px 12px; resize: vertical"></textarea>
+          </div>
+        </div>
+        <div style="margin-top: 14px; padding: 10px 12px; border: 1px dashed #9A9C9F; background: #FAF9F5; font-size: 13px">
+          <div class="cap" style="font-size: 11px; color: #4A4C50; margin-bottom: 6px">Construction · copied from shop defaults</div>
+          <div class="mono" style="display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px"><span>Panel 3/4″</span><span>Toe kick 4″</span><span>Countertop 1 1/2″</span><span>Shelf clear. 1/8″ ea.</span><span>Setback 1/8″</span><span>Lam. +1″ ea. edge</span></div>
+          <div style="margin-top: 6px; color: #4A4C50">The job keeps its own copy. <a href="Settings.dc.html">Edit shop defaults</a></div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px">
+          <button type="button" class="btn" onClick="{{closeNew}}">Cancel</button>
+          <sc-if value="{{nameOk}}" hint-placeholder-val="{{ false }}"><a class="btn btn-pri" href="Main.dc.html">Create and open</a></sc-if>
+          <sc-if value="{{nameNotOk}}" hint-placeholder-val="{{ true }}"><button type="button" class="btn btn-pri" onClick="{{tryCreate}}">Create and open</button></sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+    <div class="toast" role="status">
+      <span>{{toastText}}</span>
+      <sc-if value="{{toastUndo}}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{undoToast}}">Undo</button></sc-if>
+      <sc-if value="{{toastOpen}}" hint-placeholder-val="{{ false }}"><a href="Main.dc.html">Open</a></sc-if>
+      <span class="drain" aria-hidden="true"></span>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+var STATUS = { 'Draft': ['○', '#4A4C50', 0], 'Ready to cut': ['◆', '#1F4FA3', 1], 'Completed': ['✓', '#2B6B3F', 2], 'Archived': ['▭', '#63656A', 3] };
+var SEED = [
+  { no: 'J-0014', name: 'Kitchen remodel', customer: '[Customer name]', status: 'Draft', edited: 'Today, 9:41 AM', ts: 50, notes: 'Island deferred. Uppers to ceiling?', base: [['B1', 30], ['B2', 42], ['B3', 18], ['B3', 18]], wall: [['W1', 30], ['W2', 15]] },
+  { no: 'J-0013', name: 'Laundry room built-ins', customer: '[Customer name]', status: 'Ready to cut', edited: 'Yesterday, 4:12 PM', ts: 40, notes: 'White melamine throughout.', base: [['B1', 24], ['B2', 30]], wall: [['W1', 24], ['W2', 30], ['W3', 36]] },
+  { no: 'J-0012', name: 'Garage wall cabinets', customer: 'Shop', status: 'Ready to cut', edited: 'Oct 21', ts: 30, notes: '', base: [], wall: [['W1', 36], ['W2', 36], ['W3', 36], ['W4', 36], ['W5', 30], ['W6', 30], ['W7', 24], ['W8', 24]] },
+  { no: 'J-0011', name: 'Bathroom vanity', customer: '[Customer name]', status: 'Completed', edited: 'Oct 9', ts: 20, notes: 'Both ends finished.', base: [['B1', 36], ['B2', 18]], wall: [] },
+  { no: 'J-0009', name: 'Office storage', customer: '[Customer name]', status: 'Archived', edited: 'Aug 30', ts: 10, notes: '', base: [['B1', 30], ['B2', 30]], wall: [['W1', 30], ['W2', 30], ['W3', 30]] }
+];
+var BACKUPS = [['Today, 8:02 AM', '5 jobs'], ['Yesterday, 8:00 AM', '5 jobs'], ['Oct 29, 8:01 AM', '4 jobs'], ['Oct 28, 8:00 AM', '4 jobs'], ['Oct 21, 8:03 AM', '4 jobs']];
+var FILTERS = [['active', 'Active'], ['all', 'All'], ['archived', 'Archived']];
+
+function split(text, q) {
+  var i = q ? text.toLowerCase().indexOf(q) : -1;
+  if (i < 0) return [text, '', ''];
+  return [text.slice(0, i), text.slice(i, i + q.length), text.slice(i + q.length)];
+}
+function strip(j) {
+  var all = j.base.map(function (b) { return { w: b[1], base: true }; }).concat(j.wall.map(function (w) { return { w: w[1], base: false }; }));
+  var total = all.reduce(function (a, b) { return a + b.w; }, 0) || 1;
+  var s = Math.min(1, (120 - all.length * 2) / total), x = 0;
+  return all.map(function (b) {
+    var w = b.w * s, h = b.base ? 22 : 16, r = { x: x, y: 33 - h, w: Math.max(2, w - 1), h: h };
+    x += w + 2;
+    return r;
+  });
+}
+function elevation(j) {
+  var bw = j.base.reduce(function (a, b) { return a + b[1]; }, 0), ww = j.wall.reduce(function (a, b) { return a + b[1]; }, 0);
+  var run = Math.max(bw, ww, 1), s = Math.min(340 / run, 2.6), x0 = 30, floor = 150;
+  var boxes = [], x = x0;
+  j.base.forEach(function (b) { var w = b[1] * s, h = 34.5 * s; boxes.push({ x: x, y: floor - h, w: w, h: h, id: b[0], tx: x + w / 2, ty: floor - h / 2 + 3 }); x += w; });
+  x = x0;
+  var wy = floor - 84 * s;
+  j.wall.forEach(function (b) { var w = b[1] * s, h = 30 * s; boxes.push({ x: x, y: wy - h, w: w, h: h, id: b[0], tx: x + w / 2, ty: wy - h / 2 + 3 }); x += w; });
+  var hatch = '';
+  for (var i = 16; i < 388; i += 9) hatch += 'M' + i + ' ' + (floor + 1) + 'l-6 7';
+  var ft = Math.floor(bw / 12), inch = bw - ft * 12;
+  var text = bw ? 'BASE RUN ' + ft + '′-' + inch + '″' : '';
+  var tw = text.length * 6.2 + 10, mid = x0 + (bw * s) / 2, ry = floor + 22;
+  var panels = 0, lams = 0;
+  j.base.forEach(function () { panels += 7; lams += 1; });
+  j.wall.forEach(function () { panels += 8; lams += 1; });
+  return {
+    floor: floor, floorHatch: hatch, boxes: boxes, hasRun: bw > 0,
+    runX1: x0, runX2: x0 + bw * s, runY: ry, runTicks: 'M' + (x0 - 4) + ' ' + (ry + 4) + 'l8 -8M' + (x0 + bw * s - 4) + ' ' + (ry + 4) + 'l8 -8M' + x0 + ' ' + (floor + 3) + 'V' + (ry + 5) + 'M' + (x0 + bw * s) + ' ' + (floor + 3) + 'V' + (ry + 5),
+    runBx: mid - tw / 2, runBy: ry - 7, runBw: tw, runTx: mid, runTy: ry + 4, runText: text,
+    panels: panels, lams: lams
+  };
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.timers = [];
+    this.nameEl = null;
+    this.state = {
+      jobs: SEED.slice(), query: '', filter: 'active', sort: 'edited', dir: -1,
+      peek: 'J-0014', menu: null, fresh: null, leaving: null,
+      toast: null, toastN: 0, lastUndo: null,
+      bk: 'idle', lastBackup: 'today, 8:02 AM', kept: 14,
+      restoreOpen: false, restorePick: null,
+      newOpen: false, newName: '', newCust: '', newTried: false, seq: 15
+    };
+  }
+  componentWillUnmount() { this.timers.forEach(clearTimeout); }
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+  showToast(text, opts) {
+    var self = this, n = this.state.toastN + 1;
+    this.setState({ toast: Object.assign({ text: text }, opts || {}), toastN: n });
+    this.later(function () { if (self.state.toastN === n) self.setState({ toast: null }); }, 6000);
+  }
+  dup(no) {
+    var st = this.state, i = st.jobs.findIndex(function (j) { return j.no === no; }), src = st.jobs[i];
+    var copy = Object.assign({}, src, { no: 'J-00' + st.seq, name: src.name + ' (copy)', status: 'Draft', edited: 'Just now', ts: 100 + st.seq });
+    var jobs = st.jobs.slice(0, i).concat([copy], st.jobs.slice(i));
+    var self = this;
+    this.setState({ jobs: jobs, seq: st.seq + 1, menu: null, fresh: copy.no, peek: copy.no, filter: st.filter === 'archived' ? 'all' : st.filter });
+    this.later(function () { if (self.state.fresh === copy.no) self.setState({ fresh: null }); }, 1500);
+    this.showToast('Duplicated as “' + copy.name + '”', { open: true });
+  }
+  setStatus(no, status) {
+    var self = this, st = this.state, prev = null;
+    var jobs = st.jobs.map(function (j) { if (j.no !== no) return j; prev = j.status; return Object.assign({}, j, { status: status, edited: 'Just now' }); });
+    var hide = (st.filter === 'active' && status === 'Archived') || (st.filter === 'archived' && status !== 'Archived');
+    var done = function () {
+      self.setState({ jobs: jobs, menu: null, leaving: null, lastUndo: { no: no, status: prev } });
+      self.showToast(status === 'Archived' ? 'Archived “' + jobs.find(function (j) { return j.no === no; }).name + '”' : 'Marked ' + status.toLowerCase(), { undo: true });
+    };
+    if (hide) { this.setState({ leaving: no, menu: null }); this.later(done, 200); } else done();
+  }
+  renderVals() {
+    var self = this, st = this.state, q = st.query.trim().toLowerCase();
+    var counts = { active: 0, all: st.jobs.length, archived: 0 };
+    st.jobs.forEach(function (j) { if (j.status === 'Archived') counts.archived++; else counts.active++; });
+    var list = st.jobs.filter(function (j) {
+      if (st.filter === 'active' && j.status === 'Archived' && st.leaving !== j.no) return false;
+      if (st.filter === 'archived' && j.status !== 'Archived' && st.leaving !== j.no) return false;
+      return !q || (j.name + ' ' + j.customer + ' ' + j.no).toLowerCase().indexOf(q) !== -1;
+    });
+    list.sort(function (a, b) {
+      if (st.sort === 'name') return st.dir * a.name.localeCompare(b.name);
+      if (st.sort === 'status') return st.dir * (STATUS[a.status][2] - STATUS[b.status][2]) || b.ts - a.ts;
+      return st.dir * (a.ts - b.ts);
+    });
+    var pj = st.jobs.find(function (j) { return j.no === st.peek; }) || list[0];
+    var closeAll = function () { self.setState({ menu: null, restoreOpen: false, restorePick: null }); };
+    function sorter(key, firstDir) {
+      return function () { self.setState({ sort: key, dir: st.sort === key ? -st.dir : firstDir }); };
+    }
+    function aria(key) { return st.sort === key ? (st.dir > 0 ? 'ascending' : 'descending') : 'none'; }
+    function arrow(key) { return st.sort === key ? (st.dir > 0 ? '▲' : '▼') : ''; }
+    var fi = FILTERS.findIndex(function (f) { return f[0] === st.filter; });
+    var pv = { has: false, none: true, no: '—', boxes: [] };
+    if (pj) {
+      var el = elevation(pj), S = STATUS[pj.status];
+      pv = Object.assign(el, {
+        has: true, none: false, count: el.boxes.length, no: pj.no, name: pj.name, customer: pj.customer, status: pj.status, glyph: S[0], color: S[1],
+        notes: pj.notes || 'No notes.',
+        label: pj.name + ' elevation: ' + pj.base.length + ' base and ' + pj.wall.length + ' wall cabinets',
+        dup: function () { self.dup(pj.no); }
+      });
+    }
+    var nameOk = st.newName.trim().length > 0;
+    var taken = st.jobs.some(function (j) { return j.name.toLowerCase() === st.newName.trim().toLowerCase(); });
+    var nameMsg = st.newTried && !nameOk ? '⚠ Give the job a name' : (taken ? '△ A job with this name already exists. That’s allowed.' : '');
+
+    return {
+      query: st.query, hasQuery: !!st.query, noQuery: !st.query,
+      onQuery: function (e) { self.setState({ query: e.target.value }); },
+      queryKey: function (e) { if (e.key === 'Escape') self.setState({ query: '' }); },
+      clearQuery: function () { self.setState({ query: '' }); },
+      thumbX: 'translateX(' + fi * 100 + '%)',
+      filters: FILTERS.map(function (f) {
+        var on = st.filter === f[0];
+        return { label: f[1], count: counts[f[0]], selected: on ? 'true' : 'false', color: on ? '#FFFFFF' : '#1B1D1F', pick: function () { self.setState({ filter: f[0] }); } };
+      }),
+      sortName: aria('name'), sortStatus: aria('status'), sortEdited: aria('edited'),
+      arrowName: arrow('name'), arrowStatus: arrow('status'), arrowEdited: arrow('edited'),
+      sortByName: sorter('name', 1), sortByStatus: sorter('status', 1), sortByEdited: sorter('edited', -1),
+      jobs: list.map(function (j) {
+        var S = STATUS[j.status], n = split(j.name, q), cu = split(j.customer, q);
+        return {
+          no: j.no, n1: n[0], n2: n[1], n3: n[2], c1: cu[0], c2: cu[1], c3: cu[2],
+          status: j.status, glyph: S[0], color: S[1], edited: j.edited,
+          strip: strip(j), count: String(j.base.length + j.wall.length),
+          cls: 'jrow' + (pj && pj.no === j.no ? ' peek' : '') + (st.fresh === j.no ? ' new' : '') + (st.leaving === j.no ? ' out' : ''),
+          peek: function () { if (self.state.peek !== j.no) self.setState({ peek: j.no }); },
+          menuOpen: st.menu === j.no, menuExp: st.menu === j.no ? 'true' : 'false',
+          moreTip: 'More actions for ' + j.name, cutTip: 'Cut list for ' + j.name,
+          toggleMenu: function () { self.setState({ menu: st.menu === j.no ? null : j.no, restoreOpen: false }); },
+          dup: function () { self.dup(j.no); },
+          export: function () { self.setState({ menu: null }); self.showToast('Saved “' + j.name + '.kerfjob” to Documents', {}); },
+          marks: ['Draft', 'Ready to cut', 'Completed'].filter(function (s) { return s !== j.status; }).map(function (s) {
+            return { label: s, glyph: STATUS[s][0], color: STATUS[s][1], pick: function () { self.setStatus(j.no, s); } };
+          }),
+          archiveLabel: j.status === 'Archived' ? 'Restore from archive' : 'Archive',
+          archive: function () { self.setStatus(j.no, j.status === 'Archived' ? 'Draft' : 'Archived'); }
+        };
+      }),
+      empty: list.length === 0,
+      emptyText: q ? 'No jobs match “' + st.query + '”.' : (st.filter === 'archived' ? 'Nothing archived yet.' : 'No jobs yet. Start one with New job.'),
+      closeMenus: closeAll,
+      menuKey: function (e) { if (e.key === 'Escape') closeAll(); },
+      pv: pv,
+
+      importJob: function () { self.showToast('Choose a .kerfjob file to import', {}); },
+      bkIdle: st.bk !== 'running', bkRunning: st.bk === 'running', lastBackup: st.lastBackup, kept: st.kept,
+      backupNow: function () {
+        self.setState({ bk: 'running' });
+        self.later(function () { self.setState({ bk: 'idle', lastBackup: 'just now', kept: 15 }); self.showToast('Backed up 5 jobs', {}); }, 1500);
+      },
+      restoreOpen: st.restoreOpen, restoreExp: st.restoreOpen ? 'true' : 'false',
+      toggleRestore: function () { self.setState({ restoreOpen: !st.restoreOpen, restorePick: null, menu: null }); },
+      backups: BACKUPS.map(function (b) { return { when: b[0], jobs: b[1], pick: function () { self.setState({ restorePick: b[0] }); } }; }),
+      noPick: !st.restorePick, hasPick: !!st.restorePick, pickWhen: st.restorePick || '',
+      unpick: function () { self.setState({ restorePick: null }); },
+      doRestore: function () { var w = st.restorePick; self.setState({ restoreOpen: false, restorePick: null }); self.showToast('Restored backup from ' + w + '. Current jobs were backed up first.', {}); },
+
+      newOpen: st.newOpen, newName: st.newName, newCust: st.newCust, nextNo: 'J-00' + st.seq,
+      openNew: function () {
+        self.setState({ newOpen: true, newName: '', newCust: '', newTried: false });
+        self.later(function () { if (self.nameEl) self.nameEl.focus(); }, 30);
+      },
+      closeNew: function () { self.setState({ newOpen: false }); },
+      newKey: function (e) { if (e.key === 'Escape') self.setState({ newOpen: false }); },
+      nameRef: function (el) { self.nameEl = el; },
+      onNewName: function (e) { self.setState({ newName: e.target.value }); },
+      onNewCust: function (e) { self.setState({ newCust: e.target.value }); },
+      nameOk: nameOk, nameNotOk: !nameOk, nameMsg: nameMsg,
+      nameBad: st.newTried && !nameOk ? 'true' : 'false', nameCls: 'inp' + (st.newTried && !nameOk ? ' bad' : ''),
+      tryCreate: function () { self.setState({ newTried: true }); if (self.nameEl) self.nameEl.focus(); },
+
+      hasToast: !!st.toast, toastText: st.toast ? st.toast.text : '',
+      toastUndo: !!(st.toast && st.toast.undo), toastOpen: !!(st.toast && st.toast.open),
+      undoToast: function () {
+        var u = st.lastUndo;
+        if (!u) return;
+        self.setState({
+          jobs: st.jobs.map(function (j) { return j.no === u.no ? Object.assign({}, j, { status: u.status }) : j; }),
+          lastUndo: null, toast: null, fresh: u.no
+        });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

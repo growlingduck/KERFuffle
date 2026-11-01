@@ -1,0 +1,20 @@
+{
+  "name": "Base 30 W x 36 H x 24 D, 23/32 panels, 1 shelf, no finished ends",
+  "status": "unconfirmed",
+  "notes": "23/32 plywood. Depth 24 - 23/32 = 23 9/32, which a 1/16 display can only show as about 23 5/16. Inner width 30 - 2 x 23/32 = 28 9/16 is exact. The panel thickness itself shows as about 3/4. Shelf: 28 9/16 - 1/4 = 28 5/16 long; 23 9/32 - 1/8 = 23 5/32 deep, shown as about 23 3/16. Expect a warning that 23/32 panels do not match 3/4 shelves.",
+  "spec": { "id": "B3", "type": "base", "width": "30", "height": "36", "depth": "24", "shelfCount": 1, "finishedEnds": "none", "quantity": 1 },
+  "rules": { "preset": "DEFAULT_RULES", "overrides": { "panelThickness": "23/32" } },
+  "expected": [
+    { "role": "back",           "category": "panel",    "name": "Back",            "length": "30 1/2",  "width": "30",      "thickness": "23/32", "quantity": 1,
+      "display": { "length": { "text": "30 1/2\"", "inexact": false }, "thickness": { "text": "3/4\"", "inexact": true } } },
+    { "role": "bottom",         "category": "panel",    "name": "Bottom",          "length": "28 9/16", "width": "23 9/32", "thickness": "23/32", "quantity": 1,
+      "display": { "length": { "text": "28 9/16\"", "inexact": false }, "width": { "text": "23 5/16\"", "inexact": true } } },
+    { "role": "side-left",      "category": "panel",    "name": "Left side",       "length": "30 1/2",  "width": "23 9/32", "thickness": "23/32", "quantity": 1 },
+    { "role": "side-right",     "category": "panel",    "name": "Right side",      "length": "30 1/2",  "width": "23 9/32", "thickness": "23/32", "quantity": 1 },
+    { "role": "top",            "category": "panel",    "name": "Top",             "length": "28 9/16", "width": "23 9/32", "thickness": "23/32", "quantity": 1 },
+    { "role": "front",          "category": "panel",    "name": "Front (door/laminate size)", "length": "30 1/2",  "width": "30",      "thickness": "23/32", "quantity": 1, "optional": true },
+    { "role": "shelf",          "category": "panel",    "name": "Shelf",           "length": "28 5/16", "width": "23 5/32", "thickness": "3/4",   "quantity": 1,
+      "display": { "length": { "text": "28 5/16\"", "inexact": false }, "width": { "text": "23 3/16\"", "inexact": true }, "thickness": { "text": "3/4\"", "inexact": false } } },
+    { "role": "laminate-front", "category": "laminate", "name": "Laminate, front", "length": "32 1/2",  "width": "32",      "thickness": null,    "quantity": 1 }
+  ]
+}

@@ -1,0 +1,61 @@
+.sheet {
+  position: relative;
+  min-width: 0;
+  background: var(--white);
+  border: 1px solid var(--ink-2);
+  border-radius: var(--radius-sheet);
+}
+
+/* Registration ticks */
+.sheet::before,
+.sheet::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+}
+.sheet::before {
+  left: -6px;
+  top: -6px;
+  border-left: 1px solid var(--ink);
+  border-top: 1px solid var(--ink);
+}
+.sheet::after {
+  right: -6px;
+  bottom: -6px;
+  border-right: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+
+.selected {
+  border-color: var(--blue);
+  background: var(--blue-tint-faint);
+}
+.selected::before,
+.selected::after {
+  width: 8px;
+  height: 8px;
+}
+.selected::before {
+  left: -5px;
+  top: -5px;
+  border-left: 2px solid var(--blue);
+  border-top: 2px solid var(--blue);
+}
+.selected::after {
+  right: -5px;
+  bottom: -5px;
+  border-right: 2px solid var(--blue);
+  border-bottom: 2px solid var(--blue);
+}
+
+.none {
+  padding: 0;
+}
+.sm {
+  padding: 14px;
+}
+.md {
+  padding: 18px 20px 20px;
+}

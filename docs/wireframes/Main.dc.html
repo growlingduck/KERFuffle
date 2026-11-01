@@ -1,0 +1,1130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Job workspace</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&amp;family=IBM+Plex+Sans+Condensed:wght@500;600;700&amp;family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F2F1EB}
+a{color:#1F4FA3}a:hover{color:#163A7A}
+.paper{background-color:#F2F1EB;background-image:linear-gradient(#E2E0D7 1px,transparent 1px),linear-gradient(90deg,#E2E0D7 1px,transparent 1px),linear-gradient(#EBE9E1 1px,transparent 1px),linear-gradient(90deg,#EBE9E1 1px,transparent 1px);background-size:96px 96px,96px 96px,16px 16px,16px 16px}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.cap{font-family:'IBM Plex Sans Condensed','IBM Plex Sans',sans-serif;font-weight:600;letter-spacing:.09em;text-transform:uppercase}
+.sheet{position:relative;background:#FFFFFF;border:1px solid #2B2D30;box-sizing:border-box}
+.sheet::before,.sheet::after{content:"";position:absolute;width:10px;height:10px;pointer-events:none}
+.sheet::before{left:-6px;top:-6px;border-left:1px solid #1B1D1F;border-top:1px solid #1B1D1F}
+.sheet::after{right:-6px;bottom:-6px;border-right:1px solid #1B1D1F;border-bottom:1px solid #1B1D1F}
+.vt{display:flex;align-items:center;gap:10px;min-width:0}
+.bub{display:inline-flex;align-items:center;justify-content:center;flex:none;width:26px;height:26px;box-sizing:border-box;border:1.5px solid #1B1D1F;border-radius:50%;font:700 13px 'IBM Plex Sans Condensed',sans-serif;background:#FFFFFF;color:#1B1D1F}
+.vt-t{font:700 15px/1.2 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.06em;text-transform:uppercase;border-bottom:2px solid #1B1D1F;padding-bottom:1px}
+.vt-s{font:500 11px 'IBM Plex Mono',monospace;color:#4A4C50;margin-top:3px;letter-spacing:.03em}
+.btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 14px;border:1px solid #9A9C9F;border-radius:3px;background:#FFFFFF;font:500 14px 'IBM Plex Sans',system-ui,sans-serif;color:#1B1D1F;cursor:pointer;text-decoration:none;box-sizing:border-box;transition:background-color 120ms,border-color 120ms,transform 80ms}
+.btn:hover{background:#EEEDE7;border-color:#5E6066;color:#1B1D1F}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{color:#8E9095;border-color:#D9D7CF;background:#FFFFFF;cursor:not-allowed;transform:none}
+.btn-pri{background:#1F4FA3;border-color:#1F4FA3;color:#FFFFFF}
+.btn-pri:hover{background:#163A7A;border-color:#163A7A;color:#FFFFFF}
+.ibtn{width:40px;padding:0}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #1F4FA3;outline-offset:2px}
+[data-tip]{position:relative}
+[data-tip]:hover::after,[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);background:#1B1D1F;color:#FFFFFF;font:500 12px/1.35 'IBM Plex Sans',sans-serif;letter-spacing:0;text-transform:none;padding:6px 9px;border-radius:3px;white-space:nowrap;z-index:60;pointer-events:none;animation:kfTip 140ms ease-out 400ms both}
+.tip-dn[data-tip]:hover::after,.tip-dn[data-tip]:focus-visible::after{bottom:auto;top:calc(100% + 8px)}
+.kbd{display:inline-block;min-width:14px;text-align:center;font:500 11px 'IBM Plex Mono',monospace;color:#1B1D1F;background:#FFFFFF;border:1px solid #9A9C9F;border-bottom-width:2px;border-radius:3px;padding:0 5px;line-height:18px}
+.stamp{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border:2px solid currentColor;box-shadow:0 0 0 2px #FFFFFF,0 0 0 3px currentColor;font:700 12px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;transform:rotate(-2deg);white-space:nowrap;background:#FFFFFF}
+.tab{position:relative;display:inline-flex;align-items:center;min-height:56px;padding:0 14px;font:600 13px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#4A4C50;text-decoration:none}
+.tab::after{content:"";position:absolute;left:14px;right:14px;bottom:-2px;height:3px;background:#1F4FA3;transform:scaleX(0);transition:transform 180ms cubic-bezier(.2,0,0,1)}
+.tab:hover{color:#1B1D1F}.tab:hover::after{transform:scaleX(.35)}
+.tab[aria-current="page"]{color:#1B1D1F}.tab[aria-current="page"]::after{transform:scaleX(1)}
+.tbc{display:flex;flex-direction:column;justify-content:center;gap:2px;padding:6px 14px;border-left:1px solid #1B1D1F;min-height:56px;box-sizing:border-box;position:relative}
+.tbk{font:600 10px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#4A4C50}
+.lbl{display:flex;align-items:center;gap:8px;font:600 13px 'IBM Plex Sans',sans-serif;color:#2B2D30;margin-bottom:6px}
+.sym{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 3px;box-sizing:border-box;border:1px solid currentColor;font:700 11px 'IBM Plex Mono',monospace;color:#4A4C50;margin-left:auto;transition:color 120ms,background-color 120ms}
+.sym.on{color:#FFFFFF;background:#1F4FA3;border-color:#1F4FA3}
+.fld{position:relative}
+.inp{box-sizing:border-box;width:100%;height:44px;padding:0 34px 0 12px;border:1px solid #9A9C9F;border-radius:3px;background:#FFFFFF;font:500 17px 'IBM Plex Mono',monospace;color:#1B1D1F;transition:border-color 120ms,box-shadow 120ms,background-color 120ms}
+.inp:hover{border-color:#5E6066}
+.inp:focus{outline:none;border-color:#1F4FA3;box-shadow:0 0 0 3px #C9D8F0}
+.inp.hot{border-color:#1F4FA3;box-shadow:0 0 0 3px #E3EBF7}
+.inp.bad{border-color:#B3261E;background:#FDF3F2}
+.inp.bad:focus{box-shadow:0 0 0 3px #F3C9C5}
+.unit{position:absolute;right:11px;top:14px;font:500 13px 'IBM Plex Mono',monospace;color:#63656A;pointer-events:none}
+.msg{min-height:18px;margin-top:5px;font-size:12px;line-height:1.4}
+.step{display:flex;align-items:stretch}
+.step .inp{border-radius:0;text-align:center;padding:0 6px;min-width:0}
+.sbtn{width:40px;flex:none;border:1px solid #9A9C9F;background:#FFFFFF;cursor:pointer;color:#1B1D1F;display:flex;align-items:center;justify-content:center;transition:background-color 120ms}
+.sbtn:hover{background:#EEEDE7}.sbtn:active{background:#E3E1D8}
+.sbtn[disabled]{color:#B5B6B2;cursor:not-allowed;background:#FFFFFF}
+.sbtn.l{border-right:0;border-radius:3px 0 0 3px}.sbtn.r{border-left:0;border-radius:0 3px 3px 0}
+.seg{position:relative;display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;border:1px solid #2B2D30;border-radius:3px;background:#FFFFFF;padding:2px}
+.seg-thumb{position:absolute;top:2px;bottom:2px;left:2px;background:#1B1D1F;border-radius:2px;transition:transform 200ms cubic-bezier(.2,0,0,1)}
+.seg-b{position:relative;z-index:1;min-height:36px;padding:0 18px;border:0;background:transparent;font:600 13px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.09em;text-transform:uppercase;cursor:pointer;transition:color 200ms}
+.endb{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:78px;min-height:64px;padding:6px 10px;border:1px solid #9A9C9F;border-radius:3px;background:#FFFFFF;cursor:pointer;font:600 12px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#1B1D1F;transition:border-color 120ms,background-color 120ms,transform 80ms}
+.endb:hover{border-color:#1B1D1F;background:#F7F6F1}.endb:active{transform:translateY(1px)}
+.endb.on{border:2px solid #1F4FA3;background:#E3EBF7;color:#163A7A;padding:5px 9px}
+.cabrow{position:relative;display:flex;align-items:stretch;border:1px solid #D9D7CF;border-radius:3px;background:#FFFFFF;transition:border-color 120ms,background-color 160ms,opacity 180ms,transform 180ms}
+.cabrow:hover{border-color:#5E6066}
+.cabrow.on{border-color:#1F4FA3;background:#F1F5FB}
+.cabrow.on::before,.cabrow.on::after{content:"";position:absolute;width:8px;height:8px;pointer-events:none}
+.cabrow.on::before{left:-5px;top:-5px;border-left:2px solid #1F4FA3;border-top:2px solid #1F4FA3}
+.cabrow.on::after{right:-5px;bottom:-5px;border-right:2px solid #1F4FA3;border-bottom:2px solid #1F4FA3}
+.cabrow.new{animation:kfSweep 1.3s ease-out}
+.cabrow.out{opacity:0;transform:translateX(-14px)}
+.pick{flex:1;min-width:0;display:flex;gap:10px;align-items:center;min-height:58px;padding:8px 6px 8px 10px;border:0;background:transparent;text-align:left;cursor:pointer;font:inherit;color:inherit}
+.acts{display:flex;flex-direction:column;justify-content:center;gap:2px;padding:3px;opacity:0;transition:opacity 120ms}
+.cabrow:hover .acts,.cabrow:focus-within .acts,.cabrow.on .acts{opacity:1}
+.abtn{position:relative;width:32px;height:26px;display:flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:3px;background:transparent;color:#4A4C50;cursor:pointer}
+.abtn:hover{border-color:#9A9C9F;background:#FFFFFF;color:#1B1D1F}
+.abtn.del:hover{color:#B3261E;border-color:#B3261E;background:#FDF3F2}
+.abtn[disabled]{opacity:.35;cursor:not-allowed}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;font:600 11px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#4A4C50;padding:6px 6px;border-bottom:1.5px solid #1B1D1F;white-space:nowrap}
+.tbl td{padding:4px 6px;border-bottom:1px solid #E6E4DC;transition:background-color 120ms,color 120ms,box-shadow 120ms}
+.tbl tr{transition:background-color 120ms}
+.tbl .num{text-align:right;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pbtn{border:0;background:transparent;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:30px}
+.bal{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;box-sizing:border-box;border:1.25px solid #1B1D1F;border-radius:50%;font:600 11px 'IBM Plex Sans Condensed',sans-serif;flex:none;background:#FFFFFF;color:#1B1D1F;transition:background-color 120ms,color 120ms,border-color 120ms}
+.tag{display:inline-block;padding:0 4px;border:1px solid #63656A;font:600 10px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.1em;color:#4A4C50;line-height:15px}
+.delta{position:relative;border:0;background:transparent;padding:0 2px;font:700 12px 'IBM Plex Mono',monospace;color:#1F4FA3;cursor:help;animation:kfFade 4s ease-in both}
+.menu{position:absolute;z-index:50;background:#FFFFFF;border:1px solid #2B2D30;box-shadow:0 10px 28px rgba(27,29,31,.20);animation:kfPop 140ms cubic-bezier(.2,0,0,1);padding:6px;box-sizing:border-box}
+.mi{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:4px 10px;border:0;border-radius:2px;background:transparent;font:500 14px 'IBM Plex Sans',sans-serif;color:#1B1D1F;text-align:left;cursor:pointer}
+.mi:hover,.mi:focus-visible{background:#E3EBF7}
+.scrim{position:fixed;inset:0;z-index:45;border:0;padding:0;margin:0;background:transparent;cursor:default}
+.calc span.t{padding:1px 4px;border-radius:2px;cursor:default;transition:background-color 120ms,color 120ms}
+.calc span.t:hover,.calc span.t.on{background:#E3EBF7;color:#1F4FA3}
+.rule{display:flex;justify-content:space-between;gap:10px;padding:7px 8px;border-bottom:1px dashed #D9D7CF;font-size:13px;transition:background-color 120ms}
+.rule:hover{background:#F1F5FB}
+.toggle{min-height:32px;padding:0 10px;border:1px solid #9A9C9F;border-radius:3px;background:#FFFFFF;font:600 11px 'IBM Plex Sans Condensed',sans-serif;letter-spacing:.09em;text-transform:uppercase;cursor:pointer;color:#4A4C50;display:inline-flex;align-items:center;gap:6px}
+.toggle[aria-pressed="true"]{border-color:#1B1D1F;color:#1B1D1F;background:#F2F1EB}
+.toast{position:fixed;left:50%;bottom:28px;z-index:70;transform:translateX(-50%);display:flex;align-items:center;gap:14px;min-height:48px;padding:0 8px 0 16px;background:#1B1D1F;color:#FFFFFF;border-radius:3px;box-shadow:0 10px 28px rgba(27,29,31,.3);font:500 14px 'IBM Plex Sans',sans-serif;overflow:hidden;animation:kfToast 200ms cubic-bezier(.2,0,0,1)}
+.toast .drain{position:absolute;left:0;right:0;bottom:0;height:3px;background:#7FA2DC;transform-origin:left;animation:kfDrain 6s linear both}
+.toast button{min-height:36px;padding:0 12px;border:1px solid #7FA2DC;border-radius:3px;background:transparent;color:#FFFFFF;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer}
+.toast button:hover{background:#2B3A55}
+.spin{animation:kfSpin 900ms linear infinite;transform-origin:50% 50%}
+.chk{stroke-dasharray:14;animation:kfDraw 320ms ease-out both}
+@keyframes kfTip{from{opacity:0;transform:translate(-50%,3px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes kfPop{from{opacity:0;transform:translateY(-4px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes kfToast{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes kfDrain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@keyframes kfSweep{0%{background-color:#C9D8F0}100%{background-color:#F1F5FB}}
+@keyframes kfHlA{0%{background-color:#FBE7A1}100%{background-color:rgba(251,231,161,0)}}
+@keyframes kfHlB{0%{background-color:#FBE7A1}100%{background-color:rgba(251,231,161,0)}}
+@keyframes kfFade{0%,75%{opacity:1}100%{opacity:0}}
+@keyframes kfSpin{to{transform:rotate(360deg)}}
+@keyframes kfDraw{from{stroke-dashoffset:14}to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:1ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+</style>
+</helmet>
+<div class="paper" style="min-height: 1000px; display: flex; flex-direction: column; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #1B1D1F">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: stretch; background: #FFFFFF; border-bottom: 2px solid #1B1D1F">
+    <a href="Home.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 0 20px; min-height: 56px; color: #1B1D1F; text-decoration: none; border-right: 1px solid #1B1D1F">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" style="fill: none; stroke: #1B1D1F; stroke-width: 1.75px"><rect x="3" y="3" width="18" height="18"></rect><path d="M3 10h7M14 10h7M12 3v18" style="stroke-dasharray: 2 2"></path></svg>
+      <span style="font: 700 17px 'IBM Plex Sans Condensed', sans-serif; letter-spacing: 0.04em">KERF<span style="font-weight: 500">uffle</span></span>
+    </a>
+    <nav aria-label="Job sections" style="display: flex; flex-wrap: wrap; padding: 0 6px">
+      <a class="tab" href="Home.dc.html">Jobs</a>
+      <a class="tab" href="#" aria-current="page">Workspace</a>
+      <a class="tab" href="CutList.dc.html">Cut list</a>
+      <a class="tab" href="Settings.dc.html">Settings</a>
+    </nav>
+    <div style="flex: 1 1 20px"></div>
+    <div style="display: flex; flex-wrap: wrap">
+      <div class="tbc" style="min-width: 170px"><span class="tbk">Job</span><span style="font-weight: 600; font-size: 15px">Kitchen remodel</span></div>
+      <div class="tbc"><span class="tbk">Customer</span><span style="font-size: 14px">[Customer name]</span></div>
+      <div class="tbc">
+        <span class="tbk">Status</span>
+        <button type="button" onClick="{{toggleStatus}}" aria-haspopup="menu" aria-expanded="{{statusExp}}" class="tip-dn" data-tip="Change job status" style="border: 0; background: transparent; padding: 2px 0; cursor: pointer; color: {{statusColor}}"><span class="stamp"><span aria-hidden="true" class="mono">{{statusGlyph}}</span>{{status}}</span></button>
+        <sc-if value="{{statusOpen}}" hint-placeholder-val="{{ false }}">
+          <button type="button" class="scrim" tabindex="-1" aria-label="Close menu" onClick="{{closeMenus}}"></button>
+          <div class="menu" role="menu" aria-label="Job status" onKeyDown="{{menuKey}}" style="top: 100%; right: 0; width: 220px">
+            <sc-for list="{{statusOpts}}" as="o" hint-placeholder-count="4">
+              <button type="button" role="menuitemradio" aria-checked="{{o.on}}" class="mi" onClick="{{o.pick}}"><span class="stamp" style="color: {{o.color}}; transform: none"><span aria-hidden="true" class="mono">{{o.glyph}}</span>{{o.label}}</span><span style="margin-left: auto; font-size: 12px; color: #4A4C50">{{o.mark}}</span></button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <div class="tbc" style="min-width: 128px">
+        <span class="tbk">Saved</span>
+        <span role="status" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px">
+          <sc-if value="{{isSaving}}" hint-placeholder-val="{{ false }}">
+            <svg class="spin" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="fill: none; stroke: #1F4FA3; stroke-width: 2px"><path d="M8 2a6 6 0 016 6"></path></svg>
+            Saving…
+          </sc-if>
+          <sc-if value="{{isSaved}}" hint-placeholder-val="{{ true }}">
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="fill: none; stroke: #2B6B3F; stroke-width: 2.2px"><path class="chk" d="M3 8.5l3 3 7-7"></path></svg>
+            {{savedAt}}
+          </sc-if>
+        </span>
+      </div>
+      <div class="tbc" style="flex-direction: row; align-items: center; gap: 6px">
+        <button class="btn ibtn tip-dn" type="button" onClick="{{undo}}" disabled="{{noUndo}}" aria-label="{{undoTip}}" data-tip="{{undoTip}}">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.6px"><path d="M5 3L2 6l3 3M2 6h8a4 4 0 010 8H7"></path></svg>
+        </button>
+        <button class="btn ibtn tip-dn" type="button" onClick="{{redo}}" disabled="{{noRedo}}" aria-label="{{redoTip}}" data-tip="{{redoTip}}">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.6px"><path d="M11 3l3 3-3 3M14 6H6a4 4 0 000 8h3"></path></svg>
+        </button>
+        <div style="position: relative">
+          <button class="btn ibtn tip-dn" type="button" onClick="{{toggleKbd}}" aria-expanded="{{kbdExp}}" aria-label="Keyboard shortcuts" data-tip="Keyboard shortcuts  ?">
+            <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.4px"><rect x="2" y="5" width="16" height="10" rx="1.5"></rect><path d="M5 8h1M8 8h1M11 8h1M14 8h1M6 12h8"></path></svg>
+          </button>
+          <sc-if value="{{kbdOpen}}" hint-placeholder-val="{{ false }}">
+            <button type="button" class="scrim" tabindex="-1" aria-label="Close shortcuts" onClick="{{closeMenus}}"></button>
+            <div class="menu" role="dialog" aria-label="Keyboard shortcuts" onKeyDown="{{menuKey}}" style="top: calc(100% + 8px); right: 0; width: 320px; padding: 14px 16px">
+              <div class="cap" style="font-size: 12px; margin-bottom: 8px">Keyboard</div>
+              <sc-for list="{{shortcuts}}" as="k" hint-placeholder-count="9">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 5px 0; border-bottom: 1px dashed #E2E0D7; font-size: 13px"><span>{{k.what}}</span><span class="mono" style="display: inline-flex; gap: 3px; white-space: nowrap"><sc-for list="{{k.keys}}" as="kk" hint-placeholder-count="2"><span class="kbd">{{kk}}</span></sc-for></span></div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main style="flex: 1; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px; padding: 22px; box-sizing: border-box; width: 100%; max-width: 1640px; margin: 0 auto">
+
+    <section class="sheet" aria-labelledby="cab-h" style="flex: 1 1 260px; max-width: 320px; min-width: 0; padding: 14px">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px">
+        <div class="vt"><span class="bub" aria-hidden="true">1</span><div><div class="vt-t" id="cab-h">Cabinets</div><div class="vt-s">{{cabSummary}}</div></div></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <sc-for list="{{cabs}}" as="c" hint-placeholder-count="5">
+          <div class="{{c.cls}}">
+            <button type="button" class="pick" ref="{{c.ref}}" onClick="{{c.pick}}" onKeyDown="{{c.kd}}" aria-current="{{c.current}}">
+              <svg width="30" height="40" viewBox="0 0 30 40" aria-hidden="true" style="flex: none">
+                <sc-if value="{{c.t.ok}}" hint-placeholder-val="{{ true }}">
+                  <sc-if value="{{c.t.base}}" hint-placeholder-val="{{ true }}">
+                    <rect x="{{c.t.x}}" y="{{c.t.y}}" width="{{c.t.w}}" height="{{c.t.topH}}" style="fill: #D9D7CF"></rect>
+                    <rect x="{{c.t.toeX}}" y="{{c.t.toeY}}" width="{{c.t.toeW}}" height="{{c.t.toeH}}" style="fill: none; stroke: #8E9095; stroke-width: 0.75px; stroke-dasharray: 2 1.5"></rect>
+                  </sc-if>
+                  <rect x="{{c.t.x}}" y="{{c.t.boxY}}" width="{{c.t.w}}" height="{{c.t.boxH}}" style="fill: #FFFFFF; stroke: #1B1D1F; stroke-width: 1.2px"></rect>
+                  <sc-for list="{{c.t.shelves}}" as="s" hint-placeholder-count="1"><line x1="{{c.t.sx1}}" x2="{{c.t.sx2}}" y1="{{s}}" y2="{{s}}" style="stroke: #63656A; stroke-width: 0.9px"></line></sc-for>
+                  <sc-if value="{{c.t.finL}}" hint-placeholder-val="{{ false }}"><rect x="{{c.t.flx}}" y="{{c.t.boxY}}" width="2.5" height="{{c.t.boxH}}" style="fill: #1B1D1F"></rect></sc-if>
+                  <sc-if value="{{c.t.finR}}" hint-placeholder-val="{{ false }}"><rect x="{{c.t.frx}}" y="{{c.t.boxY}}" width="2.5" height="{{c.t.boxH}}" style="fill: #1B1D1F"></rect></sc-if>
+                </sc-if>
+                <sc-if value="{{c.bad}}" hint-placeholder-val="{{ false }}">
+                  <rect x="4" y="6" width="22" height="30" style="fill: #FDF3F2; stroke: #B3261E; stroke-width: 1px; stroke-dasharray: 3 2"></rect>
+                  <text x="15" y="26" style="font: 700 14px IBM Plex Mono, monospace; fill: #B3261E; text-anchor: middle">?</text>
+                </sc-if>
+              </svg>
+              <span style="display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1">
+                <span style="display: flex; align-items: baseline; gap: 6px">
+                  <span style="font: 700 15px 'IBM Plex Sans Condensed', sans-serif; letter-spacing: 0.04em">{{c.id}}</span>
+                  <span class="cap" style="font-size: 10px; color: #4A4C50">{{c.typeLabel}}</span>
+                  <sc-if value="{{c.hasQty}}" hint-placeholder-val="{{ false }}"><span class="mono" style="margin-left: auto; font-size: 12px; font-weight: 600; padding: 0 5px; border: 1px solid #1B1D1F; line-height: 16px">{{c.qty}}</span></sc-if>
+                </span>
+                <span class="mono" style="font-size: 12.5px; color: {{c.sizeColor}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.size}}</span>
+                <span style="font-size: 11.5px; color: #4A4C50">{{c.endsText}}</span>
+              </span>
+            </button>
+            <div class="acts">
+              <button type="button" class="abtn" onClick="{{c.dup}}" aria-label="{{c.dupTip}}" data-tip="{{c.dupTip}}">
+                <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.5px"><rect x="5" y="5" width="9" height="9"></rect><path d="M11 5V2H2v9h3"></path></svg>
+              </button>
+              <button type="button" class="abtn del" onClick="{{c.del}}" disabled="{{c.noDel}}" aria-label="{{c.delTip}}" data-tip="{{c.delTip}}">
+                <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.5px"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4"></path></svg>
+              </button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="position: relative; display: flex; margin-top: 14px">
+        <button class="btn btn-pri" type="button" onClick="{{addDefault}}" style="flex: 1; border-radius: 3px 0 0 3px">
+          <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 2px"><path d="M8 2v12M2 8h12"></path></svg>
+          Add cabinet
+        </button>
+        <button class="btn btn-pri ibtn" type="button" onClick="{{toggleAdd}}" aria-haspopup="menu" aria-expanded="{{addExp}}" aria-label="Add from a preset size" style="border-radius: 0 3px 3px 0; border-left: 1px solid #7FA2DC">
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.8px; transition: transform 180ms; transform: {{addChev}}"><path d="M2.5 4.5L6 8l3.5-3.5"></path></svg>
+        </button>
+        <sc-if value="{{addOpen}}" hint-placeholder-val="{{ false }}">
+          <button type="button" class="scrim" tabindex="-1" aria-label="Close presets" onClick="{{closeMenus}}"></button>
+          <div class="menu" role="menu" aria-label="Preset sizes" onKeyDown="{{menuKey}}" style="top: calc(100% + 6px); left: 0; width: 100%; max-height: 420px; overflow-y: auto">
+            <sc-for list="{{presetGroups}}" as="g" hint-placeholder-count="2">
+              <div class="cap" style="font-size: 11px; color: #4A4C50; padding: 8px 10px 4px">{{g.label}}</div>
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px">
+                <sc-for list="{{g.items}}" as="p" hint-placeholder-count="6">
+                  <button type="button" role="menuitem" class="mi" onClick="{{p.pick}}" style="min-height: 52px">
+                    <svg width="22" height="30" viewBox="0 0 30 40" aria-hidden="true" style="flex: none">
+                      <rect x="{{p.t.x}}" y="{{p.t.boxY}}" width="{{p.t.w}}" height="{{p.t.boxH}}" style="fill: #FFFFFF; stroke: #1B1D1F; stroke-width: 1.4px"></rect>
+                      <sc-for list="{{p.t.shelves}}" as="s" hint-placeholder-count="1"><line x1="{{p.t.sx1}}" x2="{{p.t.sx2}}" y1="{{s}}" y2="{{s}}" style="stroke: #63656A; stroke-width: 1px"></line></sc-for>
+                    </svg>
+                    <span style="display: flex; flex-direction: column"><span style="font-weight: 600">{{p.label}}</span><span class="mono" style="font-size: 11px; color: #4A4C50">{{p.size}}</span></span>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <p style="margin: 12px 0 0; font-size: 12px; color: #4A4C50; line-height: 1.5"><span class="kbd">↑</span> <span class="kbd">↓</span> move between cabinets · <span class="kbd">Ctrl</span> <span class="kbd">D</span> duplicate · <span class="kbd">Del</span> remove</p>
+    </section>
+
+    <section class="sheet" aria-labelledby="ed-h" style="flex: 999 1 440px; min-width: 0; padding: 18px 20px 20px">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px">
+        <div class="vt"><span class="bub" aria-hidden="true">2</span><div><div class="vt-t" id="ed-h">Cabinet {{sel.id}}</div><div class="vt-s">{{sel.sub}}</div></div></div>
+        <div class="seg" role="group" aria-label="Cabinet type">
+          <span class="seg-thumb" aria-hidden="true" style="width: calc(50% - 2px); transform: {{sel.thumbX}}"></span>
+          <button type="button" class="seg-b" onClick="{{setBase}}" aria-pressed="{{sel.isBase}}" style="color: {{sel.baseColor}}">Base</button>
+          <button type="button" class="seg-b" onClick="{{setWall}}" aria-pressed="{{sel.isWall}}" style="color: {{sel.wallColor}}">Wall</button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+        <sc-for list="{{fields}}" as="f" hint-placeholder-count="3">
+          <div onMouseEnter="{{f.enter}}" onMouseLeave="{{f.leave}}">
+            <div class="lbl"><label for="{{f.id}}">{{f.label}}</label><span class="{{f.symCls}}" aria-hidden="true">{{f.sym}}</span></div>
+            <div class="fld">
+              <input class="{{f.cls}}" id="{{f.id}}" value="{{f.val}}" ref="{{f.ref}}" onChange="{{f.change}}" onFocus="{{f.focus}}" onBlur="{{f.blur}}" onKeyDown="{{f.kd}}" aria-invalid="{{f.bad}}" aria-describedby="{{f.msgId}}" autocomplete="off" spellcheck="false">
+              <span class="unit">in</span>
+            </div>
+            <div class="msg" id="{{f.msgId}}" style="color: {{f.msgColor}}">{{f.msg}}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div class="calc mono" style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 4px 0 18px; padding: 9px 12px; border: 1px dashed #9A9C9F; background: #FAF9F5; font-size: 13px">
+        <span class="cap" style="font-size: 11px; color: #4A4C50; margin-right: 6px">Box height</span>
+        <sc-for list="{{tape}}" as="t" hint-placeholder-count="5">
+          <span class="{{t.cls}}" onMouseEnter="{{t.enter}}" onMouseLeave="{{t.leave}}">{{t.text}}</span>
+        </sc-for>
+        <span style="margin-left: auto; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: #4A4C50">{{tapeNote}}</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+        <div onMouseEnter="{{hvShelves.enter}}" onMouseLeave="{{hvShelves.leave}}">
+          <div class="lbl"><label for="f-s">Shelves</label><span class="{{shelfSym}}" aria-hidden="true">n</span></div>
+          <div class="step">
+            <button type="button" class="sbtn l" onClick="{{shelfDown}}" disabled="{{noShelfDown}}" aria-label="One fewer shelf"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style="stroke: currentColor; stroke-width: 2px"><path d="M2 6h8"></path></svg></button>
+            <input class="inp" id="f-s" value="{{sel.shelves}}" onChange="{{onShelves}}" onFocus="{{focusShelves}}" onBlur="{{blurShelves}}" inputMode="numeric" autocomplete="off">
+            <button type="button" class="sbtn r" onClick="{{shelfUp}}" aria-label="One more shelf"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style="stroke: currentColor; stroke-width: 2px"><path d="M2 6h8M6 2v8"></path></svg></button>
+          </div>
+        </div>
+        <div onMouseEnter="{{hvQty.enter}}" onMouseLeave="{{hvQty.leave}}">
+          <div class="lbl"><label for="f-q">Quantity</label><span class="{{qtySym}}" aria-hidden="true">×</span></div>
+          <div class="step">
+            <button type="button" class="sbtn l" onClick="{{qtyDown}}" disabled="{{noQtyDown}}" aria-label="Build one fewer"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style="stroke: currentColor; stroke-width: 2px"><path d="M2 6h8"></path></svg></button>
+            <input class="inp" id="f-q" value="{{sel.qty}}" onChange="{{onQty}}" onFocus="{{focusQty}}" onBlur="{{blurQty}}" inputMode="numeric" autocomplete="off">
+            <button type="button" class="sbtn r" onClick="{{qtyUp}}" aria-label="Build one more"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style="stroke: currentColor; stroke-width: 2px"><path d="M2 6h8M6 2v8"></path></svg></button>
+          </div>
+        </div>
+        <div>
+          <div class="lbl"><label for="f-id">Cabinet ID</label></div>
+          <input class="inp" id="f-id" value="{{sel.id}}" onChange="{{onId}}" onFocus="{{focusId}}" onBlur="{{blurId}}" autocomplete="off" style="padding-right: 12px; font-family: 'IBM Plex Sans Condensed', sans-serif; font-weight: 700; letter-spacing: 0.04em">
+        </div>
+      </div>
+
+      <div style="margin-top: 20px" onMouseEnter="{{hvEnds.enter}}" onMouseLeave="{{hvEnds.leave}}">
+        <span class="lbl" id="ends-l">Finished ends <span style="font-weight: 400; color: #4A4C50">· laminated outside faces</span></span>
+        <div role="group" aria-labelledby="ends-l" style="display: flex; flex-wrap: wrap; gap: 8px">
+          <sc-for list="{{endOpts}}" as="o" hint-placeholder-count="4">
+            <button type="button" class="{{o.cls}}" onClick="{{o.pick}}" aria-pressed="{{o.selected}}">
+              <svg width="30" height="26" viewBox="0 0 30 26" aria-hidden="true">
+                <rect x="7" y="3" width="16" height="20" style="fill: #FFFFFF; stroke: currentColor; stroke-width: 1.3px"></rect>
+                <sc-if value="{{o.l}}" hint-placeholder-val="{{ false }}"><rect x="3" y="3" width="3" height="20" style="fill: currentColor"></rect></sc-if>
+                <sc-if value="{{o.r}}" hint-placeholder-val="{{ false }}"><rect x="24" y="3" width="3" height="20" style="fill: currentColor"></rect></sc-if>
+              </svg>
+              {{o.label}}
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="margin-top: 22px; border-top: 1px solid #1B1D1F; padding-top: 4px">
+        <button type="button" onClick="{{toggleCon}}" aria-expanded="{{conExp}}" aria-controls="con-body" style="display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; border: 0; background: transparent; padding: 0; cursor: pointer; text-align: left; color: #1B1D1F">
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.8px; transition: transform 200ms cubic-bezier(.2,0,0,1); transform: {{conChev}}"><path d="M4 2.5L7.5 6 4 9.5"></path></svg>
+          <span class="cap" style="font-size: 13px">Construction</span>
+          <span style="font-size: 13px; color: #4A4C50">This job’s copy of the shop defaults</span>
+          <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #2B6B3F"><svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 2.2px"><path d="M3 8.5l3 3 7-7"></path></svg>Matches shop defaults</span>
+        </button>
+        <div id="con-body" style="display: grid; grid-template-rows: {{conRows}}; transition: grid-template-rows 220ms cubic-bezier(.2,0,0,1)">
+          <div style="overflow: hidden; min-height: 0">
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; padding: 6px 0 4px">
+              <sc-for list="{{rules}}" as="r" hint-placeholder-count="8">
+                <div class="rule" onMouseEnter="{{r.enter}}" onMouseLeave="{{r.leave}}" style="{{r.st}}"><span>{{r.label}}</span><span class="mono" style="font-weight: 600">{{r.val}}</span></div>
+              </sc-for>
+            </div>
+            <p style="margin: 10px 0 2px; font-size: 12px; color: #4A4C50">Changing the <a href="Settings.dc.html">shop defaults</a> won’t change this job. Hover a rule to see what it moves.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div style="flex: 1 1 470px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+      <section class="sheet" aria-labelledby="dw-h" style="padding: 14px 16px 12px">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px">
+          <div class="vt"><span class="bub" aria-hidden="true">3</span><div><div class="vt-t" id="dw-h">Drawing</div><div class="vt-s">{{sel.id}} · {{scaleText}}</div></div></div>
+          <div style="display: flex; gap: 6px">
+            <button type="button" class="toggle" aria-pressed="{{showDimsP}}" onClick="{{toggleDims}}"><svg width="14" height="10" viewBox="0 0 14 10" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.2px"><path d="M1 5h12M1 2v6M13 2v6"></path></svg>Dimensions</button>
+            <button type="button" class="toggle" aria-pressed="{{showGhostsP}}" onClick="{{toggleGhosts}}"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style="fill: none; stroke: currentColor; stroke-width: 1.2px; stroke-dasharray: 2 1.5"><rect x="1" y="1" width="10" height="10"></rect></svg>Oversize</button>
+          </div>
+        </div>
+        <sc-if value="{{ok}}" hint-placeholder-val="{{ true }}">
+          <svg viewBox="0 0 470 330" role="img" aria-label="{{dia.label}}" style="display: block; width: 100%; height: auto; overflow: visible">
+            <defs>
+              <pattern id="kf-hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" style="fill: #FFFFFF"></rect><line x1="0" y1="0" x2="0" y2="5" style="stroke: #1B1D1F; stroke-width: 0.9px"></line></pattern>
+              <pattern id="kf-hatch-l" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" style="fill: #FFFFFF"></rect><line x1="0" y1="0" x2="0" y2="8" style="stroke: #CFCFC9; stroke-width: 0.8px"></line></pattern>
+            </defs>
+            <sc-for list="{{dia.ctx}}" as="x" hint-placeholder-count="2">
+              <rect x="{{x.x}}" y="{{x.y}}" width="{{x.w}}" height="{{x.h}}" style="{{x.st}}" onMouseEnter="{{x.enter}}" onMouseLeave="{{x.leave}}"></rect>
+            </sc-for>
+            <sc-for list="{{dia.shapes}}" as="p" hint-placeholder-count="12">
+              <rect x="{{p.x}}" y="{{p.y}}" width="{{p.w}}" height="{{p.h}}" style="{{p.st}}" onMouseEnter="{{p.enter}}" onMouseLeave="{{p.leave}}" onClick="{{p.click}}"></rect>
+            </sc-for>
+            <line x1="{{dia.cx}}" x2="{{dia.cx}}" y1="{{dia.clTop}}" y2="{{dia.clBot}}" style="stroke: #8E9095; stroke-width: 0.75px; stroke-dasharray: 10 3 2 3; pointer-events: none"></line>
+            <text x="{{dia.clTextX}}" y="{{dia.clTextY}}" style="font: 600 11px IBM Plex Sans, sans-serif; fill: #63656A; pointer-events: none">℄</text>
+            <path d="{{dia.cutMark}}" style="fill: none; stroke: #1B1D1F; stroke-width: 1.6px; pointer-events: none"></path>
+            <path d="{{dia.cutHead}}" style="fill: #1B1D1F; pointer-events: none"></path>
+            <text x="{{dia.cutTextX}}" y="{{dia.cutTextY}}" style="font: 700 11px IBM Plex Sans Condensed, sans-serif; fill: #1B1D1F; pointer-events: none">B</text>
+            <sc-for list="{{dia.ghosts}}" as="g" hint-placeholder-count="1">
+              <rect x="{{g.x}}" y="{{g.y}}" width="{{g.w}}" height="{{g.h}}" style="{{g.st}}"></rect>
+              <text x="{{g.lx}}" y="{{g.ly}}" style="{{g.ts}}">{{g.label}}</text>
+            </sc-for>
+            <sc-if value="{{showDims}}" hint-placeholder-val="{{ true }}">
+              <sc-for list="{{dia.dims}}" as="d" hint-placeholder-count="5">
+                <g style="{{d.gs}}" onMouseEnter="{{d.enter}}" onMouseLeave="{{d.leave}}" onClick="{{d.click}}">
+                  <path d="{{d.ext}}" style="{{d.es}}"></path>
+                  <line x1="{{d.x1}}" y1="{{d.y1}}" x2="{{d.x2}}" y2="{{d.y2}}" style="{{d.ls}}"></line>
+                  <path d="{{d.ticks}}" style="{{d.ls}}"></path>
+                  <g transform="{{d.tf}}">
+                    <rect x="{{d.bx}}" y="{{d.by}}" width="{{d.bw}}" height="16" rx="2" style="{{d.bs}}"></rect>
+                    <text x="{{d.tx}}" y="{{d.ty}}" style="{{d.ts}}">{{d.text}}</text>
+                  </g>
+                  <rect x="{{d.hx}}" y="{{d.hy}}" width="{{d.hw}}" height="{{d.hh}}" style="fill: transparent"></rect>
+                </g>
+              </sc-for>
+            </sc-if>
+          </svg>
+          <div style="display: flex; justify-content: space-between; gap: 12px; padding: 2px 4px 0">
+            <div class="vt"><span class="bub" aria-hidden="true" style="width: 22px; height: 22px; font-size: 11px">A</span><div class="vt-t" style="font-size: 12px">Front elevation</div></div>
+            <div class="vt"><span class="bub" aria-hidden="true" style="width: 22px; height: 22px; font-size: 11px">B</span><div class="vt-t" style="font-size: 12px">Section</div></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{notOk}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 56px 16px; text-align: center; color: #4A4C50">
+            <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true" style="fill: none; stroke: #B3261E; stroke-width: 1.5px; stroke-dasharray: 4 3"><rect x="10" y="8" width="44" height="48"></rect><path d="M10 8l44 48M54 8L10 56" style="stroke: #E5B3AE"></path></svg>
+            <div style="font-size: 14px">The drawing comes back once every size is valid.</div>
+            <button type="button" class="btn" onClick="{{focusFirstBad}}">Go to {{firstBadName}}</button>
+          </div>
+        </sc-if>
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 40px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #9A9C9F; font-size: 13px">
+          <sc-if value="{{cap.part}}" hint-placeholder-val="{{ false }}">
+            <span class="bal" style="background: #1F4FA3; border-color: #1F4FA3; color: #FFFFFF">{{cap.num}}</span>
+            <span class="cap" style="font-size: 13px">{{cap.name}}</span>
+            <span class="mono" style="font-weight: 600">{{cap.size}}</span>
+            <span style="color: #4A4C50">{{cap.extra}}</span>
+          </sc-if>
+          <sc-if value="{{cap.dim}}" hint-placeholder-val="{{ false }}">
+            <span class="sym on" style="margin-left: 0">{{cap.sym}}</span>
+            <span class="cap" style="font-size: 13px">{{cap.name}}</span>
+            <span class="mono" style="font-weight: 600">{{cap.val}}</span>
+            <span style="color: #4A4C50">→ changes {{cap.affects}}</span>
+          </sc-if>
+          <sc-if value="{{cap.idle}}" hint-placeholder-val="{{ true }}">
+            <span style="color: #4A4C50">Point at a part or dimension to trace it. Click a dimension to edit it; click a part to pin it.</span>
+          </sc-if>
+        </div>
+      </section>
+
+      <section class="sheet" aria-labelledby="pt-h" style="padding: 14px 16px">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px">
+          <div class="vt"><span class="bub" aria-hidden="true">4</span><div><div class="vt-t" id="pt-h">Parts · {{sel.id}}</div><div class="vt-s">{{qtyNote}}</div></div></div>
+          <a class="btn" href="CutList.dc.html" style="min-height: 36px; font-size: 13px">Whole-job cut list →</a>
+        </div>
+        <sc-if value="{{ok}}" hint-placeholder-val="{{ true }}">
+          <div style="overflow-x: auto">
+            <table class="tbl">
+              <thead><tr><th scope="col">Panel part</th><th scope="col" style="text-align: center">Grain</th><th scope="col" style="text-align: right">Length</th><th scope="col" style="text-align: right">Width</th><th scope="col" style="text-align: right">Thick.</th><th scope="col" style="text-align: right">Qty</th><th scope="col" style="width: 28px"><span style="position: absolute; left: -9999px">Revision</span></th></tr></thead>
+              <tbody>
+                <sc-for list="{{panels}}" as="r" hint-placeholder-count="7">
+                  <tr style="{{r.rs}}" onMouseEnter="{{r.enter}}" onMouseLeave="{{r.leave}}">
+                    <td>
+                      <button type="button" class="pbtn" onClick="{{r.pin}}" onFocus="{{r.enter}}" onBlur="{{r.leave}}" aria-pressed="{{r.pinned}}"><span class="bal" style="{{r.bs}}">{{r.num}}</span><span style="{{r.ns}}">{{r.name}}</span><sc-if value="{{r.opt}}" hint-placeholder-val="{{ false }}"><span class="tag" data-tip="Door / front-laminate size. Optional on the cut list.">REF</span></sc-if></button>
+                      <sc-if value="{{r.note}}" hint-placeholder-val="{{ false }}"><div style="font-size: 11px; color: #7A4300; margin: -2px 0 2px 28px">△ {{r.note}}</div></sc-if>
+                    </td>
+                    <td style="text-align: center; color: #4A4C50" title="{{r.grainTip}}">{{r.grain}}</td>
+                    <td class="num" style="{{r.Ls}}">{{r.L}}</td><td class="num" style="{{r.Ws}}">{{r.W}}</td><td class="num" style="{{r.Ts}}">{{r.T}}</td><td class="num" style="{{r.qs}}">{{r.q}}</td>
+                    <td><sc-if value="{{r.changed}}" hint-placeholder-val="{{ false }}"><button type="button" class="delta" data-tip="{{r.was}}" aria-label="{{r.was}}">△{{r.rev}}</button></sc-if></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+            <table class="tbl" style="margin-top: 14px">
+              <thead><tr><th scope="col">Laminate</th><th scope="col" style="text-align: right">Length</th><th scope="col" style="text-align: right">Width</th><th scope="col" style="text-align: right">Qty</th><th scope="col" style="width: 28px"><span style="position: absolute; left: -9999px">Revision</span></th></tr></thead>
+              <tbody>
+                <sc-for list="{{lams}}" as="r" hint-placeholder-count="2">
+                  <tr style="{{r.rs}}" onMouseEnter="{{r.enter}}" onMouseLeave="{{r.leave}}">
+                    <td><button type="button" class="pbtn" onClick="{{r.pin}}" onFocus="{{r.enter}}" onBlur="{{r.leave}}" aria-pressed="{{r.pinned}}"><span class="bal" style="{{r.bs}}">{{r.num}}</span><span style="{{r.ns}}">{{r.name}}</span></button></td>
+                    <td class="num" style="{{r.Ls}}">{{r.L}}</td><td class="num" style="{{r.Ws}}">{{r.W}}</td><td class="num" style="{{r.qs}}">{{r.q}}</td>
+                    <td><sc-if value="{{r.changed}}" hint-placeholder-val="{{ false }}"><button type="button" class="delta" data-tip="{{r.was}}" aria-label="{{r.was}}">△{{r.rev}}</button></sc-if></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <p style="margin: 10px 0 0; font-size: 12px; color: #4A4C50; line-height: 1.5">Inches, nearest 1/16″; <span class="mono">≈</span> marks a rounded size. Length runs with the grain. Laminate is 1″ oversize past every edge. <span style="color: #1F4FA3; font-weight: 600">△</span> marks parts your last edit changed.</p>
+        </sc-if>
+        <sc-if value="{{notOk}}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 0; padding: 24px 0; text-align: center; color: #4A4C50; font-size: 14px">Parts appear when every size is valid.</p>
+        </sc-if>
+      </section>
+    </div>
+  </main>
+
+  <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+    <div class="toast" role="status">
+      <span>{{toastText}}</span>
+      <sc-if value="{{toastUndo}}" hint-placeholder-val="{{ true }}"><button type="button" onClick="{{undo}}">Undo</button></sc-if>
+      <span class="drain" aria-hidden="true"></span>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+var P = 0.75, TOE = 4, TOP = 1.5, CL = 0.125, SB = 0.125, LAM = 1, WIDE = 36;
+var BLUE = '#1F4FA3', INK = '#1B1D1F';
+
+function parseDim(raw) {
+  var s = String(raw == null ? '' : raw).trim().replace(/["″]\s*$/, '').trim();
+  if (!s) return { err: 'Enter a size, like 23 3/4' };
+  if (/^-/.test(s)) return { err: 'Sizes can’t be negative' };
+  var m, v;
+  if (/^\d*\.?\d+$/.test(s)) v = parseFloat(s);
+  else if ((m = s.match(/^(\d+)(?:\s+|\s*-\s*)(\d+)\/(\d+)$/))) {
+    if (+m[3] === 0) return { err: 'The bottom of a fraction can’t be 0' };
+    if (+m[2] >= +m[3]) return { err: 'In 23 3/4, the fraction must be under 1' };
+    v = +m[1] + m[2] / m[3];
+  } else if ((m = s.match(/^(\d+)\/(\d+)$/))) {
+    if (+m[2] === 0) return { err: 'The bottom of a fraction can’t be 0' };
+    v = m[1] / m[2];
+  } else return { err: 'Use a size like 23, 23.75 or 23 3/4' };
+  if (Math.abs(v * 64 - Math.round(v * 64)) > 1e-6) return { err: 'Finer than 1/64″. Round it off.' };
+  if (!(v > 0)) return { err: 'Must be more than 0' };
+  return { v: v };
+}
+function frac(x, den) {
+  var n = Math.round(x * den), w = Math.floor(n / den), r = n % den, d = den;
+  while (r && r % 2 === 0) { r /= 2; d /= 2; }
+  return r ? (w ? w + ' ' + r + '/' + d : r + '/' + d) : String(w);
+}
+function fmt(x) { return (Math.abs(Math.round(x * 16) - x * 16) > 1e-6 ? '≈ ' : '') + frac(x, 16); }
+function fin(x) { return fmt(x) + '″'; }
+function exact(x) { return frac(x, 64); }
+
+var DEP_H = { back: 'L', 'side-left': 'L', 'side-right': 'L', front: 'L', 'lam-left': 'L', 'lam-right': 'L', 'lam-front': 'L' };
+var DEPS = {
+  w: { back: 'W', bottom: 'L', top: 'L', front: 'W', shelf: 'L', 'lam-front': 'W' },
+  h: DEP_H, box: DEP_H, toe: DEP_H, ctop: DEP_H,
+  d: { bottom: 'W', 'side-left': 'W', 'side-right': 'W', top: 'W', shelf: 'W', 'lam-left': 'W', 'lam-right': 'W' },
+  shelves: { shelf: 'q' },
+  ends: { 'lam-left': 'q', 'lam-right': 'q' },
+  p: { bottom: 'LT', top: 'LT', 'side-left': 'WT', 'side-right': 'WT', back: 'T', front: 'T', shelf: 'LW' },
+  cl: { shelf: 'L' }, sb: { shelf: 'W' }, wide: { shelf: 'T' },
+  lam: { 'lam-left': 'LW', 'lam-right': 'LW', 'lam-front': 'LW' }
+};
+var DIM_INFO = {
+  w: ['W', 'Width'], h: ['H', 'Overall height'], box: ['Hb', 'Box height'], toe: ['t', 'Toe kick'], ctop: ['T', 'Countertop'],
+  d: ['D', 'Depth'], shelves: ['n', 'Shelves'], ends: ['◧', 'Finished ends'], qty: ['×', 'Quantity'],
+  p: ['p', 'Panel thickness'], cl: ['c', 'Shelf clearance'], sb: ['s', 'Shelf setback'], wide: ['S', 'Wide-shelf rule'], lam: ['+', 'Laminate oversize']
+};
+var FIELD_NAME = { w: 'width', h: 'height', d: 'depth', shelves: 'shelf count', qty: 'quantity', id: 'ID' };
+var ENDS = [['none', 'Neither'], ['left', 'Left'], ['right', 'Right'], ['both', 'Both']];
+var ENDS_TEXT = { none: 'No finished ends', left: 'Left end finished', right: 'Right end finished', both: 'Both ends finished' };
+var STATUS = [
+  ['Draft', '○', '#4A4C50'], ['Ready to cut', '◆', '#1F4FA3'], ['Completed', '✓', '#2B6B3F'], ['Archived', '▭', '#63656A']
+];
+var SHORTCUTS = [
+  ['Undo / redo', ['Ctrl', 'Z']], ['Redo', ['Ctrl', 'Shift', 'Z']], ['Add cabinet', ['Ctrl', 'N']], ['Duplicate cabinet', ['Ctrl', 'D']],
+  ['Remove cabinet', ['Del']], ['Next / previous cabinet', ['Alt', '↑↓']], ['Nudge size 1/16″', ['↑↓']], ['Nudge size 1″', ['Shift', '↑↓']],
+  ['Commit a field', ['Enter']], ['Revert a field', ['Esc']], ['Cut list', ['Ctrl', 'L']], ['Print', ['Ctrl', 'P']]
+];
+
+function errs(c) {
+  var pw = parseDim(c.w), ph = parseDim(c.h), pd = parseDim(c.d);
+  var e = { w: pw.err || '', h: ph.err || '', d: pd.err || '', wv: pw.v, hv: ph.v, dv: pd.v, warn: {} };
+  if (!e.w && pw.v <= 2 * P + 2 * CL) e.w = 'Too narrow for two 3/4″ sides and shelf clearance';
+  if (!e.h && c.type === 'base' && ph.v <= TOE + TOP) e.h = 'Must be taller than toe kick + countertop (5 1/2″)';
+  if (!e.d && pd.v <= P + SB) e.d = 'Must be deeper than 7/8″ (panel + shelf setback)';
+  if (!e.w && pw.v > 60) e.warn.w = 'Unusually wide. Double-check it.';
+  if (!e.d && pd.v > 30) e.warn.d = 'Unusually deep. Double-check it.';
+  e.ok = !e.w && !e.h && !e.d;
+  return e;
+}
+function nums(c) { return { n: Math.max(0, parseInt(c.shelves, 10) || 0), q: Math.max(1, parseInt(c.qty, 10) || 1) }; }
+function calc(c, W, H, D, n, q) {
+  var base = c.type === 'base', hb = base ? H - TOE - TOP : H, S = W >= WIDE ? 1 : 0.75;
+  var list = [
+    { role: 'back', name: 'Back', L: hb, W: W, T: P, q: 1, g: 'v' },
+    { role: 'bottom', name: 'Bottom', L: W - 2 * P, W: D - P, T: P, q: 1, g: 'h' },
+    { role: 'side-left', name: 'Left side', L: hb, W: D - P, T: P, q: 1, g: 'v' },
+    { role: 'side-right', name: 'Right side', L: hb, W: D - P, T: P, q: 1, g: 'v' },
+    { role: 'top', name: 'Top', L: W - 2 * P, W: D - P, T: P, q: 1, g: 'h' },
+    { role: 'front', name: 'Front', L: hb, W: W, T: P, q: 1, g: 'v', opt: true }
+  ];
+  if (n > 0) list.push({ role: 'shelf', name: 'Shelf', L: W - 2 * P - 2 * CL, W: D - P - SB, T: S, q: n, g: 'h', note: S === 1 ? '1″ thick: cabinet is 36″ or wider' : '' });
+  if (c.ends === 'left' || c.ends === 'both') list.push({ role: 'lam-left', name: 'Left end', L: hb + 2 * LAM, W: D + 2 * LAM, T: null, q: 1, lam: true });
+  if (c.ends === 'right' || c.ends === 'both') list.push({ role: 'lam-right', name: 'Right end', L: hb + 2 * LAM, W: D + 2 * LAM, T: null, q: 1, lam: true });
+  list.push({ role: 'lam-front', name: 'Front', L: hb + 2 * LAM, W: W + 2 * LAM, T: null, q: 1, lam: true });
+  list.forEach(function (p, i) { p.num = i + 1; p.q = p.q * q; });
+  return { hb: hb, S: S, list: list };
+}
+function partsOf(c) {
+  var e = errs(c); if (!e.ok) return null;
+  var k = nums(c);
+  return calc(c, e.wv, e.hv, e.dv, k.n, k.q);
+}
+function diff(a, b) {
+  var pa = partsOf(a), pb = partsOf(b), out = {};
+  if (!pa || !pb) return out;
+  var old = {};
+  pa.list.forEach(function (p) { old[p.role] = p; });
+  pb.list.forEach(function (p) {
+    var o = old[p.role];
+    if (!o) { out[p.role] = { L: true, W: true, T: true, q: true, was: 'New part' }; return; }
+    var ch = { L: o.L !== p.L, W: o.W !== p.W, T: o.T !== p.T, q: o.q !== p.q };
+    if (ch.L || ch.W || ch.T || ch.q) {
+      ch.was = 'Was ' + fmt(o.L) + ' × ' + fmt(o.W) + (o.T ? ' × ' + fmt(o.T) : '') + ', qty ' + o.q;
+      out[p.role] = ch;
+    }
+  });
+  return out;
+}
+function mini(c, box) {
+  var e = errs(c), k = nums(c);
+  if (!e.ok) return { ok: false };
+  var bw = box ? box[0] : 24, bh = box ? box[1] : 34;
+  var W = e.wv, H = e.hv, base = c.type === 'base', m = Math.min(bw / W, bh / H);
+  var w = W * m, h = H * m, x = (30 - w) / 2, y = 38 - h;
+  var topH = base ? Math.max(1.2, TOP * m) : 0, toeH = base ? TOE * m : 0;
+  var boxY = y + topH, boxH = h - topH - toeH, shelves = [];
+  for (var i = 1; i <= Math.min(k.n, 6); i++) shelves.push(boxY + (boxH * i) / (k.n + 1));
+  return {
+    ok: true, base: base, x: x, y: y, w: w, topH: topH, toeX: x + 1.5, toeY: y + h - toeH, toeW: Math.max(0, w - 3), toeH: toeH,
+    boxY: boxY, boxH: boxH, shelves: shelves, sx1: x + 1.5, sx2: x + w - 1.5,
+    finL: c.ends === 'left' || c.ends === 'both', finR: c.ends === 'right' || c.ends === 'both', flx: x - 3, frx: x + w + 0.5
+  };
+}
+function nowText() {
+  var d = new Date(), h = d.getHours(), m = d.getMinutes();
+  return (h % 12 || 12) + ':' + (m < 10 ? '0' : '') + m + (h < 12 ? ' AM' : ' PM');
+}
+function nextId(cabs, prefix) {
+  var used = {};
+  cabs.forEach(function (c) { used[c.id] = true; });
+  var k = 1;
+  while (used[prefix + k]) k++;
+  return prefix + k;
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.fieldEls = {};
+    this.rowEls = [];
+    this.timers = [];
+    this.snap = null;
+    this.state = {
+      selected: 0,
+      cabs: [
+        { id: 'B1', type: 'base', w: '30', h: '36', d: '24', shelves: '1', qty: '1', ends: 'left' },
+        { id: 'B2', type: 'base', w: '42', h: '36', d: '24', shelves: '1', qty: '1', ends: 'none' },
+        { id: 'B3', type: 'base', w: '18', h: '36', d: '24', shelves: '1', qty: '2', ends: 'right' },
+        { id: 'W1', type: 'wall', w: '30', h: '30', d: '12', shelves: '2', qty: '1', ends: 'both' },
+        { id: 'W2', type: 'wall', w: '15', h: '30', d: '12 1/4', shelves: '2', qty: '1', ends: 'right' }
+      ],
+      past: [], future: [],
+      hover: null, focus: null, hotPart: null, pinPart: null,
+      delta: {}, rev: 0,
+      save: 'saved', savedAt: '9:41 AM', status: 'Draft',
+      addOpen: false, statusOpen: false, kbdOpen: false, conOpen: false,
+      toast: null, toastN: 0, fresh: null, leaving: null,
+      showDims: true, showGhosts: false
+    };
+  }
+  componentWillUnmount() { this.timers.forEach(clearTimeout); }
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+  saving() {
+    var self = this;
+    this.setState({ save: 'saving' });
+    this.later(function () { self.setState({ save: 'saved', savedAt: nowText() }); }, 650);
+  }
+  showToast(text, canUndo) {
+    var self = this, n = this.state.toastN + 1;
+    this.setState({ toast: { text: text, undo: canUndo }, toastN: n });
+    this.later(function () { if (self.state.toastN === n) self.setState({ toast: null }); }, 6000);
+  }
+  fadeDelta(rev) {
+    var self = this;
+    this.later(function () { if (self.state.rev === rev) self.setState({ delta: {} }); }, 4000);
+  }
+  commit(cabs, selected, label, delta) {
+    var st = this.state, rev = st.rev + 1;
+    this.setState({
+      cabs: cabs, selected: selected, delta: delta || {}, rev: rev, future: [],
+      past: st.past.concat([{ cabs: st.cabs, selected: st.selected, label: label }]).slice(-50)
+    });
+    this.saving();
+    this.fadeDelta(rev);
+  }
+  edit(patch) {
+    var st = this.state, cabs = st.cabs.slice();
+    cabs[st.selected] = Object.assign({}, cabs[st.selected], patch);
+    this.setState({ cabs: cabs });
+  }
+  change(patch, label) {
+    var st = this.state, a = st.cabs[st.selected], b = Object.assign({}, a, patch), cabs = st.cabs.slice();
+    cabs[st.selected] = b;
+    this.commit(cabs, st.selected, label + ' on ' + a.id, diff(a, b));
+  }
+  beginField(key) {
+    this.snap = { cabs: this.state.cabs, selected: this.state.selected };
+    this.setState({ focus: key });
+  }
+  endField(key) {
+    var st = this.state, snap = this.snap;
+    this.snap = null;
+    if (snap && snap.selected === st.selected) {
+      var a = snap.cabs[snap.selected], b = st.cabs[st.selected];
+      if (JSON.stringify(a) !== JSON.stringify(b)) {
+        var rev = st.rev + 1;
+        this.setState({
+          focus: null, delta: diff(a, b), rev: rev, future: [],
+          past: st.past.concat([{ cabs: snap.cabs, selected: snap.selected, label: 'Change ' + FIELD_NAME[key] + ' on ' + a.id }]).slice(-50)
+        });
+        this.saving();
+        this.fadeDelta(rev);
+        return;
+      }
+    }
+    this.setState({ focus: null });
+  }
+  undo() {
+    var st = this.state;
+    if (!st.past.length) return;
+    var prev = st.past[st.past.length - 1], rev = st.rev + 1;
+    var d = prev.selected === st.selected && prev.cabs.length === st.cabs.length ? diff(st.cabs[st.selected], prev.cabs[prev.selected]) : {};
+    this.setState({
+      cabs: prev.cabs, selected: Math.min(prev.selected, prev.cabs.length - 1), past: st.past.slice(0, -1),
+      future: [{ cabs: st.cabs, selected: st.selected, label: prev.label }].concat(st.future), delta: d, rev: rev
+    });
+    this.saving();
+    this.fadeDelta(rev);
+    this.showToast('Undid: ' + prev.label, false);
+  }
+  redo() {
+    var st = this.state;
+    if (!st.future.length) return;
+    var next = st.future[0], rev = st.rev + 1;
+    var d = next.selected === st.selected && next.cabs.length === st.cabs.length ? diff(st.cabs[st.selected], next.cabs[next.selected]) : {};
+    this.setState({
+      cabs: next.cabs, selected: next.selected, future: st.future.slice(1),
+      past: st.past.concat([{ cabs: st.cabs, selected: st.selected, label: next.label }]), delta: d, rev: rev
+    });
+    this.saving();
+    this.fadeDelta(rev);
+    this.showToast('Redid: ' + next.label, false);
+  }
+  flagFresh(id) {
+    var self = this;
+    this.setState({ fresh: id });
+    this.later(function () { if (self.state.fresh === id) self.setState({ fresh: null }); }, 1400);
+  }
+  add(type, w) {
+    var st = this.state, base = type === 'base';
+    var c = { id: nextId(st.cabs, base ? 'B' : 'W'), type: type, w: String(w), h: base ? '36' : '30', d: base ? '24' : '12', shelves: base ? '1' : '2', qty: '1', ends: 'none' };
+    var cabs = st.cabs.concat([c]);
+    this.setState({ addOpen: false });
+    this.commit(cabs, cabs.length - 1, 'Add ' + c.id, {});
+    this.flagFresh(c.id);
+  }
+  dup(i) {
+    var st = this.state, src = st.cabs[i];
+    var c = Object.assign({}, src, { id: nextId(st.cabs, src.type === 'base' ? 'B' : 'W') });
+    var cabs = st.cabs.slice(0, i + 1).concat([c], st.cabs.slice(i + 1));
+    this.commit(cabs, i + 1, 'Duplicate ' + src.id + ' as ' + c.id, {});
+    this.flagFresh(c.id);
+  }
+  remove(i) {
+    var self = this, st = this.state;
+    if (st.cabs.length <= 1) return;
+    var gone = st.cabs[i];
+    this.setState({ leaving: i });
+    this.later(function () {
+      var s2 = self.state, cabs = s2.cabs.filter(function (_, j) { return j !== i; });
+      var sel = s2.selected > i ? s2.selected - 1 : Math.min(s2.selected, cabs.length - 1);
+      self.setState({ leaving: null, hotPart: null, pinPart: null });
+      self.commit(cabs, sel, 'Remove ' + gone.id, {});
+      self.showToast('Removed ' + gone.id, true);
+    }, 180);
+  }
+  select(i, focus) {
+    var self = this, n = this.state.cabs.length;
+    i = (i + n) % n;
+    this.setState({ selected: i, hotPart: null, pinPart: null, delta: {} });
+    if (focus) this.later(function () { var el = self.rowEls[i]; if (el) el.focus(); }, 0);
+  }
+  focusField(key) {
+    var el = this.fieldEls[key];
+    if (el) { el.focus(); el.select(); }
+  }
+  stepKey(key, e) {
+    if (e.key === 'Enter') { e.target.blur(); return; }
+    if (e.key === 'Escape') {
+      if (this.snap) { var p0 = {}; p0[key] = this.snap.cabs[this.snap.selected][key]; this.edit(p0); }
+      return;
+    }
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    var r = parseDim(this.state.cabs[this.state.selected][key]);
+    if (r.err) return;
+    e.preventDefault();
+    var step = e.shiftKey ? 1 : 1 / 16, v = r.v + (e.key === 'ArrowUp' ? step : -step);
+    if (v <= 0) return;
+    var p = {};
+    p[key] = exact(v);
+    this.edit(p);
+  }
+
+  renderVals() {
+    var self = this, st = this.state;
+    var c = st.cabs[st.selected];
+    var e = errs(c), k = nums(c), base = c.type === 'base';
+    var res = e.ok ? calc(c, e.wv, e.hv, e.dv, k.n, k.q) : null;
+    var hotKey = st.hover || st.focus;
+    var hp = st.hotPart || st.pinPart;
+    var depm = hotKey === 'qty' ? 'all' : (hotKey ? DEPS[hotKey] || null : null);
+    function depOf(role) { return depm === 'all' ? 'q' : (depm ? depm[role] || '' : ''); }
+    function hv(key) {
+      return {
+        enter: function () { self.setState({ hover: key }); },
+        leave: function () { self.setState({ hover: null }); }
+      };
+    }
+    function partHv(role) {
+      return {
+        enter: function () { self.setState({ hotPart: role }); },
+        leave: function () { self.setState({ hotPart: null }); },
+        click: function () { self.setState({ pinPart: self.state.pinPart === role ? null : role }); }
+      };
+    }
+    var byRole = {};
+    if (res) res.list.forEach(function (p) { byRole[p.role] = p; });
+
+    // ---------- drawing ----------
+    var dia = {};
+    if (res) {
+      var W = e.wv, H = e.hv, D = e.dv, hb = res.hb, S = res.S;
+      var s = Math.min(180 / W, 228 / H, 88 / D);
+      var ox = 64, oy = 40, Ws = W * s, Hs = H * s, Ds = D * s, Ps = P * s;
+      var boxY = oy + (base ? TOP * s : 0), boxH = hb * s, bot = oy + Hs;
+      var sx = ox + Ws + 120;
+      var shapes = [], ctx = [], ghosts = [], dims = [];
+      var pst = function (role, kind) {
+        var on = hp === role, dep = !hp && depOf(role);
+        var fill = kind === 'cut' ? 'url(#kf-hatch)' : kind === 'face' ? 'url(#kf-hatch-l)' : kind === 'lam' ? INK : '#FBFAF6';
+        var stroke = kind === 'face' ? '#8E9095' : INK, sw = kind === 'face' ? 0.75 : 1.1;
+        if (on) { fill = kind === 'lam' ? BLUE : '#C9D8F0'; stroke = BLUE; sw = 2; }
+        else if (dep) { fill = kind === 'lam' ? BLUE : '#E3EBF7'; stroke = BLUE; sw = 1.4; }
+        return 'fill: ' + fill + '; stroke: ' + stroke + '; stroke-width: ' + sw + 'px; opacity: ' + (hp && !on ? 0.3 : 1) + '; cursor: pointer; transition: opacity 150ms, fill 150ms, stroke 150ms';
+      };
+      var add = function (role, kind, x, y, w, h) {
+        if (!byRole[role]) return;
+        var hh = partHv(role);
+        shapes.push({ x: x, y: y, w: Math.max(0.5, w), h: Math.max(0.5, h), st: pst(role, kind), enter: hh.enter, leave: hh.leave, click: hh.click });
+      };
+      var ctxSt = function (key, dashed) {
+        var on = hotKey === key;
+        return 'fill: ' + (on ? '#E3EBF7' : (dashed ? 'transparent' : '#ECEBE5')) + '; stroke: ' + (on ? BLUE : '#63656A') + '; stroke-width: ' + (on ? 1.6 : 0.8) + 'px;' + (dashed ? ' stroke-dasharray: 4 3;' : '') + ' opacity: ' + (hp ? 0.3 : 1) + '; transition: fill 120ms, stroke 120ms';
+      };
+      if (base) {
+        var hc = hv('ctop'), ht = hv('toe');
+        ctx.push({ x: ox - 2, y: oy, w: Ws + 4, h: TOP * s, st: ctxSt('ctop', false), enter: hc.enter, leave: hc.leave });
+        ctx.push({ x: ox + 2, y: bot - TOE * s, w: Ws - 4, h: TOE * s, st: ctxSt('toe', true), enter: ht.enter, leave: ht.leave });
+        ctx.push({ x: sx - 2, y: oy, w: Ds + 2, h: TOP * s, st: ctxSt('ctop', false), enter: hc.enter, leave: hc.leave });
+        ctx.push({ x: sx, y: bot - TOE * s, w: Ds - Ps, h: TOE * s, st: ctxSt('toe', true), enter: ht.enter, leave: ht.leave });
+      }
+      // A: front elevation
+      add('back', 'face', ox + Ps, boxY + Ps, Ws - 2 * Ps, boxH - 2 * Ps);
+      add('side-left', 'edge', ox, boxY, Ps, boxH);
+      add('side-right', 'edge', ox + Ws - Ps, boxY, Ps, boxH);
+      add('top', 'edge', ox + Ps, boxY, Ws - 2 * Ps, Ps);
+      add('bottom', 'edge', ox + Ps, boxY + boxH - Ps, Ws - 2 * Ps, Ps);
+      var shelfYs = [];
+      for (var i = 1; i <= k.n; i++) {
+        var yc = boxY + Ps + ((boxH - 2 * Ps) * i) / (k.n + 1);
+        shelfYs.push(yc);
+        add('shelf', 'edge', ox + (P + CL) * s, yc - (S * s) / 2, (W - 2 * P - 2 * CL) * s, S * s);
+      }
+      add('lam-left', 'lam', ox - 3.5, boxY, 3, boxH);
+      add('lam-right', 'lam', ox + Ws + 0.5, boxY, 3, boxH);
+      // B: section
+      add('side-left', 'face', sx, boxY, Ds - Ps, boxH);
+      add('back', 'cut', sx + Ds - Ps, boxY, Ps, boxH);
+      add('top', 'cut', sx, boxY, Ds - Ps, Ps);
+      add('bottom', 'cut', sx, boxY + boxH - Ps, Ds - Ps, Ps);
+      shelfYs.forEach(function (yc) { add('shelf', 'cut', sx + SB * s, yc - (S * s) / 2, (D - P - SB) * s, S * s); });
+
+      var ghostOn = function (role) { return byRole[role] && (st.showGhosts || hp === role || (!hp && depOf(role))); };
+      var gst = function (role, dash) {
+        var on = hp === role || (!hp && depOf(role));
+        return 'fill: ' + (on ? 'rgba(31,79,163,0.06)' : 'none') + '; stroke: ' + (on ? BLUE : '#4A4C50') + '; stroke-width: ' + (on ? 1.5 : 1) + 'px; stroke-dasharray: ' + dash + '; pointer-events: none';
+      };
+      var gts = function (role) { return 'font: 600 9px IBM Plex Sans Condensed, sans-serif; letter-spacing: 0.08em; fill: ' + (hp === role ? BLUE : '#4A4C50') + '; pointer-events: none'; };
+      if (ghostOn('front')) ghosts.push({ x: ox, y: boxY, w: Ws, h: boxH, st: gst('front', '8 3 2 3'), lx: ox + 4, ly: boxY + boxH - 5, label: 'FRONT REF', ts: gts('front') });
+      if (ghostOn('lam-front')) ghosts.push({ x: ox - LAM * s, y: boxY - LAM * s, w: Ws + 2 * LAM * s, h: boxH + 2 * LAM * s, st: gst('lam-front', '4 3'), lx: ox - LAM * s, ly: boxY - LAM * s - 4, label: 'FRONT LAM +1″ EACH EDGE', ts: gts('lam-front') });
+      ['lam-left', 'lam-right'].forEach(function (role) {
+        if (ghostOn(role)) ghosts.push({ x: sx - LAM * s, y: boxY - LAM * s, w: Ds + 2 * LAM * s, h: boxH + 2 * LAM * s, st: gst(role, '4 3'), lx: sx - LAM * s, ly: boxY - LAM * s - 4, label: role === 'lam-left' ? 'LEFT END LAM' : 'RIGHT END LAM', ts: gts(role) });
+      });
+
+      var mkDim = function (key, x1, y1, x2, y2, ext, val, vertical, clickKey) {
+        var on = hotKey === key || (key === 'box' && hotKey === 'h');
+        var text = fin(val), bw = text.length * 6.7 + 10;
+        var mx = (x1 + x2) / 2, my = (y1 + y2) / 2, tx = mx, tf = 'rotate(0)';
+        var len = vertical ? Math.abs(y2 - y1) : Math.abs(x2 - x1);
+        var beside = vertical && len < bw + 10;
+        if (vertical && !beside) tf = 'rotate(-90 ' + mx + ' ' + my + ')';
+        if (beside) tx = x1 + 9 + bw / 2;
+        var t = 4.5, hd = hv(key);
+        return {
+          x1: x1, y1: y1, x2: x2, y2: y2, ext: ext,
+          ticks: 'M' + (x1 - t) + ' ' + (y1 + t) + 'L' + (x1 + t) + ' ' + (y1 - t) + 'M' + (x2 - t) + ' ' + (y2 + t) + 'L' + (x2 + t) + ' ' + (y2 - t),
+          ls: 'stroke: ' + (on ? BLUE : '#4A4C50') + '; stroke-width: ' + (on ? 1.8 : 0.8) + 'px; fill: none',
+          es: 'stroke: ' + (on ? BLUE : '#9A9C9F') + '; stroke-width: 0.7px; fill: none',
+          gs: 'cursor: pointer; opacity: ' + (hp ? 0.4 : 1) + '; transition: opacity 150ms',
+          tf: tf, bx: tx - bw / 2, by: my - 8, bw: bw, tx: tx, ty: my + 4, text: text,
+          bs: on ? 'fill: #E3EBF7; stroke: #1F4FA3; stroke-width: 1px' : 'fill: #FFFFFF; stroke: none',
+          ts: 'font: ' + (on ? 700 : 500) + ' 11px IBM Plex Mono, monospace; fill: ' + (on ? BLUE : INK) + '; text-anchor: middle',
+          hx: vertical ? x1 - 9 : x1, hy: vertical ? y1 : y1 - 9, hw: vertical ? 18 + (beside ? bw + 10 : 0) : x2 - x1, hh: vertical ? y2 - y1 : 18,
+          enter: hd.enter, leave: hd.leave,
+          click: function () {
+            if (clickKey === 'con') self.setState({ conOpen: true });
+            else self.focusField(clickKey);
+          }
+        };
+      };
+      var dy = bot + 24;
+      dims.push(mkDim('w', ox, dy, ox + Ws, dy, 'M' + ox + ' ' + (bot + 4) + 'V' + (dy + 5) + 'M' + (ox + Ws) + ' ' + (bot + 4) + 'V' + (dy + 5), W, false, 'w'));
+      dims.push(mkDim('d', sx, dy, sx + Ds, dy, 'M' + sx + ' ' + (bot + 4) + 'V' + (dy + 5) + 'M' + (sx + Ds) + ' ' + (bot + 4) + 'V' + (dy + 5), D, false, 'd'));
+      var X1 = ox + Ws + 22, X2 = ox + Ws + 92, re = ox + Ws + 5;
+      var brk = function (ys, x) { return ys.map(function (y) { return 'M' + re + ' ' + y + 'H' + (x + 5); }).join(''); };
+      if (base) {
+        dims.push(mkDim('ctop', X1, oy, X1, boxY, brk([oy, boxY], X1), TOP, true, 'con'));
+        dims.push(mkDim('box', X1, boxY, X1, boxY + boxH, brk([boxY + boxH], X1), hb, true, 'h'));
+        dims.push(mkDim('toe', X1, boxY + boxH, X1, bot, brk([bot], X1), TOE, true, 'con'));
+        dims.push(mkDim('h', X2, oy, X2, bot, 'M' + (X1 + 6) + ' ' + oy + 'H' + (X2 + 5) + 'M' + (X1 + 6) + ' ' + bot + 'H' + (X2 + 5), H, true, 'h'));
+      } else {
+        dims.push(mkDim('h', X1, oy, X1, bot, brk([oy, bot], X1), H, true, 'h'));
+      }
+      var cx = ox + Ws / 2;
+      dia = {
+        shapes: shapes, ctx: ctx, ghosts: ghosts, dims: dims,
+        cx: cx, clTop: oy - 22, clBot: bot + 10, clTextX: cx + 4, clTextY: oy - 26,
+        cutMark: 'M' + (cx - 30) + ' ' + (oy - 14) + 'H' + (cx - 14),
+        cutHead: 'M' + (cx - 14) + ' ' + (oy - 18) + 'L' + (cx - 6) + ' ' + (oy - 14) + 'L' + (cx - 14) + ' ' + (oy - 10) + 'Z',
+        cutTextX: cx - 40, cutTextY: oy - 10,
+        label: (base ? 'Base' : 'Wall') + ' cabinet ' + c.id + ', front elevation and section, ' + fin(W) + ' wide, ' + fin(H) + ' high, ' + fin(D) + ' deep, ' + k.n + ' shelves, ' + ENDS_TEXT[c.ends].toLowerCase()
+      };
+      var px96 = Math.round(96 / s);
+      dia.scale = 'SCALE ≈ 1:' + px96;
+    }
+
+    // ---------- caption ----------
+    var cap = { part: false, dim: false, idle: true };
+    if (hp && byRole[hp]) {
+      var pp = byRole[hp];
+      cap = { part: true, dim: false, idle: false, num: pp.num, name: (pp.lam ? 'Laminate, ' : '') + pp.name, size: fmt(pp.L) + ' × ' + fmt(pp.W) + (pp.T ? ' × ' + fmt(pp.T) : '') + '″', extra: 'qty ' + pp.q + (pp.opt ? ' · reference size' : '') + (st.pinPart === hp ? ' · pinned' : '') };
+    } else if (hotKey && DIM_INFO[hotKey] && res) {
+      var names = res.list.filter(function (p) { return depOf(p.role); }).map(function (p) { return (p.lam ? 'lam. ' : '') + p.name.toLowerCase(); });
+      var vals = { w: e.wv, h: e.hv, d: e.dv, box: res.hb, toe: TOE, ctop: TOP, p: P, cl: CL, sb: SB, lam: LAM };
+      var v = hotKey === 'shelves' ? String(k.n) : hotKey === 'qty' ? '× ' + k.q : hotKey === 'ends' ? ENDS_TEXT[c.ends] : hotKey === 'wide' ? '1″ at 36″+' : fin(vals[hotKey]);
+      cap = { part: false, dim: true, idle: false, sym: DIM_INFO[hotKey][0], name: DIM_INFO[hotKey][1], val: v, affects: names.length ? names.join(', ') : 'nothing on this cabinet' };
+    }
+
+    // ---------- parts rows ----------
+    var hl = st.rev % 2 ? 'kfHlA' : 'kfHlB';
+    function row(p) {
+      var dep = depOf(p.role), dl = st.delta[p.role], hh = partHv(p.role), on = hp === p.role;
+      function cell(key) {
+        if (dep && dep.indexOf(key) !== -1) return 'background-color: #E3EBF7; box-shadow: inset 0 -2px 0 #1F4FA3; color: #1F4FA3; font-weight: 600';
+        if (dl && dl[key]) return 'animation: ' + hl + ' 2.6s ease-out; font-weight: 600';
+        return '';
+      }
+      return {
+        num: p.num, name: p.name, opt: !!p.opt, note: p.note || '',
+        grain: p.g === 'v' ? '↕' : '↔', grainTip: p.g === 'v' ? 'Grain runs up and down in the cabinet' : 'Grain runs side to side in the cabinet',
+        L: fmt(p.L), W: fmt(p.W), T: p.T ? fmt(p.T) : '', q: String(p.q),
+        Ls: cell('L'), Ws: cell('W'), Ts: cell('T'), qs: cell('q'),
+        rs: on ? 'background: #DCE6F6' : (st.pinPart === p.role ? 'background: #EEF3FB' : ''),
+        bs: on ? 'background: #1F4FA3; border-color: #1F4FA3; color: #FFFFFF' : (dep ? 'border-color: #1F4FA3; color: #1F4FA3' : ''),
+        ns: p.opt ? 'font-style: italic; color: #4A4C50' : '',
+        pinned: st.pinPart === p.role ? 'true' : 'false',
+        changed: !!dl, was: dl ? dl.was : '', rev: st.rev,
+        enter: hh.enter, leave: hh.leave, pin: hh.click
+      };
+    }
+    var panels = res ? res.list.filter(function (p) { return !p.lam; }).map(row) : [];
+    var lams = res ? res.list.filter(function (p) { return p.lam; }).map(row) : [];
+
+    // ---------- fields ----------
+    function field(key, label, sym, id) {
+      var err = e[key], warn = e.warn[key], val = c[key], pr = parseDim(val), hh = hv(key);
+      var focused = st.focus === key;
+      var msg = '', color = '#4A4C50';
+      if (err) { msg = '⚠ ' + err; color = '#B3261E'; }
+      else if (warn) { msg = '△ ' + warn; color = '#7A4300'; }
+      else if (focused) msg = 'Reads as ' + fin(pr.v) + ' · ↑↓ nudges 1/16″';
+      else if (pr.v != null && String(val).trim() !== frac(pr.v, 64)) msg = 'Reads as ' + fin(pr.v);
+      return {
+        fk: key, label: label, sym: sym, id: id, msgId: id + '-msg', val: val,
+        cls: 'inp' + (err ? ' bad' : '') + (hotKey === key && !focused ? ' hot' : ''),
+        symCls: 'sym' + (hotKey === key || (key === 'h' && hotKey === 'box') ? ' on' : ''),
+        bad: err ? 'true' : 'false', msg: msg, msgColor: color,
+        ref: function (el) { self.fieldEls[key] = el; },
+        change: function (ev) { var p = {}; p[key] = ev.target.value; self.edit(p); },
+        focus: function () { self.beginField(key); },
+        blur: function () { self.endField(key); },
+        kd: function (ev) { self.stepKey(key, ev); },
+        enter: hh.enter, leave: hh.leave
+      };
+    }
+    var fields = [field('w', 'Width', 'W', 'f-w'), field('h', 'Height, overall', 'H', 'f-h'), field('d', 'Depth', 'D', 'f-d')];
+
+    var tapeT = function (text, key) {
+      var hh = key ? hv(key) : { enter: null, leave: null };
+      return { text: text, cls: key ? 't' + (hotKey === key || (key === 'box' && hotKey === 'h') ? ' on' : '') : '', enter: hh.enter, leave: hh.leave };
+    };
+    var tape;
+    if (base) tape = [tapeT(e.h ? '?' : fin(e.hv), 'h'), tapeT('−', null), tapeT(fin(TOE), 'toe'), tapeT('−', null), tapeT(fin(TOP), 'ctop'), tapeT('=', null), tapeT(e.h ? '?' : fin(e.hv - TOE - TOP), 'box')];
+    else tape = [tapeT(e.h ? '?' : fin(e.hv), 'h'), tapeT('=', null), tapeT(e.h ? '?' : fin(e.hv), 'box')];
+
+    var conRules = [
+      ['Panel thickness', fin(P), 'p'],
+      ['Toe kick', base ? fin(TOE) : 'n/a, wall', base ? 'toe' : null],
+      ['Countertop', base ? fin(TOP) : 'n/a, wall', base ? 'ctop' : null],
+      ['Shelf clearance, each side', fin(CL), 'cl'],
+      ['Shelf setback from front', fin(SB), 'sb'],
+      ['Wide shelves', '1″ at 36″+', 'wide'],
+      ['Laminate oversize, each edge', fin(LAM), 'lam'],
+      ['Shelf thickness', fin(0.75), 'wide']
+    ].map(function (r) {
+      var hh = r[2] ? hv(r[2]) : { enter: null, leave: null };
+      return { label: r[0], val: r[1], enter: hh.enter, leave: hh.leave, st: r[2] && hotKey === r[2] ? 'background: #E3EBF7' : (r[2] ? '' : 'color: #8E9095') };
+    });
+
+    var totalQty = st.cabs.reduce(function (a, kk) { return a + nums(kk).q; }, 0);
+    var firstBad = e.w ? 'w' : e.h ? 'h' : e.d ? 'd' : null;
+    var curStatus = STATUS.filter(function (x) { return x[0] === st.status; })[0];
+    var closeAll = function () { self.setState({ addOpen: false, statusOpen: false, kbdOpen: false }); };
+
+    return {
+      savedAt: 'Saved ' + st.savedAt, isSaving: st.save === 'saving', isSaved: st.save !== 'saving',
+      status: st.status, statusGlyph: curStatus[1], statusColor: curStatus[2],
+      statusOpen: st.statusOpen, statusExp: st.statusOpen ? 'true' : 'false',
+      toggleStatus: function () { self.setState({ statusOpen: !st.statusOpen, addOpen: false, kbdOpen: false }); },
+      statusOpts: STATUS.map(function (x) {
+        return {
+          label: x[0], glyph: x[1], color: x[2], on: x[0] === st.status ? 'true' : 'false', mark: x[0] === st.status ? 'Current' : '',
+          pick: function () { self.setState({ status: x[0], statusOpen: false }); self.saving(); self.showToast('Job marked ' + x[0].toLowerCase(), false); }
+        };
+      }),
+      closeMenus: closeAll,
+      menuKey: function (ev) { if (ev.key === 'Escape') closeAll(); },
+      kbdOpen: st.kbdOpen, kbdExp: st.kbdOpen ? 'true' : 'false',
+      toggleKbd: function () { self.setState({ kbdOpen: !st.kbdOpen, addOpen: false, statusOpen: false }); },
+      shortcuts: SHORTCUTS.map(function (x) { return { what: x[0], keys: x[1] }; }),
+      undo: function () { self.undo(); }, redo: function () { self.redo(); },
+      noUndo: !st.past.length, noRedo: !st.future.length,
+      undoTip: st.past.length ? 'Undo: ' + st.past[st.past.length - 1].label : 'Nothing to undo',
+      redoTip: st.future.length ? 'Redo: ' + st.future[0].label : 'Nothing to redo',
+
+      cabSummary: st.cabs.length + ' ENTRIES · ' + totalQty + ' BOXES',
+      cabs: st.cabs.map(function (kc, i) {
+        var ek = errs(kc), nk = nums(kc), on = i === st.selected;
+        return {
+          id: kc.id, typeLabel: kc.type === 'base' ? 'Base' : 'Wall', t: mini(kc), bad: !ek.ok,
+          size: ek.ok ? fmt(ek.wv) + ' × ' + fmt(ek.hv) + ' × ' + fmt(ek.dv) : '⚠ Needs a fix', sizeColor: ek.ok ? '#2B2D30' : '#B3261E',
+          endsText: ENDS_TEXT[kc.ends], hasQty: nk.q > 1, qty: '×' + nk.q,
+          cls: 'cabrow' + (on ? ' on' : '') + (st.fresh === kc.id ? ' new' : '') + (st.leaving === i ? ' out' : ''),
+          current: on ? 'true' : 'false',
+          dupTip: 'Duplicate ' + kc.id, delTip: st.cabs.length > 1 ? 'Remove ' + kc.id : 'A job needs one cabinet', noDel: st.cabs.length <= 1,
+          ref: function (el) { self.rowEls[i] = el; },
+          pick: function () { self.select(i, false); },
+          dup: function () { self.dup(i); },
+          del: function () { self.remove(i); },
+          kd: function (ev) {
+            if (ev.key === 'ArrowDown') { ev.preventDefault(); self.select(i + 1, true); }
+            else if (ev.key === 'ArrowUp') { ev.preventDefault(); self.select(i - 1, true); }
+            else if (ev.key === 'Delete') { ev.preventDefault(); self.remove(i); }
+            else if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'd' || ev.key === 'D')) { ev.preventDefault(); self.dup(i); }
+          }
+        };
+      }),
+      addDefault: function () { self.add(c.type, c.type === 'base' ? 24 : 30); },
+      addOpen: st.addOpen, addExp: st.addOpen ? 'true' : 'false', addChev: st.addOpen ? 'rotate(180deg)' : 'none',
+      toggleAdd: function () { self.setState({ addOpen: !st.addOpen, statusOpen: false, kbdOpen: false }); },
+      presetGroups: [['base', 'Base · 36″ high, 24″ deep'], ['wall', 'Wall · 30″ high, 12″ deep']].map(function (g) {
+        return {
+          label: g[1],
+          items: [12, 15, 18, 24, 30, 36].map(function (w) {
+            var pc = { type: g[0], w: String(w), h: g[0] === 'base' ? '36' : '30', d: g[0] === 'base' ? '24' : '12', shelves: g[0] === 'base' ? '1' : '2', qty: '1', ends: 'none' };
+            return { label: w + '″ ' + (g[0] === 'base' ? 'base' : 'wall'), size: w + ' × ' + pc.h + ' × ' + pc.d, t: mini(pc, [24, 34]), pick: function () { self.add(g[0], w); } };
+          })
+        };
+      }),
+
+      sel: {
+        id: c.id, shelves: c.shelves, qty: c.qty,
+        sub: (base ? 'BASE' : 'WALL') + ' · ' + (st.focus ? 'EDITING ' + (FIELD_NAME[st.focus] || '').toUpperCase() : 'READY'),
+        isBase: base ? 'true' : 'false', isWall: base ? 'false' : 'true',
+        thumbX: base ? 'translateX(0)' : 'translateX(100%)', baseColor: base ? '#FFFFFF' : '#1B1D1F', wallColor: base ? '#1B1D1F' : '#FFFFFF'
+      },
+      setBase: function () { if (!base) self.change({ type: 'base' }, 'Make base'); },
+      setWall: function () { if (base) self.change({ type: 'wall' }, 'Make wall'); },
+      fields: fields,
+      tape: tape, tapeNote: base ? 'overall − toe kick − countertop' : 'wall cabinets use full height',
+      hvShelves: hv('shelves'), hvQty: hv('qty'), hvEnds: hv('ends'),
+      shelfSym: 'sym' + (hotKey === 'shelves' ? ' on' : ''), qtySym: 'sym' + (hotKey === 'qty' ? ' on' : ''),
+      noShelfDown: k.n <= 0, noQtyDown: k.q <= 1,
+      shelfDown: function () { self.change({ shelves: String(Math.max(0, k.n - 1)) }, 'Remove a shelf'); },
+      shelfUp: function () { self.change({ shelves: String(k.n + 1) }, 'Add a shelf'); },
+      qtyDown: function () { self.change({ qty: String(Math.max(1, k.q - 1)) }, 'Change quantity'); },
+      qtyUp: function () { self.change({ qty: String(k.q + 1) }, 'Change quantity'); },
+      onShelves: function (ev) { self.edit({ shelves: ev.target.value.replace(/[^0-9]/g, '') }); },
+      onQty: function (ev) { self.edit({ qty: ev.target.value.replace(/[^0-9]/g, '') }); },
+      onId: function (ev) { self.edit({ id: ev.target.value }); },
+      focusShelves: function () { self.beginField('shelves'); }, blurShelves: function () { self.endField('shelves'); },
+      focusQty: function () { self.beginField('qty'); }, blurQty: function () { self.endField('qty'); },
+      focusId: function () { self.beginField('id'); }, blurId: function () { self.endField('id'); },
+      endOpts: ENDS.map(function (o) {
+        var on = c.ends === o[0];
+        return {
+          label: o[1], selected: on ? 'true' : 'false', cls: 'endb' + (on ? ' on' : ''),
+          l: o[0] === 'left' || o[0] === 'both', r: o[0] === 'right' || o[0] === 'both',
+          pick: function () { if (!on) self.change({ ends: o[0] }, 'Finished ends ' + o[1].toLowerCase()); }
+        };
+      }),
+      conExp: st.conOpen ? 'true' : 'false', conRows: st.conOpen ? '1fr' : '0fr', conChev: st.conOpen ? 'rotate(90deg)' : 'none',
+      toggleCon: function () { self.setState({ conOpen: !st.conOpen }); },
+      rules: conRules,
+
+      ok: !!res, notOk: !res, dia: dia, scaleText: res ? dia.scale : 'NO DRAWING',
+      showDims: st.showDims, showDimsP: st.showDims ? 'true' : 'false', showGhostsP: st.showGhosts ? 'true' : 'false',
+      toggleDims: function () { self.setState({ showDims: !st.showDims }); },
+      toggleGhosts: function () { self.setState({ showGhosts: !st.showGhosts }); },
+      firstBadName: firstBad ? FIELD_NAME[firstBad] : '',
+      focusFirstBad: function () { if (firstBad) self.focusField(firstBad); },
+      cap: cap,
+      panels: panels, lams: lams,
+      qtyNote: k.q > 1 ? 'QUANTITIES INCLUDE ×' + k.q : 'QUANTITY 1',
+
+      hasToast: !!st.toast, toastText: st.toast ? st.toast.text : '', toastUndo: st.toast ? st.toast.undo : false
+    };
+  }
+}
+</script>
+</body>
+</html>

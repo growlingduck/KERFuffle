@@ -1,0 +1,136 @@
+[
+  {
+    "number": 14,
+    "name": "Kitchen remodel",
+    "customer": "[Customer name]",
+    "status": "draft",
+    "notes": "Island deferred. Uppers to ceiling?",
+    "cabinets": [
+      {"label": "B1", "type": "base", "width": 1920, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "left", "quantity": 1},
+      {"label": "B2", "type": "base", "width": 2688, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "B3", "type": "base", "width": 1152, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "B4", "type": "base", "width": 1152, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "right", "quantity": 1},
+      {"label": "W1", "type": "wall", "width": 1920, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "left", "quantity": 1},
+      {"label": "W2", "type": "wall", "width": 960, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "right", "quantity": 1}
+    ]
+  },
+  {
+    "number": 13,
+    "name": "Laundry room built-ins",
+    "customer": "[Customer name]",
+    "status": "ready",
+    "notes": "White melamine throughout.",
+    "cabinets": [
+      {"label": "B1", "type": "base", "width": 1536, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "left", "quantity": 1},
+      {"label": "B2", "type": "base", "width": 1920, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "right", "quantity": 1},
+      {"label": "W1", "type": "wall", "width": 1536, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "left", "quantity": 1},
+      {"label": "W2", "type": "wall", "width": 1920, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W3", "type": "wall", "width": 2304, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "right", "quantity": 1}
+    ]
+  },
+  {
+    "number": 12,
+    "name": "Garage wall cabinets",
+    "customer": "Shop",
+    "status": "ready",
+    "notes": null,
+    "cabinets": [
+      {"label": "W1", "type": "wall", "width": 2304, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W2", "type": "wall", "width": 2304, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W3", "type": "wall", "width": 2304, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W4", "type": "wall", "width": 2304, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W5", "type": "wall", "width": 1920, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W6", "type": "wall", "width": 1920, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W7", "type": "wall", "width": 1536, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W8", "type": "wall", "width": 1536, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1}
+    ]
+  },
+  {
+    "number": 11,
+    "name": "Bathroom vanity",
+    "customer": "[Customer name]",
+    "status": "completed",
+    "notes": "Both ends finished.",
+    "cabinets": [
+      {"label": "B1", "type": "base", "width": 2304, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "left", "quantity": 1},
+      {"label": "B2", "type": "base", "width": 1152, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "right", "quantity": 1}
+    ]
+  },
+  {
+    "number": 9,
+    "name": "Office storage",
+    "customer": "[Customer name]",
+    "status": "archived",
+    "notes": null,
+    "cabinets": [
+      {"label": "B1", "type": "base", "width": 1920, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "B2", "type": "base", "width": 1920, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "W1", "type": "wall", "width": 1920, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W2", "type": "wall", "width": 1920, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W3", "type": "wall", "width": 1920, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1}
+    ]
+  },
+  {
+    "number": 15,
+    "name": "Cut-list sample",
+    "customer": "[Customer name]",
+    "status": "ready",
+    "notes": "The five cabinets from the cut-list wireframe.",
+    "cabinets": [
+      {"label": "B1", "type": "base", "width": 1920, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "left", "quantity": 1},
+      {"label": "B2", "type": "base", "width": 2688, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "B3", "type": "base", "width": 1152, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "right", "quantity": 2},
+      {"label": "W1", "type": "wall", "width": 1920, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "both", "quantity": 1},
+      {"label": "W2", "type": "wall", "width": 960, "height": 1920, "depth": 784, "shelfCount": 2, "finishedEnds": "right", "quantity": 1}
+    ]
+  },
+  {
+    "number": 16,
+    "name": "Stress test: 40 cabinets",
+    "customer": "[Customer name]",
+    "status": "draft",
+    "notes": "Checks page breaks on the printed cut list.",
+    "cabinets": [
+      {"label": "B1", "type": "base", "width": 576, "height": 2304, "depth": 1536, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "B2", "type": "base", "width": 1536, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "left", "quantity": 1},
+      {"label": "B3", "type": "base", "width": 2496, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "none", "quantity": 2},
+      {"label": "B4", "type": "base", "width": 768, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "B5", "type": "base", "width": 1728, "height": 2304, "depth": 1488, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "B6", "type": "base", "width": 2688, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "left", "quantity": 1},
+      {"label": "B7", "type": "base", "width": 960, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "B8", "type": "base", "width": 1920, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "B9", "type": "base", "width": 2880, "height": 2304, "depth": 1536, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "B10", "type": "base", "width": 1152, "height": 2304, "depth": 1488, "shelfCount": 1, "finishedEnds": "left", "quantity": 1},
+      {"label": "B11", "type": "base", "width": 2112, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "B12", "type": "base", "width": 3072, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "right", "quantity": 2},
+      {"label": "B13", "type": "base", "width": 1344, "height": 2304, "depth": 1536, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "B14", "type": "base", "width": 2304, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "left", "quantity": 1},
+      {"label": "B15", "type": "base", "width": 576, "height": 2304, "depth": 1488, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "B16", "type": "base", "width": 1536, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "B17", "type": "base", "width": 2496, "height": 2304, "depth": 1536, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "B18", "type": "base", "width": 768, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "left", "quantity": 1},
+      {"label": "B19", "type": "base", "width": 1728, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "B20", "type": "base", "width": 2688, "height": 2304, "depth": 1488, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "B21", "type": "base", "width": 960, "height": 2304, "depth": 1536, "shelfCount": 2, "finishedEnds": "none", "quantity": 2},
+      {"label": "B22", "type": "base", "width": 1920, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "left", "quantity": 1},
+      {"label": "B23", "type": "base", "width": 2880, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "none", "quantity": 1},
+      {"label": "B24", "type": "base", "width": 1152, "height": 2304, "depth": 1536, "shelfCount": 1, "finishedEnds": "right", "quantity": 1},
+      {"label": "W1", "type": "wall", "width": 768, "height": 2688, "depth": 768, "shelfCount": 3, "finishedEnds": "left", "quantity": 1},
+      {"label": "W2", "type": "wall", "width": 1344, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W3", "type": "wall", "width": 1920, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W4", "type": "wall", "width": 2496, "height": 2688, "depth": 784, "shelfCount": 3, "finishedEnds": "none", "quantity": 1},
+      {"label": "W5", "type": "wall", "width": 3072, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "right", "quantity": 1},
+      {"label": "W6", "type": "wall", "width": 960, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "left", "quantity": 1},
+      {"label": "W7", "type": "wall", "width": 1536, "height": 2688, "depth": 768, "shelfCount": 3, "finishedEnds": "none", "quantity": 1},
+      {"label": "W8", "type": "wall", "width": 2112, "height": 1920, "depth": 784, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W9", "type": "wall", "width": 2688, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W10", "type": "wall", "width": 576, "height": 2688, "depth": 768, "shelfCount": 3, "finishedEnds": "right", "quantity": 1},
+      {"label": "W11", "type": "wall", "width": 1152, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "left", "quantity": 1},
+      {"label": "W12", "type": "wall", "width": 1728, "height": 1920, "depth": 784, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W13", "type": "wall", "width": 2304, "height": 2688, "depth": 768, "shelfCount": 3, "finishedEnds": "none", "quantity": 1},
+      {"label": "W14", "type": "wall", "width": 2880, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1},
+      {"label": "W15", "type": "wall", "width": 768, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "right", "quantity": 1},
+      {"label": "W16", "type": "wall", "width": 1344, "height": 2688, "depth": 784, "shelfCount": 3, "finishedEnds": "left", "quantity": 1}
+    ]
+  }
+]

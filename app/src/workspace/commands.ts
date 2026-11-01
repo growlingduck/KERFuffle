@@ -1,0 +1,146 @@
+import type { CabinetType, FinishedEnds, Ticks } from '@kerfuffle/engine';
+import { STATUS_INFO } from '../components/Stamp';
+import type { CabinetRecord, JobRecord, JobStatus } from '../data/types';
+import { nextLabel } from './cabinets';
+
+/**
+ * Domain commands for the job workspace. Every user change is one of these.
+ * Each produces the job's next contents plus a human label ("Change width on
+ * B1"), so undo/redo, autosave and revision marks share one path (history.ts).
+ *
+ * Reducers are pure: anything random (a new cabinet's id) comes in the command.
+ */
+
+/** The parts of a job the workspace edits. */
+export type JobContent = Pick<JobRecord, 'cabinets' | 'status'>;
+
+export type DimensionField = 'width' | 'height' | 'depth';
+
+export type Command =
+  | { type: 'setDimension'; cabinetId: string; field: DimensionField; value: Ticks }
+  | { type: 'setType'; cabinetId: string; value: CabinetType }
+  | { type: 'setShelves'; cabinetId: string; value: number }
+  | { type: 'setQuantity'; cabinetId: string; value: number }
+  | { type: 'setFinishedEnds'; cabinetId: string; value: FinishedEnds }
+  | { type: 'renameCabinet'; cabinetId: string; label: string }
+  | { type: 'addCabinet'; cabinet: CabinetRecord }
+  | { type: 'duplicateCabinet'; cabinetId: string; newId: string }
+  | { type: 'removeCabinet'; cabinetId: string }
+  | { type: 'reorderCabinet'; cabinetId: string; toIndex: number }
+  | { type: 'setStatus'; status: JobStatus };
+
+export interface CommandResult {
+  content: JobContent;
+  /** For the Undo / Redo tooltips, e.g. "Change width on B1". */
+  label: string;
+  /** Cabinet to select afterwards, when the command changes the selection. */
+  select?: string | null;
+}
+
+const FIELD_NAME: Record<DimensionField, string> = { width: 'width', height: 'height', depth: 'depth' };
+
+/** Name used in labels; a blank label still needs to read as something. */
+function named(cabinet: CabinetRecord): string {
+  return cabinet.label.trim() || 'the unnamed cabinet';
+}
+
+function patchCabinet(
+  content: JobContent,
+  cabinetId: string,
+  patch: (c: CabinetRecord) => Partial<CabinetRecord>,
+  label: (c: CabinetRecord) => string,
+): CommandResult | null {
+  const index = content.cabinets.findIndex((c) => c.id === cabinetId);
+  const cabinet = content.cabinets[index];
+  if (!cabinet) return null;
+  const changes = patch(cabinet);
+  const next = { ...cabinet, ...changes };
+  if ((Object.keys(changes) as (keyof CabinetRecord)[]).every((k) => Object.is(next[k], cabinet[k]))) return null;
+  const cabinets = [...content.cabinets];
+  cabinets[index] = next;
+  return { content: { ...content, cabinets }, label: label(cabinet) };
+}
+
+/** Apply a command. Null when it would change nothing (no undo step, no save). */
+export function applyCommand(content: JobContent, command: Command): CommandResult | null {
+  switch (command.type) {
+    case 'setDimension':
+      return patchCabinet(
+        content,
+        command.cabinetId,
+        () => ({ [command.field]: command.value }),
+        (c) => `Change ${FIELD_NAME[command.field]} on ${named(c)}`,
+      );
+    case 'setType':
+      // The height stays as typed: a 36″ base becomes a 36″ wall cabinet.
+      return patchCabinet(
+        content,
+        command.cabinetId,
+        () => ({ type: command.value }),
+        (c) => `Make ${named(c)} a ${command.value} cabinet`,
+      );
+    case 'setShelves':
+      if (!Number.isInteger(command.value) || command.value < 0) return null;
+      return patchCabinet(content, command.cabinetId, () => ({ shelfCount: command.value }), (c) => `Change shelves on ${named(c)}`);
+    case 'setQuantity':
+      if (!Number.isInteger(command.value) || command.value < 1) return null;
+      return patchCabinet(content, command.cabinetId, () => ({ quantity: command.value }), (c) => `Change quantity on ${named(c)}`);
+    case 'setFinishedEnds':
+      return patchCabinet(
+        content,
+        command.cabinetId,
+        () => ({ finishedEnds: command.value }),
+        (c) => `Change finished ends on ${named(c)}`,
+      );
+    case 'renameCabinet': {
+      const label = command.label.trim();
+      return patchCabinet(
+        content,
+        command.cabinetId,
+        () => ({ label }),
+        (c) => (label ? `Rename ${named(c)} to ${label}` : `Clear the ID of ${named(c)}`),
+      );
+    }
+    case 'addCabinet': {
+      if (content.cabinets.some((c) => c.id === command.cabinet.id)) return null;
+      return {
+        content: { ...content, cabinets: [...content.cabinets, command.cabinet] },
+        label: `Add ${named(command.cabinet)}`,
+        select: command.cabinet.id,
+      };
+    }
+    case 'duplicateCabinet': {
+      const index = content.cabinets.findIndex((c) => c.id === command.cabinetId);
+      const source = content.cabinets[index];
+      if (!source || content.cabinets.some((c) => c.id === command.newId)) return null;
+      const copy: CabinetRecord = { ...source, id: command.newId, label: nextLabel(content.cabinets, source.type) };
+      const cabinets = [...content.cabinets];
+      cabinets.splice(index + 1, 0, copy);
+      return { content: { ...content, cabinets }, label: `Duplicate ${named(source)} as ${copy.label}`, select: copy.id };
+    }
+    case 'removeCabinet': {
+      // A job keeps at least one cabinet.
+      if (content.cabinets.length <= 1) return null;
+      const index = content.cabinets.findIndex((c) => c.id === command.cabinetId);
+      const gone = content.cabinets[index];
+      if (!gone) return null;
+      const cabinets = content.cabinets.filter((c) => c.id !== gone.id);
+      const neighbor = cabinets[Math.min(index, cabinets.length - 1)];
+      return { content: { ...content, cabinets }, label: `Remove ${named(gone)}`, select: neighbor?.id ?? null };
+    }
+    case 'reorderCabinet': {
+      const from = content.cabinets.findIndex((c) => c.id === command.cabinetId);
+      const moving = content.cabinets[from];
+      if (!moving) return null;
+      const to = Math.min(Math.max(0, Math.trunc(command.toIndex)), content.cabinets.length - 1);
+      if (to === from) return null;
+      const cabinets = [...content.cabinets];
+      cabinets.splice(from, 1);
+      cabinets.splice(to, 0, moving);
+      return { content: { ...content, cabinets }, label: `Move ${named(moving)}` };
+    }
+    case 'setStatus':
+      if (command.status === content.status) return null;
+      return { content: { ...content, status: command.status }, label: `Mark job ${STATUS_INFO[command.status].label.toLowerCase()}` };
+  }
+}

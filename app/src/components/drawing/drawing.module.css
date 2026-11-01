@@ -1,0 +1,132 @@
+/* Drawing primitives. State comes from data-traced / data-faded on each group. */
+
+.group {
+  transition: opacity 150ms var(--ease-out);
+}
+.group[data-faded] {
+  opacity: 0.4;
+}
+.group[data-clickable] {
+  cursor: pointer;
+}
+
+/* ---- Dimension lines ---- */
+.dimLine {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 0.8px;
+  transition:
+    stroke var(--dur-fast) var(--ease-out),
+    stroke-width var(--dur-fast) var(--ease-out);
+}
+.extLine {
+  fill: none;
+  stroke: var(--rule-input);
+  stroke-width: 0.7px;
+}
+.labelBox {
+  fill: var(--white);
+  stroke: none;
+}
+.labelText {
+  font: 500 11px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  fill: var(--ink);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.hit {
+  fill: transparent;
+}
+
+.group[data-traced] .dimLine {
+  stroke: var(--blue);
+  stroke-width: 1.8px;
+}
+.group[data-traced] .extLine {
+  stroke: var(--blue);
+}
+.group[data-traced] .labelBox {
+  fill: var(--blue-tint);
+  stroke: var(--blue);
+  stroke-width: 1px;
+}
+.group[data-traced] .labelText {
+  font-weight: 700;
+  fill: var(--blue);
+}
+
+/* ---- Hatched part ---- */
+.part {
+  stroke: var(--ink);
+  stroke-width: 1px;
+  transition:
+    opacity 150ms var(--ease-out),
+    stroke var(--dur-fast) var(--ease-out);
+}
+.group[data-traced] .part {
+  stroke: var(--blue);
+  stroke-width: 1.5px;
+}
+
+/* ---- Balloon ---- */
+.balloonCircle {
+  fill: var(--white);
+  stroke: var(--ink);
+  stroke-width: 1.25px;
+}
+.balloonText {
+  font: 600 11px var(--font-cond);
+  fill: var(--ink);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.group[data-traced] .balloonCircle {
+  fill: var(--blue);
+  stroke: var(--blue);
+}
+.group[data-traced] .balloonText {
+  fill: var(--white);
+}
+
+/* ---- Centerline ---- */
+.centerline {
+  fill: none;
+  stroke: #8e9095;
+  stroke-width: 0.75px;
+  stroke-dasharray: 10 3 2 3;
+}
+.centerSymbol {
+  font: 600 11px var(--font-sans);
+  fill: var(--muted-2);
+}
+.group[data-traced] .centerline {
+  stroke: var(--blue);
+  stroke-width: 1.2px;
+}
+.group[data-traced] .centerSymbol {
+  fill: var(--blue);
+}
+
+/* ---- Section-cut mark ---- */
+.cutTail {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.6px;
+}
+.cutHead {
+  fill: var(--ink);
+}
+.cutLetter {
+  font: 700 11px var(--font-cond);
+  fill: var(--ink);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.group[data-traced] .cutTail {
+  stroke: var(--blue);
+}
+.group[data-traced] .cutHead,
+.group[data-traced] .cutLetter {
+  fill: var(--blue);
+}

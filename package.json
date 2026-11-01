@@ -1,0 +1,23 @@
+{
+  "name": "kerfuffle",
+  "private": true,
+  "workspaces": [
+    "engine",
+    "app"
+  ],
+  "scripts": {
+    "dev": "npm run tauri -w app -- dev",
+    "dev:web": "npm run vite -w app",
+    "build": "npm run tauri -w app -- build",
+    "test": "npm test --workspaces",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "^8.72.1"
+  }
+}

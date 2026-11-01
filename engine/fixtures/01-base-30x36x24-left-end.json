@@ -1,0 +1,18 @@
+{
+  "name": "Base 30 W x 36 H x 24 D, 1 shelf, left finished end",
+  "status": "unconfirmed",
+  "notes": "Box height 36 - 4 - 1 1/2 = 30 1/2. Shelf: 28 1/2 between sides - 1/8 each side = 28 1/4; 23 1/4 deep - 1/8 setback = 23 1/8; 3/4 thick because 30 is under 36. Laminate: 1 inch all around, so +2 each way.",
+  "spec": { "id": "B1", "type": "base", "width": "30", "height": "36", "depth": "24", "shelfCount": 1, "finishedEnds": "left", "quantity": 1 },
+  "rules": { "preset": "DEFAULT_RULES" },
+  "expected": [
+    { "role": "back",               "category": "panel",    "name": "Back",                "length": "30 1/2", "width": "30",     "thickness": "3/4", "quantity": 1 },
+    { "role": "bottom",             "category": "panel",    "name": "Bottom",              "length": "28 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+    { "role": "side-left",          "category": "panel",    "name": "Left side",           "length": "30 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+    { "role": "side-right",         "category": "panel",    "name": "Right side",          "length": "30 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+    { "role": "top",                "category": "panel",    "name": "Top",                 "length": "28 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+    { "role": "front",              "category": "panel",    "name": "Front (door/laminate size)", "length": "30 1/2", "width": "30",     "thickness": "3/4", "quantity": 1, "optional": true },
+    { "role": "shelf",              "category": "panel",    "name": "Shelf",               "length": "28 1/4", "width": "23 1/8", "thickness": "3/4", "quantity": 1 },
+    { "role": "laminate-side-left", "category": "laminate", "name": "Laminate, left side", "length": "32 1/2", "width": "26",     "thickness": null,  "quantity": 1 },
+    { "role": "laminate-front",     "category": "laminate", "name": "Laminate, front",     "length": "32 1/2", "width": "32",     "thickness": null,  "quantity": 1 }
+  ]
+}
