@@ -17,7 +17,9 @@ import { useShortcutScope } from '../keyboard/shortcuts';
 import { displayInches, exactInches } from '../lib/dimensions';
 import { cx } from '../lib/interaction';
 import { useReducedMotion } from '../motion';
+import { formatEdited } from '../lib/relativeDate';
 import { chooseBackupFolder, hasFileSystem, openBackupFolder } from '../platform/files';
+import { APP_VERSION, checkForUpdates, restartToUpdate, useUpdates } from '../platform/updates';
 import { setNavigationGuard } from '../routes';
 import { setDisplaySettings } from '../state/display';
 import { showToast } from '../state/toast';
@@ -46,6 +48,7 @@ const SECTIONS = [
   { id: 'construction', num: '01', label: 'Construction' },
   { id: 'display', num: '02', label: 'Display' },
   { id: 'backups', num: '03', label: 'Backups' },
+  { id: 'about', num: '04', label: 'About' },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 
@@ -61,7 +64,7 @@ const NO_FILE_SYSTEM = 'Only in the desktop app';
 
 type Load = { kind: 'loading' } | { kind: 'ready' } | { kind: 'failed'; message: string };
 
-/** Shop settings (interaction-design §8): construction defaults, display, backups. */
+/** Shop settings (interaction-design §8): construction defaults, display, backups, about. */
 export function SettingsScreen() {
   useShortcutScope('settings');
   useShortcutScope('fields');
@@ -372,6 +375,8 @@ function SettingsBody({ draft, dispatch, issues, children }: BodyProps) {
 
         <BackupsSection draft={draft} dispatch={dispatch} />
 
+        <AboutSection />
+
         {children}
       </div>
 
@@ -589,6 +594,77 @@ function BackupsSection({ draft, dispatch }: { draft: SettingsDraft; dispatch: D
             {count === 1 ? '1 backup' : `${count} backups`} in the folder now. Older ones are deleted automatically, but each week of the last month
             keeps at least one.{estimate !== null && ` About ${formatBytes(estimate)} for ${keep}.`}
           </p>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+/** "today, 9:41 AM", "yesterday, 4:12 PM" or "on Oct 21". */
+function checkedWhen(ms: number): string {
+  const when = formatEdited(new Date(ms).toISOString(), new Date());
+  return /^(Today|Yesterday)/.test(when) ? when.charAt(0).toLowerCase() + when.slice(1) : `on ${when}`;
+}
+
+/** The version, and updates: checked once a day by themselves, or now by hand. */
+function AboutSection() {
+  const { status, restarting } = useUpdates();
+  const [checking, setChecking] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const version = status?.currentVersion ?? APP_VERSION;
+
+  let line: string;
+  if (!status) line = 'Updates are only in the desktop app.';
+  else if (!status.enabled) line = 'This is a development build. It doesn’t update itself.';
+  else if (status.readyVersion) line = `Version ${status.readyVersion} is downloaded. It installs when you close KERFuffle.`;
+  else if (status.checking) line = 'Checking for updates…';
+  else if (status.lastChecked) line = `Up to date. Last checked ${checkedWhen(status.lastChecked)}.`;
+  else line = 'Not checked yet. KERFuffle checks once a day when it can reach the internet.';
+
+  const check = () => {
+    setChecking(true);
+    setProblem(null);
+    checkForUpdates()
+      .then((next) => {
+        // Still checking: the daily check was already running, and its
+        // update-status event will refresh this when it finishes.
+        if (!next.readyVersion && !next.checking) showToast('KERFuffle is up to date.');
+      })
+      .catch((error: unknown) => setProblem(error instanceof Error ? error.message : String(error)))
+      .finally(() => setChecking(false));
+  };
+
+  return (
+    <Sheet id="about" className={s.section} aria-labelledby="set-about">
+      <ViewTitle id="set-about" mark="4" title="About" sub="VERSION AND UPDATES" />
+      <div className={s.backupGrid} style={{ marginTop: 14 }}>
+        <div>
+          <div className={s.fieldTitle}>KERFuffle</div>
+          <div className={s.path}>Version {version}</div>
+          <p className={s.footnote}>Jobs are kept on this PC, apart from the program, so updating or reinstalling never touches them.</p>
+        </div>
+        <div>
+          <div className={s.fieldTitle}>Updates</div>
+          <p role="status" style={{ margin: 0 }}>
+            {line}
+          </p>
+          {problem && <p className={s.footnote}>{problem}</p>}
+          <div className={s.buttonRow}>
+            {status?.readyVersion ? (
+              <Button variant="primary" busy={restarting} onClick={restartToUpdate}>
+                Restart now
+              </Button>
+            ) : (
+              <Button
+                disabled={!status?.enabled}
+                disabledReason={status ? 'Development builds don’t update' : NO_FILE_SYSTEM}
+                busy={checking || (status?.checking ?? false)}
+                onClick={check}
+              >
+                Check for updates
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </Sheet>

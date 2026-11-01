@@ -22,6 +22,7 @@ import { cx } from '../lib/interaction';
 import { formatEdited } from '../lib/relativeDate';
 import { useReducedMotion } from '../motion';
 import { pickJobFile } from '../platform/files';
+import { useOpenedJobFile } from '../platform/openedFiles';
 import type { PickedFile } from '../platform/files';
 import { navigate, routeHref } from '../routes';
 import { useStore } from '../state/createStore';
@@ -164,6 +165,8 @@ export function JobsScreen() {
   };
 
   const dragging = useJobFileDrop((file) => void startImport(file), !newOpen && importPlan === null);
+  // A .kerfjob double-clicked in Explorer arrives here too.
+  useOpenedJobFile((file) => void startImport(file), !newOpen && importPlan === null);
 
   const setStatus = (job: JobSummary, status: JobStatus) => {
     if (status === job.status) return;

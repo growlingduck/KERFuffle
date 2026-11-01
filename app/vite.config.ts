@@ -1,10 +1,15 @@
 /// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react';
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vite';
+
+// One version for the whole app, in the root package.json (scripts/version.mjs).
+const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
 
 // Tauri expects a fixed dev port and serves the built files from dist/.
 export default defineConfig({
   plugins: [react()],
+  define: { __APP_VERSION__: JSON.stringify(version) },
   clearScreen: false,
   server: {
     port: 1420,

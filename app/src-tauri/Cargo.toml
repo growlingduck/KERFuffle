@@ -27,7 +27,11 @@ uuid = { version = "1", features = ["v4"] }
 # The Save dialog for cut-list exports. Used from Rust only; the webview has no dialog permission.
 tauri-plugin-dialog = "2"
 # One-shot channels to await WebView2 and dialog callbacks (already pulled in by tauri).
-tokio = { version = "1", features = ["sync"] }
+tokio = { version = "1", features = ["sync", "time"] }
+# Background update checks against GitHub Releases (updates.rs).
+tauri-plugin-updater = "2"
+# One window: a second launch (double-clicking a .kerfjob) goes to the open app.
+tauri-plugin-single-instance = "2"
 
 # Print and print-to-PDF go straight to WebView2, the same engine that draws the
 # screen, so the PDF can't disagree with the printout. Versions match wry's.

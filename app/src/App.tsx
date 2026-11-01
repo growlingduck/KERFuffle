@@ -12,6 +12,7 @@ import { shortcuts, useShortcut } from './keyboard/shortcuts';
 import { changeJobStatus, jobSession, useSaveState } from './data/storage';
 import { exportJob } from './data/transfer';
 import { cx } from './lib/interaction';
+import { restartToUpdate, useUpdates } from './platform/updates';
 import { useWindowTitle } from './platform/window';
 import { navigate, RouteOutlet, routeHref, routeJobId, screenRoute, useRoute } from './routes';
 import type { Route, ScreenName } from './routes';
@@ -173,6 +174,29 @@ function SavedState({ job }: { job: JobSummary }) {
   );
 }
 
+/** Shown once an update has downloaded. Nothing installs until the app closes, or Restart now. */
+function UpdateNotice() {
+  const { status, restarting } = useUpdates();
+  if (!status?.readyVersion) return null;
+  return (
+    <div className={styles.cell}>
+      <span className={styles.cellLabel}>Update ready</span>
+      <span role="status" className={styles.saved}>
+        Installs when you close KERFuffle
+        <Tooltip
+          content={`KERFuffle ${status.readyVersion} is downloaded. Restart now saves your work, installs it and opens KERFuffle again.`}
+          placement="bottom"
+          describe
+        >
+          <button type="button" className={styles.retry} disabled={restarting} onClick={restartToUpdate}>
+            {restarting ? 'Restarting…' : 'Restart now'}
+          </button>
+        </Tooltip>
+      </span>
+    </div>
+  );
+}
+
 function useGlobalShortcuts(lastJobId: string | null, toggleShortcuts: () => void) {
   const lastJob = useRef(lastJobId);
   useEffect(() => {
@@ -247,6 +271,7 @@ export function App() {
           ))}
         </nav>
         <div className={styles.spacer} />
+        <UpdateNotice />
         {job && (
           <JobCells
             job={job}

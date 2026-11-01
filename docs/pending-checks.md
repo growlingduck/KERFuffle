@@ -1,6 +1,6 @@
 # Pending checks
 
-Things built so far (prompts 01–07) that still need you to look at them, try
+Things built so far (prompts 01–08) that still need you to look at them, try
 them, or make a call. Tick them off or delete lines as you go. Last updated
 2026-11-01.
 
@@ -168,3 +168,61 @@ the fixture file once you've checked it against a cabinet you've built.
       number if the file's is taken.
 - [ ] **Leaving Settings** with unsaved changes asks Save / Discard / Cancel.
       Closing the whole window doesn't ask yet.
+
+## 7. Installer, signing and updates (prompt 08)
+
+Tested on this PC on 2026-11-01 with unsigned test builds and a local update
+feed. Install, update, Restart now, uninstall and reinstall all worked; see
+`docs/release.md`. Still needs you:
+
+- [ ] **Back up the updater private key**
+      (`%USERPROFILE%\.tauri\kerfuffle-updater.key`, no password). Without it,
+      installed copies can never update again. Or replace it with a
+      password-protected key before the first release (`docs/release.md`).
+- [ ] **Code signing:** set up Azure Artifact Signing (or buy an OV
+      certificate) and the GitHub `release` environment. Until then, tag
+      builds stop at signing; branch builds still make unsigned installers.
+- [ ] **First signed release on a clean Windows 11 VM**, standard user:
+      install (no UAC prompt), launch offline, create a job, close, reopen.
+      Then check the installer's Properties → Digital Signatures and
+      `signtool verify /pa`.
+- [ ] **Uninstall with the box ticked** ("Also delete my jobs and backups"):
+      the second warning appears, and the jobs and default backups are gone.
+      Only the unticked (keep) path was tested.
+- [ ] **Double-click a `.kerfjob` with KERFuffle closed.** It was only tested
+      with KERFuffle already open, where it came to the front with the import
+      preview.
+- [ ] **Look at the installer pages**: the desktop shortcut box unticked on the
+      last page, the install folder shown as `…\Programs\KERFuffle`. These were
+      only checked with silent installs.
+- [ ] **Left open for a day** (added after review): with a test build
+      (`--test-feed`), set `lastCheck` in `%APPDATA%\KERFuffle\update-state.json`
+      to 25 hours ago, start KERFuffle, wait 20 s for the first check, then
+      publish a newer `latest.json` to the feed. Within the hour, without
+      restarting, the header should say "Update ready". (Before the fix,
+      KERFuffle only checked once per launch.)
+- [ ] **Check for updates during the start-up check:** start a test build with
+      a newer version on the feed, and click Settings → About → Check for
+      updates about 20 s after start, while the download runs. It should say
+      "Checking for updates…" (no "up to date" toast), then switch to
+      "Version … is downloaded" when the download finishes.
+- [ ] **WebView2 offline:** the installer embeds the small WebView2
+      bootstrapper, which downloads WebView2 if a PC lacks it. Windows 10/11
+      normally have it. If a shop PC is offline at install time *and* lacks
+      it, switch `webviewInstallMode` to `offlineInstaller` (adds about
+      130 MB).
+
+Choices made. Keep or change?
+
+- [ ] **Update host: GitHub Releases on this repo.** It has to stay public
+      for the apps to read it. CI creates a *draft*; nothing reaches the shop
+      until you click Publish.
+- [ ] **Updates install with a small progress window** (Tauri's "passive"
+      mode) when KERFuffle closes, and don't reopen it. Restart now reopens it.
+- [ ] **The first start after an update always takes a backup**, even when
+      the database doesn't change.
+- [ ] **One KERFuffle window:** opening KERFuffle again (or a `.kerfjob`)
+      brings the open window forward instead of starting a second copy.
+- [ ] **A silent install (`/S`) still creates a desktop shortcut** (Tauri's
+      behavior; `/NS` skips all shortcuts). The normal installer leaves the box
+      unticked.

@@ -1,0 +1,121 @@
+# Every push: lint, test, and build an unsigned installer (downloadable from
+# the run's Artifacts). A v* tag also signs the build and drafts a GitHub
+# release with the installer and latest.json. See docs/release.md.
+#
+# The signing secrets live in the "release" environment, which only v* tags
+# may use (Settings → Environments → release → Deployment branches and tags).
+# Branch builds never see them.
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  test-and-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - run: npm ci
+
+      - name: Version is the same everywhere
+        run: node scripts/version.mjs --check
+
+      - run: npm run lint
+      - run: npm test
+
+      - name: Rust tests
+        run: cargo test --locked
+        working-directory: app/src-tauri
+
+      - name: Build an unsigned installer
+        run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KERFuffle-unsigned-${{ github.sha }}
+          path: app/src-tauri/target/release/bundle/nsis/*-setup.exe
+          retention-days: 14
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test-and-build
+    runs-on: windows-latest
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - run: npm ci
+
+      - name: Tag matches the version
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} doesn't match package.json version $version"
+          }
+
+      - name: Install the Artifact Signing client
+        shell: pwsh
+        run: |
+          nuget install Microsoft.ArtifactSigning.Client -Version 1.0.146 -OutputDirectory "$env:RUNNER_TEMP\signing" -NonInteractive
+          $dlib = Get-ChildItem "$env:RUNNER_TEMP\signing" -Recurse -Filter Azure.CodeSigning.Dlib.dll |
+            Where-Object { $_.FullName -match '\\x64\\' } | Select-Object -First 1
+          if (-not $dlib) { throw 'Azure.CodeSigning.Dlib.dll not found in the package' }
+          "ARTIFACT_SIGNING_DLIB=$($dlib.FullName)" >> $env:GITHUB_ENV
+
+      - name: Build, sign and check
+        run: node scripts/release.mjs --skip-tests
+        env:
+          KERFUFFLE_SIGN: artifact
+          ARTIFACT_SIGNING_ENDPOINT: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          ARTIFACT_SIGNING_ACCOUNT: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          ARTIFACT_SIGNING_PROFILE: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      # A draft: installed apps don't see it until someone tests it and clicks Publish.
+      - name: Draft the GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $dir = "release\$tag"
+          $files = Get-ChildItem $dir -Include *.exe, *.sig, latest.json, SHA256SUMS.txt -Recurse | ForEach-Object FullName
+          gh release create $tag @files --draft --verify-tag --title "KERFuffle $($tag.TrimStart('v'))" --notes-file "$dir\notes.md"

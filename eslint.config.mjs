@@ -31,7 +31,8 @@ export default tseslint.config(
     },
   },
   {
-    files: ['eslint.config.mjs'],
+    // Plain Node scripts, outside any tsconfig.
+    files: ['eslint.config.mjs', 'scripts/**/*.mjs'],
     ...tseslint.configs.disableTypeChecked,
   },
 );

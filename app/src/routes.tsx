@@ -81,6 +81,15 @@ export function setNavigationGuard(next: NavigationGuard): () => void {
   };
 }
 
+/**
+ * Run `proceed` once the guard (if any) lets the user go, as leaving the
+ * screen would: at once when nothing is unsaved, after Save or Discard
+ * otherwise, never if they cancel. Used before closing the app for an update.
+ */
+export function whenFreeToLeave(proceed: () => void): void {
+  if (!guard?.(current, proceed)) proceed();
+}
+
 // Registered at load, before any subscriber, so a held change is undone before
 // anything renders it. replaceState doesn't fire hashchange.
 window.addEventListener('hashchange', () => {

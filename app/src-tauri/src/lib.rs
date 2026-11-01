@@ -2,6 +2,8 @@ mod backups;
 mod commands;
 pub mod db;
 mod export;
+mod opened_files;
+mod updates;
 
 use std::path::PathBuf;
 
@@ -9,16 +11,30 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
+        // First, so a second launch (double-clicking a .kerfjob while the app is
+        // open) hands its file to this window instead of opening another.
+        .plugin(tauri_plugin_single_instance::init(opened_files::on_second_instance))
         // Restores the main window's size and position, saved on close.
         .plugin(tauri_plugin_window_state::Builder::default().build())
         // Save, open and folder dialogs, opened from Rust only (export.rs, backups.rs).
         .plugin(tauri_plugin_dialog::init())
+        // Release builds check for updates once a day; see updates.rs.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let backups = backups::BackupState::load(app_paths(app.handle()));
-            let database = open_database(&backups);
+            let updates = updates::UpdateState::load(&backups.paths.data_dir, &app.package_info().version.to_string());
+            let database = open_database(&backups, updates.updated_from());
+            let opened = opened_files::OpenedFiles::default();
+            if !updates.ignore_file_args() {
+                let cwd = std::env::current_dir().unwrap_or_default();
+                opened.set(opened_files::job_file_arg(std::env::args(), &cwd));
+            }
             app.manage(commands::DbState::new(database));
             app.manage(backups);
+            app.manage(updates);
+            app.manage(opened);
+            updates::start(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -53,9 +69,19 @@ pub fn run() {
             export::print_to_pdf,
             export::show_print_dialog,
             export::reveal_in_folder,
+            opened_files::take_opened_job_file,
+            updates::update_status,
+            updates::check_for_updates,
+            updates::restart_to_update,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running KERFuffle");
+        .build(tauri::generate_context!())
+        .expect("error while starting KERFuffle");
+    app.run(|app, event| {
+        // The close guard has already flushed autosave by the time the app exits.
+        if let tauri::RunEvent::Exit = event {
+            updates::install_on_exit(app);
+        }
+    });
 }
 
 /// The job database is `%APPDATA%\KERFuffle\kerfuffle.db`; backups go to
@@ -71,9 +97,10 @@ fn app_paths(app: &tauri::AppHandle) -> backups::AppPaths {
     backups::AppPaths { db_path: data_dir.join(db::DB_FILE_NAME), data_dir, default_backup_dir }
 }
 
-/// Open the job database, backing it up first if it needs upgrading. A failure
+/// Open the job database, backing it up first if it needs upgrading. The first
+/// start after an update always takes a backup, migration or not. A failure
 /// here doesn't stop the window opening: every command reports it.
-fn open_database(backups: &backups::BackupState) -> db::DbResult<rusqlite::Connection> {
+fn open_database(backups: &backups::BackupState, updated_from: Option<&str>) -> db::DbResult<rusqlite::Connection> {
     if !backups.paths.data_dir.is_absolute() {
         return Err(db::DbError::Unavailable("the data folder couldn't be found".into()));
     }
@@ -85,6 +112,11 @@ fn open_database(backups: &backups::BackupState) -> db::DbResult<rusqlite::Conne
             report.to_version,
             backup.display()
         );
+    } else if let Some(previous) = updated_from {
+        match db::backup::create_and_rotate(&conn, &backups.policy()) {
+            Ok(backup) => eprintln!("KERFuffle: updated from {previous}; backed up the jobs as {}", backup.file_name),
+            Err(error) => eprintln!("KERFuffle: updated from {previous}, but the backup failed: {error}"),
+        }
     }
     Ok(conn)
 }
