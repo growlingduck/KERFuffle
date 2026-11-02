@@ -1,0 +1,133 @@
+.group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.legend {
+  padding: 0;
+  font: 600 12px var(--font-cond);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.hint {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+/* Each option is a card; the real radio covers it, invisible, so a click anywhere selects it. */
+.option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 10px 10px;
+  border: 1px solid var(--rule-input);
+  border-radius: var(--radius-control);
+  background: var(--white);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+.option:hover {
+  border-color: var(--hover-border);
+}
+.option input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.option:has(input:checked) {
+  padding: 8px 9px 9px;
+  border: 2px solid var(--blue);
+  background: var(--blue-tint-faint);
+}
+.option:has(input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+.group:disabled .option {
+  border-style: dashed;
+  cursor: not-allowed;
+}
+.group:disabled .name,
+.group:disabled .summary {
+  color: var(--disabled-text);
+}
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.name {
+  font: 600 14px/1.25 var(--font-sans);
+  color: var(--ink);
+}
+.option:has(input:checked) .name {
+  color: var(--blue);
+}
+.summary {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+.current {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.diagram {
+  display: block;
+  width: 100%;
+  max-width: 120px;
+  height: auto;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.1px;
+  stroke-linejoin: round;
+}
+.counter {
+  fill: var(--paper-press);
+  stroke: var(--muted-2);
+  stroke-width: 0.8px;
+}
+.box {
+  fill: var(--white);
+}
+.inner {
+  stroke: var(--muted-2);
+  stroke-width: 0.8px;
+}
+.solid {
+  fill: var(--ink);
+  stroke: none;
+}
+.sleeper {
+  fill: var(--paper-press);
+  stroke: var(--muted-2);
+  stroke-width: 0.7px;
+}
+.leg {
+  stroke-width: 1.4px;
+}
+.floor {
+  stroke: var(--muted-2);
+  stroke-width: 1px;
+}
+.option:has(input:checked) .box,
+.option:has(input:checked) .solid {
+  stroke: var(--blue);
+}
+.option:has(input:checked) .solid {
+  fill: var(--blue);
+}

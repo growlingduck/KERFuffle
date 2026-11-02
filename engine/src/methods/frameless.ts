@@ -1,7 +1,7 @@
 import { cabinetPart } from '../parts';
 import type { CabinetSpec, ConstructionRules, Part, PartRole } from '../types';
 import { boxParts } from './box';
-import { BOX_SETTINGS, FRAMELESS_SLOTS, defaultsFor } from './common';
+import { BOX_SETTINGS, FRAMELESS_SLOTS, defaultsFor, framelessBanding } from './common';
 import { ladderBaseParts } from './ladderBase';
 import type { ConstructionMethod, HardwareItem } from './types';
 
@@ -69,4 +69,5 @@ export const FRAMELESS_ON_BASE: ConstructionMethod = Object.freeze({
   visible: VISIBLE,
   slots: FRAMELESS_SLOTS,
   hardware: legHardware,
+  banding: framelessBanding,
 } satisfies ConstructionMethod);

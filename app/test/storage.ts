@@ -3,6 +3,7 @@ import { setStorageClient } from '../src/data/client';
 import { createMemoryClient } from '../src/data/memoryClient';
 import type { MemoryStorageClient } from '../src/data/memoryClient';
 import { jobSession, refreshJobList } from '../src/data/storage';
+import { loadMaterials } from '../src/state/materials';
 import type { CabinetRecord, JobRecord } from '../src/data/types';
 
 export function testCabinet(id: string, label: string, overrides: Partial<CabinetRecord> = {}): CabinetRecord {
@@ -36,6 +37,8 @@ export function testJob(overrides: Partial<JobRecord> = {}): JobRecord {
     updatedAt: '2026-10-31T09:41:00.000Z',
     revision: 3,
     cabinets: [testCabinet('c-b1', 'B1')],
+    // Made before materials: it uses the shop defaults until one is chosen.
+    materials: null,
     ...overrides,
   };
 }
@@ -47,5 +50,7 @@ export async function useTestDatabase(jobs: JobRecord[] = [testJob()]): Promise<
   client.seed(jobs);
   setStorageClient(client);
   await refreshJobList();
+  // A fresh catalog (the standard materials) for every test.
+  await loadMaterials();
   return client;
 }

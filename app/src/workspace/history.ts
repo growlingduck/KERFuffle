@@ -54,12 +54,12 @@ jobSession.store.subscribe(() => {
 });
 
 function contentOf(job: JobRecord): JobContent {
-  return { cabinets: job.cabinets, status: job.status };
+  return { cabinets: job.cabinets, status: job.status, rules: job.rules };
 }
 
-function partsOf(job: Pick<JobRecord, 'rules'>, content: JobContent, cabinetId: string) {
+function partsOf(content: JobContent, cabinetId: string) {
   const cabinet = content.cabinets.find((c) => c.id === cabinetId);
-  return cabinet ? calculate(cabinetSpec(cabinet), job.rules).parts : null;
+  return cabinet ? calculate(cabinetSpec(cabinet), content.rules).parts : null;
 }
 
 /**
@@ -69,7 +69,7 @@ function partsOf(job: Pick<JobRecord, 'rules'>, content: JobContent, cabinetId: 
  */
 function commitContent(job: JobRecord, next: JobContent, select: string | null): void {
   const selectedBefore = selectedCabinetId();
-  jobSession.commit((current) => ({ ...current, cabinets: next.cabinets, status: next.status }));
+  jobSession.commit((current) => ({ ...current, cabinets: next.cabinets, status: next.status, rules: next.rules }));
   if (next.status !== job.status) jobsStore.dispatch({ type: 'job/statusChanged', id: job.id, status: next.status });
 
   const ui = workspaceUi.getState();
@@ -79,8 +79,8 @@ function commitContent(job: JobRecord, next: JobContent, select: string | null):
     setUi({ rev, selectedId: target, marks: null, pinPart: null, hoverPart: null, focusPart: null, draft: null });
     return;
   }
-  const before = partsOf(job, contentOf(job), target);
-  const after = partsOf(job, next, target);
+  const before = partsOf(contentOf(job), target);
+  const after = partsOf(next, target);
   const changes = before && after && before.length > 0 && after.length > 0 ? diffParts(before, after) : {};
   const marks = Object.keys(changes).length > 0 ? { rev, cabinetId: target, changes } : null;
   setUi({ rev, selectedId: target, marks });

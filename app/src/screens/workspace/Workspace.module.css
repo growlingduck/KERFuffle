@@ -29,6 +29,42 @@
 }
 
 /* ---- 1 Cabinets ---- */
+/* Group by run (method A1): a heading per run, then cabinets with no run, then wall cabinets. */
+.listHead {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.cabGroups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+.cabGroup .cabList {
+  margin-top: 4px;
+}
+.cabGroupHead {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0 2px 3px;
+  border-bottom: 1.5px solid var(--ink);
+  font: inherit;
+}
+.cabGroupTitle {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font: 600 12px var(--font-cond);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.cabGroupSub {
+  font: 400 12px var(--font-mono);
+  color: var(--muted);
+}
 .cabList {
   display: flex;
   flex-direction: column;
@@ -458,6 +494,31 @@
 .ruleOn:hover {
   background: var(--blue-tint);
 }
+/* The job's construction, and the control that changes it (a draft only). */
+.method {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 8px 10px;
+  border-bottom: 1px solid var(--rule-divider);
+}
+.methodName {
+  font: 600 14px var(--font-sans);
+}
+.methodNote {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.changePreview {
+  margin: 14px 0 0;
+  font-size: 14px;
+}
+.runField {
+  margin-top: 4px;
+  max-width: calc((100% - 32px) * 2 / 3 + 16px);
+}
 .rulesNote {
   margin: 10px 0 2px;
   font-size: 12px;
@@ -607,6 +668,13 @@
 .passive {
   pointer-events: none;
 }
+/* Leveling legs (method A2): bought hardware, drawn for context only. */
+.leg {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 0.9px;
+  stroke-dasharray: 2 1.5;
+}
 
 .ghost {
   pointer-events: none;
@@ -681,8 +749,38 @@
   border-collapse: collapse;
   font-size: 14px;
 }
-.lamTable {
+.lamTable,
+.runTable {
   margin-top: 14px;
+}
+/* A run's shared base: its reference over the rows, like a cut-list run section. */
+.runCaption {
+  caption-side: top;
+  text-align: left;
+  padding: 0 0 4px;
+}
+.runRef {
+  display: block;
+  font: 600 13px var(--font-cond);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.runNote {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+.baseIssues {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.baseWarning {
+  color: var(--amber);
+}
+.baseError {
+  color: var(--red);
 }
 .parts th {
   text-align: left;
@@ -785,6 +883,14 @@
   font-size: 11px;
   color: var(--amber);
   white-space: normal;
+}
+/* A cutout on the part (method B's kick notch): a fact, not a warning. */
+.featureNote {
+  color: var(--muted);
+}
+.featureTraced {
+  color: var(--blue);
+  font-weight: 600;
 }
 .cellTraced {
   background-color: var(--blue-tint);

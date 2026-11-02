@@ -13,7 +13,7 @@ import {
 } from '../src/data/jobFile';
 import { createMemoryClient } from '../src/data/memoryClient';
 import { RULES_VERSION } from '../src/data/rules';
-import type { JobRecord } from '../src/data/types';
+import type { JobRecord, MaterialSnapshot } from '../src/data/types';
 import { testCabinet, testJob } from './storage';
 
 const HEADER = { appVersion: '0.1.0', exportedAt: '2026-11-01T14:00:00.000Z' };
@@ -36,6 +36,23 @@ function richJob(): JobRecord {
   });
 }
 
+function snapshot(id: string, name: string): MaterialSnapshot {
+  return {
+    id,
+    kind: 'sheet',
+    name,
+    thickness: inches(3 / 4),
+    length: inches(96),
+    width: inches(48),
+    grain: 'length',
+    bandingWidth: null,
+    rollFeet: null,
+    unit: null,
+    price: null,
+    pricedAt: '2026-11-02T08:00:00.000Z',
+  };
+}
+
 /** Rewrite the file and give it a correct checksum, as a newer KERFuffle (or a careful editor) would. */
 async function reseal(text: string, change: (doc: Record<string, unknown>) => void): Promise<string> {
   const doc = JSON.parse(text) as Record<string, unknown>;
@@ -49,7 +66,7 @@ describe('.kerfjob files', () => {
     const job = richJob();
     const text = await writeJobFile(job, HEADER);
     const doc = JSON.parse(text) as Record<string, unknown>;
-    expect(doc).toMatchObject({ format: 'kerfuffle-job', formatVersion: 1, appVersion: '0.1.0', exportedAt: HEADER.exportedAt, rulesVersion: 1 });
+    expect(doc).toMatchObject({ format: 'kerfuffle-job', formatVersion: 2, appVersion: '0.1.0', exportedAt: HEADER.exportedAt, rulesVersion: 1 });
     expect(doc.checksum).toMatch(/^[0-9a-f]{64}$/);
     expect((doc.cabinets as { width: number }[])[0]!.width).toBe(inches(30)); // integer ticks
 
@@ -84,11 +101,11 @@ describe('.kerfjob files', () => {
 
   it('refuses a file from a newer KERFuffle', async () => {
     const text = await writeJobFile(richJob(), HEADER);
-    const newerFormat = await reseal(text, (doc) => (doc.formatVersion = 2));
+    const newerFormat = await reseal(text, (doc) => (doc.formatVersion = 3));
     expect(await readJobFile(newerFormat)).toEqual({ ok: false, message: NEWER_FILE_MESSAGE });
     expect(NEWER_FILE_MESSAGE).toBe('This job was made by a newer KERFuffle. Update this PC first.');
     // Even when the newer format checks itself some other way.
-    expect(await readJobFile(JSON.stringify({ ...JSON.parse(text), formatVersion: 2, checksum: 'other' }))).toEqual({
+    expect(await readJobFile(JSON.stringify({ ...JSON.parse(text), formatVersion: 3, checksum: 'other' }))).toEqual({
       ok: false,
       message: NEWER_FILE_MESSAGE,
     });
@@ -142,6 +159,39 @@ describe('.kerfjob files', () => {
     if (!newer.ok) throw new Error(newer.message);
     expect(newer.job.rules.method.id).toBe('B');
     expect(newer.job.rulesVersion).toBe(2);
+  });
+
+  it('carries the job’s materials and their copies, and round-trips them', async () => {
+    const job = richJob();
+    job.materials = {
+      slots: {
+        box: { ...snapshot('std-birch-3-4', 'Birch plywood 3/4″'), price: 6800 },
+        laminate: { ...snapshot('std-hpl-48x96', 'HPL laminate 48 × 96'), kind: 'laminate', thickness: null },
+      },
+    };
+    const text = await writeJobFile(job, HEADER);
+    expect((JSON.parse(text) as { materials: unknown }).materials).toEqual(job.materials);
+    const reading = await readJobFile(text);
+    if (!reading.ok) throw new Error(reading.message);
+    expect(reading.job).toEqual(job);
+    const pcB = createMemoryClient();
+    await pcB.importJob(reading.job, 'new');
+    expect((await pcB.getJob('job-a')).materials).toEqual(job.materials);
+
+    const broken = await reseal(text, (doc) => ((doc.materials as { slots: Record<string, unknown> }).slots.box = { name: 'no id' }));
+    const refused = await readJobFile(broken);
+    expect(refused.ok).toBe(false);
+  });
+
+  it('imports a version 1 file from before materials, which then uses the shop defaults', async () => {
+    const v1 = await reseal(await writeJobFile(richJob(), HEADER), (doc) => (doc.formatVersion = 1));
+    const reading = await readJobFile(v1);
+    if (!reading.ok) throw new Error(reading.message);
+    expect(reading.job.materials).toBeNull();
+    expect(reading.job.cabinets).toHaveLength(3);
+    const pcB = createMemoryClient();
+    await pcB.importJob(reading.job, 'new');
+    expect((await pcB.getJob('job-a')).materials).toBeNull();
   });
 
   it('lets cabinets the engine flags through, and lists them', async () => {

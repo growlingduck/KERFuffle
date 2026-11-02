@@ -1,8 +1,9 @@
 import { calculateParts, listedJobParts } from './calculate';
-import type { JobIssue, ListedCabinet } from './methods';
+import { materialIssues, partSlot, type JobMaterials, type Material, type MaterialIssue } from './materials';
+import { methodOf, type HardwareItem, type JobIssue, type ListedCabinet, type MaterialSlot } from './methods';
 import { roleRank } from './parts';
 import type { CabinetSpec, ConstructionRules, Part, PartCategory, PartFeature, PartRole, ValidationIssue } from './types';
-import { formatDimension, type Ticks } from './units';
+import { formatDimension, ticks, type Ticks } from './units';
 import { hasErrors } from './validate';
 
 /**
@@ -57,7 +58,7 @@ export interface CutListRef {
 }
 
 export interface CutListLine {
-  /** Identity of the cut: category, length, width, thickness and features. */
+  /** Identity of the cut: category, length, width, thickness, features and material. */
   key: string;
   /** P1…, S1… (solid stock), L1…: stable across sorting, modes and the fronts switch. */
   mark: string;
@@ -81,14 +82,25 @@ export interface CutListLine {
   features?: PartFeature[];
   /** The features in words, for the line: "notched 4 × 3". Absent when none. */
   note?: string;
+  /** The material slots the line's parts are cut from, in order of first appearance. */
+  slots: MaterialSlot[];
+  /** The job's material for those slots. Null when none is chosen (or none was given). */
+  material: Material | null;
+  /** Edge banding for every piece on the line together: exposed front edges, per the method. */
+  banding: Ticks;
 }
 
 export interface CutListGroup {
-  /** "panel:48" (3/4″), "lumber:48", or "laminate". */
+  /**
+   * "panel:48" (3/4″), "lumber:48" or "laminate" when the parts have no
+   * material; with one, its id too: "panel:std-birch-3-4:48", "laminate:std-hpl-48x96".
+   */
   id: string;
   category: PartCategory;
   /** Panel or lumber thickness; null for laminate. */
   thickness: Ticks | null;
+  /** What the group is cut from. Null when no material is chosen for its parts. */
+  material: Material | null;
   lines: CutListLine[];
   pieces: number;
 }
@@ -145,6 +157,10 @@ export interface CutList {
   blocked: BlockedCabinet[];
   /** Problems with runs and platforms (method A1). An error leaves that base off. */
   jobIssues: JobIssue[];
+  /** Materials that disagree with the rules (a thickness mismatch). Warnings only. */
+  materialIssues: MaterialIssue[];
+  /** Hardware the method needs for the listed cabinets (method A2's legs and clips). */
+  hardware: HardwareItem[];
   totals: CutListTotals;
 }
 
@@ -156,11 +172,25 @@ function featuresKey(features: readonly PartFeature[] | undefined): string {
     .join(',');
 }
 
-/** Parts with different features are different cuts, so they never merge. */
-function cutKey(part: Pick<Part, 'category' | 'length' | 'width' | 'thickness' | 'features'>): string {
+/** A part with what the cut list needs to know about it: its slot, material and banding. */
+interface Listed {
+  part: Part;
+  slot: MaterialSlot;
+  material: Material | null;
+  /** Banding on one piece. */
+  banding: Ticks;
+}
+
+/**
+ * Parts with different features are different cuts, so they never merge; nor
+ * do parts cut from different materials. Without materials the key is what it
+ * always was, so marks don't move.
+ */
+function cutKey({ part, material }: Pick<Listed, 'part' | 'material'>): string {
   const base = `${part.category}|${part.thickness ?? '-'}|${part.length}|${part.width}`;
   const features = featuresKey(part.features);
-  return features === '' ? base : `${base}|${features}`;
+  const cut = features === '' ? base : `${base}|${features}`;
+  return material ? `${cut}|m:${material.id}` : cut;
 }
 
 /** "notched 4 × 3": length × width of each cutout. */
@@ -191,10 +221,11 @@ interface Accumulator {
 }
 
 /** Merge parts into lines in first-seen order. */
-function merge(parts: readonly Part[]): CutListLine[] {
+function merge(parts: readonly Listed[]): CutListLine[] {
   const byKey = new Map<string, Accumulator>();
-  for (const part of parts) {
-    const key = cutKey(part);
+  for (const listed of parts) {
+    const { part } = listed;
+    const key = cutKey(listed);
     let acc = byKey.get(key);
     if (!acc) {
       acc = {
@@ -209,6 +240,9 @@ function merge(parts: readonly Part[]): CutListLine[] {
           quantity: 0,
           refs: [],
           ...(part.features && part.features.length > 0 ? { features: part.features, note: featureNote(part.features) } : {}),
+          slots: [],
+          material: listed.material,
+          banding: ticks(0),
         },
         grains: new Set(),
         nameRank: new Map(),
@@ -218,6 +252,8 @@ function merge(parts: readonly Part[]): CutListLine[] {
     }
     const { line } = acc;
     line.quantity += part.quantity;
+    line.banding = ticks(line.banding + listed.banding * part.quantity);
+    if (!line.slots.includes(listed.slot)) line.slots.push(listed.slot);
     if (!line.roles.includes(part.role)) line.roles.push(part.role);
     if (!line.names.includes(part.name)) line.names.push(part.name);
     const rank = roleRank(part.role);
@@ -266,15 +302,19 @@ function pieces(lines: readonly CutListLine[]): number {
  * Build the job's cut list.
  *
  * - Cabinets with validation errors are left out and reported in `blocked`.
- * - Identical cuts (category + length + width + thickness) merge into one line.
+ * - Identical cuts (category + length + width + thickness, and material when
+ *   the job has materials) merge into one line.
  * - Marks are numbered in canonical order over every part, fronts included, so
  *   they stay put when the list is re-sorted, switched to by-cabinet, or the
  *   fronts are hidden.
+ * - With `materials`, merged groups are by material (and thickness) instead of
+ *   by thickness alone. Without them, everything is as it was before materials.
  */
 export function buildCutList(
   cabinets: readonly CabinetSpec[],
   rules: ConstructionRules,
   options: CutListOptions = DEFAULT_CUT_LIST_OPTIONS,
+  materials: JobMaterials = {},
 ): CutList {
   const blocked: BlockedCabinet[] = [];
   const listed: { index: number; cabinet: CabinetSpec; parts: Part[] }[] = [];
@@ -290,7 +330,13 @@ export function buildCutList(
     rules,
   );
 
-  const allParts = [...listed.flatMap((c) => c.parts), ...shared.parts.map((p) => p.part)];
+  const method = methodOf(rules);
+  const annotate = (part: Part): Listed => {
+    const slot = partSlot(part, rules);
+    return { part, slot, material: materials[slot] ?? null, banding: method.banding?.(part) ?? ticks(0) };
+  };
+
+  const allParts = [...listed.flatMap((c) => c.parts), ...shared.parts.map((p) => p.part)].map(annotate);
   const marks = new Map<string, string>();
   const counters: Record<PartCategory, number> = { panel: 0, lumber: 0, laminate: 0 };
   for (const line of merge(allParts).sort(canonical)) {
@@ -299,35 +345,17 @@ export function buildCutList(
   }
   const withMark = (line: CutListLine): CutListLine => ({ ...line, mark: marks.get(line.key) ?? '' });
 
-  const keep = (part: Part) => options.includeFronts || !part.optional;
+  const keep = ({ part }: Listed) => options.includeFronts || !part.optional;
   const lines = merge(allParts.filter(keep)).map(withMark).sort(canonical);
 
   const groups: CutListGroup[] = [];
   const sections: CutListSection[] = [];
   const runSections: CutListRunSection[] = [];
   if (options.mode === 'merged') {
-    for (const category of ['panel', 'lumber'] as const) {
-      const thicknesses = [...new Set(lines.filter((l) => l.category === category).map((l) => l.thickness ?? 0))].sort(
-        (a, b) => a - b,
-      );
-      for (const thickness of thicknesses) {
-        const groupLines = sortLines(
-          lines.filter((l) => l.category === category && l.thickness === thickness),
-          options.sort,
-        );
-        groups.push({ id: `${category}:${thickness}`, category, thickness: thickness as Ticks, lines: groupLines, pieces: pieces(groupLines) });
-      }
-    }
-    const laminate = sortLines(
-      lines.filter((l) => l.category === 'laminate'),
-      options.sort,
-    );
-    if (laminate.length > 0) {
-      groups.push({ id: 'laminate', category: 'laminate', thickness: null, lines: laminate, pieces: pieces(laminate) });
-    }
+    groups.push(...groupLines(lines, options));
   } else {
     // Each part keeps its own line (Left and Right side stay separate here).
-    const toLines = (parts: readonly Part[]) => parts.filter(keep).map((part) => withMark(merge([part])[0]!));
+    const toLines = (parts: readonly Part[]) => parts.map(annotate).filter(keep).map((part) => withMark(merge([part])[0]!));
     for (const { index, cabinet, parts } of listed) {
       const own = shared.parts.filter((p) => p.cabinetIndex === index).map((p) => p.part);
       const sectionLines = toLines([...parts, ...own]);
@@ -344,6 +372,16 @@ export function buildCutList(
     }
   }
 
+  // Thickness checks look at every listed part, fronts included.
+  const thicknesses = new Map<MaterialSlot, Set<Ticks>>();
+  for (const { part, slot } of allParts) {
+    if (part.thickness === null) continue;
+    let set = thicknesses.get(slot);
+    if (!set) thicknesses.set(slot, (set = new Set()));
+    set.add(part.thickness);
+  }
+
+  const hardware = listed.flatMap(({ cabinet }) => method.hardware?.(cabinet, rules) ?? []);
   const panelPieces = pieces(lines.filter((l) => l.category === 'panel'));
   const lumberPieces = pieces(lines.filter((l) => l.category === 'lumber'));
   const laminatePieces = pieces(lines.filter((l) => l.category === 'laminate'));
@@ -355,6 +393,8 @@ export function buildCutList(
     lines,
     blocked,
     jobIssues: shared.issues,
+    materialIssues: materialIssues(materials, thicknesses, rules),
+    hardware,
     totals: {
       boxes: listed.reduce((sum, c) => sum + c.cabinet.quantity, 0),
       panelPieces,
@@ -363,4 +403,35 @@ export function buildCutList(
       distinctCuts: lines.length,
     },
   };
+}
+
+/**
+ * Merged groups: panels, then solid stock, by thickness (thinnest first) and
+ * material; then laminate by material. Lines without a material group by
+ * thickness alone, as before materials.
+ */
+function groupLines(lines: readonly CutListLine[], options: CutListOptions): CutListGroup[] {
+  const groups: CutListGroup[] = [];
+  const byName = (a: Material | null, b: Material | null) =>
+    a === b ? 0 : a === null ? -1 : b === null ? 1 : a.name.localeCompare(b.name, 'en') || a.id.localeCompare(b.id);
+  for (const category of ['panel', 'lumber', 'laminate'] as const) {
+    const found = new Map<string, { material: Material | null; thickness: Ticks | null; lines: CutListLine[] }>();
+    for (const line of lines) {
+      if (line.category !== category) continue;
+      const thickness = category === 'laminate' ? null : (line.thickness ?? ticks(0));
+      const parts = [category, ...(line.material ? [line.material.id] : []), ...(thickness === null ? [] : [String(thickness)])];
+      const id = parts.join(':');
+      let group = found.get(id);
+      if (!group) found.set(id, (group = { material: line.material, thickness, lines: [] }));
+      group.lines.push(line);
+    }
+    const ordered = [...found.entries()].sort(
+      ([, a], [, b]) => (a.thickness ?? 0) - (b.thickness ?? 0) || byName(a.material, b.material),
+    );
+    for (const [id, group] of ordered) {
+      const sorted = sortLines(group.lines, options.sort);
+      groups.push({ id, category, thickness: group.thickness, material: group.material, lines: sorted, pieces: pieces(sorted) });
+    }
+  }
+  return groups;
 }

@@ -1,4 +1,4 @@
-import { dependenciesFor } from '@kerfuffle/engine';
+import { featureNote, grainOf } from '@kerfuffle/engine';
 import type { ConstructionRules, DependencyMap, Part, PartField, PartRole } from '@kerfuffle/engine';
 import { ButtonLink } from '../../components/Button';
 import { Sheet } from '../../components/Sheet';
@@ -12,11 +12,10 @@ import { issueFor } from '../../workspace/calc';
 import type { Evaluation } from '../../workspace/calc';
 import { tableInches, wasText } from '../../workspace/revision';
 import type { RevisionMarks } from '../../workspace/ui';
-import { hotPartOf, hoverPartHandlers, setUi, togglePin, traceKeyOf, useUi, workspaceUi } from '../../workspace/ui';
+import type { CabinetBase } from '../../workspace/base';
+import { hotPartOf, hoverPartHandlers, setUi, togglePin, useUi, workspaceUi } from '../../workspace/ui';
+import { useCabinetBase, useTraceMap } from './hooks';
 import styles from './Workspace.module.css';
-
-/** Grain runs along the length: up and down on these, side to side on the rest. */
-const VERTICAL_GRAIN: ReadonlySet<PartRole> = new Set(['back', 'side-left', 'side-right', 'front']);
 
 /** Balloon numbers: the part's place in this cabinet's list, panels then laminate. */
 export function balloonNumbers(parts: readonly Part[]): Map<PartRole, number> {
@@ -53,7 +52,8 @@ function PartRow({ part, num, deps, hot, pinned, marks, note, laminate }: RowPro
       </td>
     );
   };
-  const vertical = VERTICAL_GRAIN.has(part.role) || part.category === 'laminate';
+  const vertical = grainOf(part.role) === 'vertical';
+  const features = part.features && part.features.length > 0 ? featureNote(part.features) : null;
   return (
     <tr
       className={cx(styles.partRow, isHot && styles.partRowHot, !isHot && pinned && styles.partRowPinned)}
@@ -81,6 +81,11 @@ function PartRow({ part, num, deps, hot, pinned, marks, note, laminate }: RowPro
             </span>
           )}
         </button>
+        {features && (
+          <div className={cx(styles.rowNote, styles.featureNote, traced.includes('F') && styles.featureTraced)} data-traced={traced.includes('F') || undefined}>
+            {features}
+          </div>
+        )}
         {note && (
           <div className={styles.rowNote}>
             <span aria-hidden="true">△ </span>
@@ -122,17 +127,27 @@ function shelfNote(part: Part, rules: ConstructionRules, evaluation: Evaluation)
   return undefined;
 }
 
+/** The base a run shares, as a heading over its parts. */
+function runCaption(base: CabinetBase): string {
+  const n = base.cabinets.length;
+  return `Shared by ${n === 1 ? base.cabinets[0] : `${n} cabinets (${base.cabinets.join(', ')})`}. Quantities are for the whole run.`;
+}
+
 export function PartsPanel({ cabinet, evaluation, rules, jobId }: { cabinet: CabinetRecord | null; evaluation: Evaluation | null; rules: ConstructionRules; jobId: string }) {
-  const trace = useUi(traceKeyOf);
   const hot = useUi(hotPartOf);
   const pinned = useUi((ui) => ui.pinPart);
   const allMarks = useUi((ui) => ui.marks);
   const marks = allMarks && allMarks.cabinetId === cabinet?.id ? allMarks : null;
   const name = cabinet ? cabinet.label.trim() || 'Unnamed' : '—';
-  const deps = trace && cabinet ? dependenciesFor(trace, cabinet.type) : null;
-  const parts = evaluation?.valid ? evaluation.parts : [];
-  const nums = balloonNumbers(parts);
-  const panels = parts.filter((p) => p.category === 'panel');
+  const deps = useTraceMap(cabinet, evaluation);
+  const base = useCabinetBase(cabinet, evaluation);
+  const own = evaluation?.valid ? evaluation.parts : [];
+  // A cabinet's own platform is its part; a run's base is listed under the run.
+  const ownBase = base && base.run === null ? base.parts : [];
+  const runParts = base && base.run !== null ? base.parts : [];
+  const parts = [...own.filter((p) => p.category !== 'laminate'), ...ownBase, ...own.filter((p) => p.category === 'laminate')];
+  const nums = balloonNumbers([...parts, ...runParts]);
+  const panels = parts.filter((p) => p.category !== 'laminate');
   const lams = parts.filter((p) => p.category === 'laminate');
 
   const head = (label: string, laminate: boolean) => (
@@ -166,9 +181,10 @@ export function PartsPanel({ cabinet, evaluation, rules, jobId }: { cabinet: Cab
   );
 
   const rows = (list: Part[], laminate: boolean) =>
-    list.map((part) => (
+    list.map((part, i) => (
       <PartRow
-        key={part.role}
+        // A split platform has two of a role; they trace together.
+        key={`${part.role}#${i}`}
         part={part}
         num={nums.get(part.role) ?? 0}
         deps={deps}
@@ -200,6 +216,28 @@ export function PartsPanel({ cabinet, evaluation, rules, jobId }: { cabinet: Cab
               {head('Panel part', false)}
               <tbody>{rows(panels, false)}</tbody>
             </table>
+            {runParts.length > 0 && base && (
+              <table className={cx(styles.parts, styles.runTable)} aria-describedby="ws-run-note">
+                <caption className={styles.runCaption}>
+                  <span className={styles.runRef}>{base.ref}</span>
+                  <span id="ws-run-note" className={styles.runNote}>
+                    {runCaption(base)}
+                  </span>
+                </caption>
+                {head('Run part', false)}
+                <tbody>{rows(runParts, false)}</tbody>
+              </table>
+            )}
+            {base && base.issues.length > 0 && (
+              <ul className={styles.baseIssues}>
+                {base.issues.map((issue) => (
+                  <li key={issue.message} className={issue.severity === 'error' ? styles.baseError : styles.baseWarning}>
+                    <span aria-hidden="true">{issue.severity === 'error' ? '⚠ ' : '△ '}</span>
+                    {issue.message}
+                  </li>
+                ))}
+              </ul>
+            )}
             <table className={cx(styles.parts, styles.lamTable)}>
               {head('Laminate', true)}
               <tbody>{rows(lams, true)}</tbody>

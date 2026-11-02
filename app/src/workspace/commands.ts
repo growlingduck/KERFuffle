@@ -1,7 +1,9 @@
-import type { CabinetType, FinishedEnds, Ticks } from '@kerfuffle/engine';
+import { CONSTRUCTION_NAMES } from '@kerfuffle/engine';
+import type { CabinetType, ConstructionChoice, FinishedEnds, Ticks } from '@kerfuffle/engine';
 import { STATUS_INFO } from '../components/Stamp';
 import type { CabinetRecord, JobRecord, JobStatus } from '../data/types';
 import { nextLabel } from './cabinets';
+import { constructionLocked, withConstruction } from './construction';
 
 /**
  * Domain commands for the job workspace. Every user change is one of these.
@@ -11,8 +13,8 @@ import { nextLabel } from './cabinets';
  * Reducers are pure: anything random (a new cabinet's id) comes in the command.
  */
 
-/** The parts of a job the workspace edits. */
-export type JobContent = Pick<JobRecord, 'cabinets' | 'status'>;
+/** The parts of a job the workspace edits. Rules change only with the construction, in a draft. */
+export type JobContent = Pick<JobRecord, 'cabinets' | 'status' | 'rules'>;
 
 export type DimensionField = 'width' | 'height' | 'depth';
 
@@ -23,6 +25,9 @@ export type Command =
   | { type: 'setQuantity'; cabinetId: string; value: number }
   | { type: 'setFinishedEnds'; cabinetId: string; value: FinishedEnds }
   | { type: 'renameCabinet'; cabinetId: string; label: string }
+  /** Null or blank: no run (the cabinet gets its own base). */
+  | { type: 'setRun'; cabinetId: string; run: string | null }
+  | { type: 'setConstruction'; choice: ConstructionChoice }
   | { type: 'addCabinet'; cabinet: CabinetRecord }
   | { type: 'duplicateCabinet'; cabinetId: string; newId: string }
   | { type: 'removeCabinet'; cabinetId: string }
@@ -100,6 +105,22 @@ export function applyCommand(content: JobContent, command: Command): CommandResu
         () => ({ label }),
         (c) => (label ? `Rename ${named(c)} to ${label}` : `Clear the ID of ${named(c)}`),
       );
+    }
+    case 'setRun': {
+      const run = command.run?.trim() || null;
+      return patchCabinet(
+        content,
+        command.cabinetId,
+        // A cabinet saved before runs has no run at all; that's the same as none.
+        (c) => (run === (c.run ?? null) ? {} : { run }),
+        (c) => (run ? `Put ${named(c)} in run ${run}` : `Take ${named(c)} out of its run`),
+      );
+    }
+    case 'setConstruction': {
+      if (constructionLocked(content.status)) return null;
+      const rules = withConstruction(content.rules, command.choice);
+      if (rules === content.rules) return null;
+      return { content: { ...content, rules }, label: `Change construction to ${CONSTRUCTION_NAMES[command.choice].short}` };
     }
     case 'addCabinet': {
       if (content.cabinets.some((c) => c.id === command.cabinet.id)) return null;

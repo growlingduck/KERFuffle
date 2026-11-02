@@ -8,7 +8,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Deserialize;
 
 use super::error::{DbError, DbResult};
-use super::models::{Cabinet, Job, JobStatus, RULES_VERSION};
+use super::models::{check_job_materials, Cabinet, Job, JobStatus, RULES_VERSION};
 use super::repo::{fresh_id, get_job, insert_job, next_job_number, now, write_cabinet, JobInsert};
 
 /// A job as exported: every field, including the ones the database normally owns.
@@ -27,6 +27,9 @@ pub struct ImportJob {
     pub updated_at: String,
     pub revision: i64,
     pub cabinets: Vec<Cabinet>,
+    /// Files from before materials have none.
+    #[serde(default)]
+    pub materials: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -61,6 +64,9 @@ impl ImportJob {
         }
         if !self.rules.is_object() {
             return Err(DbError::invalid("The job's construction settings are missing."));
+        }
+        if let Some(materials) = &self.materials {
+            check_job_materials(materials)?;
         }
         let mut seen = HashSet::new();
         for cabinet in &self.cabinets {
@@ -132,6 +138,7 @@ pub fn import_job(conn: &mut Connection, job: &ImportJob, mode: ImportMode) -> D
     let copy = mode == ImportMode::Copy;
     let name = if copy { format!("{} (copy)", job.name.trim()) } else { job.name.trim().to_string() };
     let rules = job.rules.to_string();
+    let materials = job.materials.as_ref().map(serde_json::Value::to_string);
     insert_job(
         &tx,
         &JobInsert {
@@ -144,6 +151,7 @@ pub fn import_job(conn: &mut Connection, job: &ImportJob, mode: ImportMode) -> D
             rules_json: &rules,
             rules_version: job.rules_version,
             now: &stamp,
+            materials_json: materials.as_deref(),
         },
     )?;
     if !copy {

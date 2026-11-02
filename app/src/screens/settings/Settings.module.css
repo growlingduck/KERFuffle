@@ -447,12 +447,160 @@
   stroke: var(--ink);
   stroke-width: 1.6px;
 }
+.skin {
+  fill: var(--ink);
+  stroke: none;
+}
+.leg {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2px;
+}
+.legDot {
+  fill: var(--white);
+  stroke: var(--ink);
+  stroke-width: 1.4px;
+}
 .floorHatch {
   stroke: var(--rule-input);
   stroke-width: 0.8px;
 }
 
+/* The construction method, below the shop rules. */
+.methodSection {
+  margin-top: 18px;
+  padding-top: 4px;
+  border-top: 1.5px solid var(--ink);
+}
+
 .loading {
   padding: 28px 2px;
+  color: var(--muted);
+}
+
+/* ---- Materials (catalog and estimate) ---- */
+.materialBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 14px 0 10px;
+}
+.materialBar > :last-child {
+  margin-left: auto;
+}
+.materialTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.materialTable th {
+  padding: 6px 8px;
+  border-bottom: 1.5px solid var(--ink);
+  font: 600 11px var(--font-cond);
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.materialTable td {
+  padding: 8px;
+  border-bottom: 1px solid var(--rule-table);
+  vertical-align: top;
+}
+.materialTable tbody tr:hover {
+  background: var(--vellum);
+}
+.right {
+  text-align: right !important;
+}
+.archived td {
+  color: var(--muted);
+}
+.materialName {
+  font-weight: 600;
+}
+.materialSub {
+  font: 400 12px var(--font-sans);
+  color: var(--muted);
+}
+.tag {
+  margin-left: 8px;
+  padding: 0 6px;
+  border: 1px solid var(--muted);
+  border-radius: 2px;
+  font: 600 10px var(--font-cond);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.needsPrice {
+  color: var(--amber);
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+.materialActions {
+  white-space: nowrap;
+  text-align: right;
+}
+.materialActions .link {
+  min-height: 32px;
+  margin-left: 6px;
+}
+.slotGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px 18px;
+  margin-top: 8px;
+}
+.materialForm {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 18px;
+}
+.formSpan {
+  grid-column: 1 / -1;
+}
+.formLabel {
+  display: block;
+  margin-bottom: 6px;
+  font: 600 13px var(--font-sans);
+}
+.formOptional {
+  font-weight: 400;
+  color: var(--muted);
+}
+.formInput {
+  width: 100%;
+  height: var(--control-h-primary);
+  padding: 0 12px;
+  border: 1px solid var(--rule-input);
+  border-radius: var(--radius-control);
+  background: var(--white);
+  color: var(--ink);
+  font: 400 15px var(--font-sans);
+}
+.formInput:hover {
+  border-color: var(--hover-border);
+}
+.formInput:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: var(--input-ring);
+}
+.formInput[aria-invalid='true'] {
+  border-color: var(--red);
+  background: var(--red-tint);
+}
+select.modified {
+  border: 1.5px solid var(--ink);
+}
+.formTextarea {
+  height: auto;
+  padding: 10px 12px;
+  resize: vertical;
+}
+.formMsg {
+  min-height: 18px;
+  margin-top: 4px;
+  font-size: 12px;
   color: var(--muted);
 }

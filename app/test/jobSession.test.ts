@@ -375,7 +375,10 @@ describe('shared data files', () => {
   });
 
   it('the dev sample jobs, saved as version 1, keep exactly their old cut lists', async () => {
-    const jobs = await createMemoryClient().devLoadSampleJobs();
+    // Samples that choose a construction exist to show it, so they aren't version 1 jobs.
+    const v1Samples = new Set(sampleJobsJson.filter((j) => !('construction' in j)).map((j) => j.name));
+    const jobs = (await createMemoryClient().devLoadSampleJobs()).filter((j) => v1Samples.has(j.name));
+    expect(jobs).toHaveLength(7);
     const v1 = parseRules(version1Of(DEFAULT_RULES), 1);
     for (const job of jobs) {
       const specs = job.cabinets.map(cabinetSpec);
@@ -388,7 +391,7 @@ describe('shared data files', () => {
   });
 
   it('the dev sample jobs are valid cabinets', async () => {
-    expect(sampleJobsJson.map((j) => j.number)).toEqual([14, 13, 12, 11, 9, 15, 16]);
+    expect(sampleJobsJson.map((j) => j.number)).toEqual([14, 13, 12, 11, 9, 15, 16, 17, 18]);
     const empty = createMemoryClient();
     const jobs = await empty.devLoadSampleJobs();
     for (const job of jobs) {

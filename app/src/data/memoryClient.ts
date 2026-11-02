@@ -1,14 +1,28 @@
 /* eslint-disable @typescript-eslint/require-await --
    Methods are async without awaiting so that a thrown StorageError becomes a
    rejected promise, exactly like a failed Tauri command. */
-import type { ConstructionRules } from '@kerfuffle/engine';
+import { applyConstructionChoice } from '@kerfuffle/engine';
+import type { ConstructionChoice, ConstructionRules } from '@kerfuffle/engine';
 import defaultRulesJson from '../../src-tauri/src/db/default_rules.json';
 import sampleJobsJson from '../../src-tauri/src/db/sample_jobs.json';
 import type { StorageClient } from './client';
 import { StorageError } from './errors';
+import { normalizeRecord, STANDARD_MATERIALS } from './materials';
 import { parseRules, RULES_VERSION } from './rules';
-import type { BackupInfo, BackupOverview, BackupSettings, CabinetRecord, JobListItem, JobRecord, JobSnapshot, RecoveredJob, Saved } from './types';
-import { JOB_STATUSES, RULES_SETTING } from './types';
+import type {
+  BackupInfo,
+  BackupOverview,
+  BackupSettings,
+  CabinetRecord,
+  JobListItem,
+  JobMaterialsRecord,
+  JobRecord,
+  JobSnapshot,
+  MaterialRecord,
+  RecoveredJob,
+  Saved,
+} from './types';
+import { ESTIMATE_SETTING, JOB_STATUSES, RULES_SETTING } from './types';
 
 /**
  * An in-memory job database with the same rules as the Rust one: used by
@@ -31,6 +45,7 @@ interface MemoryBackup {
   info: BackupInfo;
   jobs: Map<string, JobRecord>;
   settings: Map<string, unknown>;
+  materials: MaterialRecord[];
 }
 
 const pad = (n: number, width = 2) => String(n).padStart(width, '0');
@@ -51,6 +66,8 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
   const jobs = new Map<string, JobRecord>();
   const settings = new Map<string, unknown>();
   const pending = new Map<string, Pending>();
+  // Like a new database: the standard materials, no prices.
+  let materials: MaterialRecord[] = STANDARD_MATERIALS.map((m) => ({ ...m, createdAt: now(), updatedAt: now() }));
   let backups: MemoryBackup[] = [];
   let backupSettings: BackupSettings = { folder: null, keep: 14 };
   let nextBackupFailure: string | null = null;
@@ -92,8 +109,38 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
     }
   }
 
+  function checkMaterials(m: JobMaterialsRecord | null | undefined) {
+    if (m == null) return;
+    const ok =
+      typeof m === 'object' &&
+      typeof m.slots === 'object' &&
+      m.slots !== null &&
+      Object.values(m.slots).every((s) => typeof s?.id === 'string' && s.id !== '');
+    if (!ok) throw invalid('The job’s materials are incomplete.');
+  }
+
+  function checkMaterial(m: MaterialRecord) {
+    if (m.id.trim() === '') throw invalid('A material is missing its id.');
+    if (m.name.trim() === '') throw invalid('A material needs a name.');
+    const size = (label: string, value: number | null, required: boolean) => {
+      if (value === null) {
+        if (required) throw invalid(`${m.name} needs a ${label}.`);
+      } else if (!Number.isSafeInteger(value) || value <= 0) throw invalid(`${m.name} has an impossible ${label}.`);
+    };
+    const sheet = m.kind === 'sheet';
+    const sized = sheet || m.kind === 'laminate';
+    size('thickness', m.thickness, sheet);
+    size('sheet length', m.length, sized);
+    size('sheet width', m.width, sized);
+    size('width', m.bandingWidth, false);
+    size('roll length', m.rollFeet, false);
+    if (m.price !== null && (!Number.isSafeInteger(m.price) || m.price < 0)) throw invalid(`${m.name} has an impossible price.`);
+    if (m.onHand !== null && (!Number.isSafeInteger(m.onHand) || m.onHand < 0)) throw invalid(`${m.name} has an impossible count on hand.`);
+  }
+
   function checkSnapshot(s: JobSnapshot) {
     if (!JOB_STATUSES.includes(s.status)) throw invalid('That job status is unknown.');
+    checkMaterials(s.materials);
     const seen = new Set<string>();
     for (const c of s.cabinets) {
       checkCabinet(c);
@@ -113,6 +160,19 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
       const owner = cabinetOwner(c.id);
       if (owner && owner !== s.id) throw invalid(`Cabinet ${c.label} belongs to a different job.`);
     }
+    // Like the Rust repo: a changed construction saves only while the job is (or becomes) a draft.
+    if (s.rules !== undefined) {
+      if (typeof s.rules !== 'object' || s.rules === null || typeof s.rules.method !== 'object') {
+        throw invalid('The job’s construction settings are incomplete.');
+      }
+      if (record.status !== 'draft' && s.status !== 'draft') {
+        throw invalid('This job’s construction is locked because it is no longer a draft. Duplicate the job to try another method.');
+      }
+      record.rules = copy(s.rules);
+      record.rulesVersion = RULES_VERSION;
+    }
+    // Like the Rust repo: no materials in the snapshot leaves the job's as they are.
+    if (s.materials != null) record.materials = copy(s.materials);
     record.name = s.name;
     record.customer = blankToNull(s.customer);
     record.notes = blankToNull(s.notes);
@@ -133,7 +193,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
     const stamp = `${at.getFullYear()}${pad(at.getMonth() + 1)}${pad(at.getDate())}-${pad(at.getHours())}${pad(at.getMinutes())}${pad(at.getSeconds())}`;
     let fileName = `kerfuffle-${stamp}.db`;
     for (let n = 2; backups.some((b) => b.info.fileName === fileName); n++) fileName = `kerfuffle-${stamp}-${n}.db`;
-    const snapshot = { jobs: copy(jobs), settings: copy(settings) };
+    const snapshot = { jobs: copy(jobs), settings: copy(settings), materials: copy(materials) };
     const info: BackupInfo = {
       fileName,
       createdAt: `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}T${stamp.slice(9, 11)}:${stamp.slice(11, 13)}:${stamp.slice(13, 15)}`,
@@ -189,14 +249,16 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
     async createJob(input) {
       const name = input.name.trim();
       if (name === '') throw invalid('A job needs a name.');
+      checkMaterials(input.materials);
       const record = insert({
         name,
         customer: blankToNull(input.customer),
         notes: blankToNull(input.notes),
         status: 'draft',
-        rules: currentRules(),
+        rules: input.construction ? { ...currentRules(), method: applyConstructionChoice(currentRules().method, input.construction) } : currentRules(),
         rulesVersion: RULES_VERSION,
         cabinets: [],
+        materials: input.materials ? copy(input.materials) : null,
       });
       return copy(record);
     },
@@ -210,6 +272,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
         rules: copy(source.rules),
         rulesVersion: source.rulesVersion,
         cabinets: source.cabinets.map((c) => ({ ...copy(c), id: crypto.randomUUID() })),
+        materials: source.materials ? copy(source.materials) : null,
       });
       return copy(record);
     },
@@ -289,7 +352,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
       return { rules: currentRules(), other };
     },
     async setShopSetting(key, value) {
-      if (![RULES_SETTING, 'display', 'backups'].includes(key)) throw invalid(`"${key}" is not a shop setting.`);
+      if (![RULES_SETTING, 'display', 'backups', ESTIMATE_SETTING].includes(key)) throw invalid(`"${key}" is not a shop setting.`);
       if (key === RULES_SETTING && (typeof value !== 'object' || value === null || Array.isArray(value))) {
         throw invalid('Construction rules must be a set of named values.');
       }
@@ -298,6 +361,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
     async devLoadSampleJobs() {
       const rules = currentRules();
       const added = (sampleJobsJson as unknown as SampleJob[]).map((sample) => {
+        const own = sample.construction ? { ...rules, method: applyConstructionChoice(rules.method, sample.construction) } : rules;
         const taken = [...jobs.values()].some((j) => j.number === sample.number);
         return insert(
           {
@@ -305,9 +369,9 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
             customer: sample.customer,
             notes: sample.notes,
             status: sample.status,
-            rules: copy(rules),
+            rules: copy(own),
             rulesVersion: RULES_VERSION,
-            cabinets: sample.cabinets.map((c) => ({ ...c, id: crypto.randomUUID(), room: null, run: null })),
+            cabinets: sample.cabinets.map((c) => ({ ...c, id: crypto.randomUUID(), room: null, run: c.run ?? null })),
           },
           taken ? nextNumber() : sample.number,
         );
@@ -321,7 +385,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
       if (incoming.rulesVersion < 1 || incoming.rulesVersion > RULES_VERSION) {
         throw invalid('This job was made by a newer KERFuffle. Update this PC first.');
       }
-      checkSnapshot({ ...incoming, cabinets: incoming.cabinets });
+      checkSnapshot({ ...incoming, cabinets: incoming.cabinets, materials: incoming.materials ?? null });
       const existing = jobs.get(incoming.id);
       if (mode === 'new' && existing) throw invalid('This job is already on this PC. Import it as a copy, or replace the existing one.');
       if (mode === 'replace' && !existing) throw new StorageError('notFound', 'That job no longer exists. It may have been deleted.');
@@ -351,6 +415,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
         customer: blankToNull(incoming.customer),
         notes: blankToNull(incoming.notes),
         cabinets: incoming.cabinets.map((c) => ({ ...copy(c), id: freshCabinetIds ? crypto.randomUUID() : c.id })),
+        materials: incoming.materials ? copy(incoming.materials) : null,
         ...(mode === 'copy' ? { createdAt: at, updatedAt: at, revision: 0 } : {}),
       };
       jobs.set(id, record);
@@ -380,6 +445,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
       for (const [id, record] of copy(chosen.jobs)) jobs.set(id, record);
       settings.clear();
       for (const [key, value] of copy(chosen.settings)) settings.set(key, value);
+      materials = copy(chosen.materials);
       pending.clear();
       return { restored: copy(chosen.info), safety };
     },
@@ -388,6 +454,35 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
       const folder = next.folder?.trim() || null;
       backupSettings = { folder: folder === MEMORY_BACKUP_FOLDER ? null : folder, keep: next.keep };
       return overview();
+    },
+    async listMaterials() {
+      return copy(materials);
+    },
+    async saveMaterial(input) {
+      const m = normalizeRecord(input);
+      checkMaterial(m);
+      const at = now();
+      const index = materials.findIndex((x) => x.id === m.id);
+      const stored: MaterialRecord = { ...copy(m), createdAt: index >= 0 ? materials[index]!.createdAt : at, updatedAt: at };
+      if (index >= 0) materials = materials.map((x, i) => (i === index ? stored : x));
+      else materials = [...materials, stored];
+      return copy(stored);
+    },
+    async deleteMaterial(id) {
+      const users = [...jobs.values()]
+        .sort((a, b) => a.number - b.number)
+        .filter((j) => Object.values(j.materials?.slots ?? {}).some((s) => s?.id === id))
+        .map((j) => j.name);
+      if (users.length > 0) {
+        const others = users.length === 1 ? '' : users.length === 2 ? ' and 1 other job' : ` and ${users.length - 1} other jobs`;
+        throw invalid(`This material is used by ${users[0]}${others}, so it can't be deleted. Archive it instead.`);
+      }
+      const estimate = settings.get(ESTIMATE_SETTING) as { defaults?: Record<string, unknown> } | undefined;
+      if (Object.values(estimate?.defaults ?? {}).includes(id)) {
+        throw invalid('This material is a default for new jobs. Choose another default in Settings first, or archive it.');
+      }
+      if (!materials.some((m) => m.id === id)) throw invalid('That material no longer exists.');
+      materials = materials.filter((m) => m.id !== id);
     },
     seed(records) {
       for (const record of records) jobs.set(record.id, copy(record));
@@ -403,5 +498,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
 }
 
 type SampleJob = Pick<JobRecord, 'number' | 'name' | 'customer' | 'notes' | 'status'> & {
-  cabinets: Omit<CabinetRecord, 'id' | 'room'>[];
+  /** Absent: the shop's default construction. */
+  construction?: ConstructionChoice;
+  cabinets: (Omit<CabinetRecord, 'id' | 'room' | 'run'> & { run?: string })[];
 };

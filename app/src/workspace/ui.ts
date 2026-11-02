@@ -39,6 +39,8 @@ export interface WorkspaceUi {
   showDims: boolean;
   showOversize: boolean;
   constructionOpen: boolean;
+  /** The cabinet list grouped by run (method A1). */
+  groupByRun: boolean;
   /** A field to focus once the editor shows it (Alt+↑/↓, Go to width, clicking a dimension). */
   focusRequest: { field: FieldKey; select: boolean; n: number } | null;
 }
@@ -59,6 +61,7 @@ const INITIAL: WorkspaceUi = {
   showDims: true,
   showOversize: false,
   constructionOpen: false,
+  groupByRun: false,
   focusRequest: null,
 };
 

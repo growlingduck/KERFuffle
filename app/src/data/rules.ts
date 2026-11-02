@@ -1,5 +1,5 @@
-import { DEFAULT_METHOD, DEFAULT_RULES, upgradeVersion1Rules } from '@kerfuffle/engine';
-import type { ConstructionRules, MethodSettings } from '@kerfuffle/engine';
+import { applyConstructionChoice, constructionChoiceOf, DEFAULT_METHOD, DEFAULT_RULES, upgradeVersion1Rules } from '@kerfuffle/engine';
+import type { ConstructionChoice, ConstructionRules, MethodSettings } from '@kerfuffle/engine';
 import { StorageError } from './errors';
 
 /** Version of the ConstructionRules JSON stored with each job (`RULES_VERSION` in Rust). */
@@ -82,4 +82,14 @@ function corrupt(detail: string): StorageError {
     'This job’s construction settings couldn’t be read. Restore a backup from Settings.',
     detail,
   );
+}
+
+/**
+ * The rules with another construction. Every other setting is kept, so going
+ * back restores them. A job made before construction methods never listed its
+ * base; choosing a construction for it on purpose lists it from now on.
+ */
+export function withConstruction(rules: ConstructionRules, choice: ConstructionChoice): ConstructionRules {
+  if (constructionChoiceOf(rules.method) === choice && rules.method.listBase) return rules;
+  return { ...rules, method: { ...applyConstructionChoice(rules.method, choice), listBase: true } };
 }

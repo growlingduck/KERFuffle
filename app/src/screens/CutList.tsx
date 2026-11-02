@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildCutList } from '@kerfuffle/engine';
-import type { CutListMode, CutListOptions, CutListSortKey } from '@kerfuffle/engine';
+import { buildCutList, constructionName, estimate as estimateJob, JOB_SLOTS, SLOT_INFO } from '@kerfuffle/engine';
+import type { CutListMode, CutListOptions, CutListSortKey, Estimate, JobSlot } from '@kerfuffle/engine';
 import { Button, ButtonLink } from '../components/Button';
 import { CheckIcon, ChevronLeftIcon, ImportIcon, PrintIcon } from '../components/icons';
 import { Segmented } from '../components/Segmented';
 import { Switch } from '../components/Switch';
 import { cutListCsv } from '../cutlist/csv';
+import { estimateCsv } from '../cutlist/estimate';
 import { exportFileName, isoDate, PAGE_SIZES } from '../cutlist/format';
 import { useIncludeFronts } from '../cutlist/prefs';
 import { takePrintRequest } from '../cutlist/printRequest';
 import { cabinetSpec } from '../data/jobSession';
+import { changedMaterialCount, effectiveJobMaterials, engineMaterials, priceChanges, pricesAsOf, withCurrentPrices, withSlotMaterial } from '../data/materials';
 import { jobSession } from '../data/storage';
-import type { JobRecord } from '../data/types';
+import type { JobMaterialsRecord, JobRecord } from '../data/types';
 import { formatJobNumber } from '../data/types';
 import { useShortcut, useShortcutScope } from '../keyboard/shortcuts';
 import { cx, useDelayedFlag } from '../lib/interaction';
@@ -20,11 +22,14 @@ import type { SavedFile } from '../platform/export';
 import { navigate, routeHref } from '../routes';
 import { useStore } from '../state/createStore';
 import { useJob } from '../state/jobs';
+import { useMaterials } from '../state/materials';
 import { showToast } from '../state/toast';
 import { duplicateLabels } from '../workspace/cabinets';
 import { selectCabinet } from '../workspace/ui';
 import { MissingJob } from './MissingJob';
 import styles from './cutlist/CutList.module.css';
+import { EstimateSheet } from './cutlist/EstimateSheet';
+import { MaterialsPanel } from './cutlist/MaterialsPanel';
 import { PartSketch } from './cutlist/PartSketch';
 import type { SketchSource } from './cutlist/PartSketch';
 import { Sheets } from './cutlist/Sheets';
@@ -32,6 +37,13 @@ import type { CabinetChip, SheetData, SheetInteraction } from './cutlist/Sheets'
 import ws from './workspace/Workspace.module.css';
 
 type ExportKind = 'csv' | 'pdf';
+/** The sheets on screen, which Print, Save PDF and Export CSV act on. */
+type View = 'cutlist' | 'estimate';
+
+interface EstimateData {
+  estimate: Estimate;
+  pricesAsOf: string | null;
+}
 type ExportPhase = 'idle' | 'busy' | 'done';
 
 /** How long "PDF saved ✓" stays on the button (interaction-design §7). */
@@ -58,7 +70,7 @@ function ExportButton({ kind, phase, onRun }: { kind: ExportKind; phase: ExportP
   );
 }
 
-function useExports(job: JobRecord, sheetData: SheetData) {
+function useExports(job: JobRecord, sheetData: SheetData, estimateData: EstimateData, view: View) {
   const [phase, setPhase] = useState<Record<ExportKind, ExportPhase>>({ csv: 'idle', pdf: 'idle' });
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
@@ -87,18 +99,26 @@ function useExports(job: JobRecord, sheetData: SheetData) {
   };
 
   // Read the latest data when run, so Try again saves what's on screen now.
-  const latest = useRef({ job, sheetData });
+  const latest = useRef({ job, sheetData, estimateData, view });
   useEffect(() => {
-    latest.current = { job, sheetData };
+    latest.current = { job, sheetData, estimateData, view };
   });
 
   const exportCsv = async (): Promise<void> => {
     if (busy.current.csv) return;
     busy.current.csv = true;
-    const { job: j, sheetData: d } = latest.current;
+    const { job: j, sheetData: d, estimateData: e, view: v } = latest.current;
     try {
-      const csv = cutListCsv(d.list, { jobName: j.name, jobNumber: formatJobNumber(j.number), date: d.printed, revision: j.revision });
-      const file = await saveCsv(exportFileName(j.name, 'csv'), csv, () => set('csv', 'busy'));
+      const meta = {
+        jobName: j.name,
+        jobNumber: formatJobNumber(j.number),
+        construction: constructionName(d.rules.method),
+        date: d.printed,
+        revision: j.revision,
+      };
+      const csv = v === 'estimate' ? estimateCsv(e.estimate, d.list, { ...meta, pricesAsOf: e.pricesAsOf }) : cutListCsv(d.list, meta);
+      const what = v === 'estimate' ? 'estimate' : 'cut list';
+      const file = await saveCsv(exportFileName(j.name, 'csv', what), csv, () => set('csv', 'busy'));
       if (file) saved('csv', file);
       else set('csv', 'idle');
     } catch (error) {
@@ -111,9 +131,9 @@ function useExports(job: JobRecord, sheetData: SheetData) {
   const exportPdf = async (): Promise<void> => {
     if (busy.current.pdf) return;
     busy.current.pdf = true;
-    const { job: j, sheetData: d } = latest.current;
+    const { job: j, sheetData: d, view: v } = latest.current;
     try {
-      const result = await savePdf(exportFileName(j.name, 'pdf'), d.page, () => set('pdf', 'busy'));
+      const result = await savePdf(exportFileName(j.name, 'pdf', v === 'estimate' ? 'estimate' : 'cut list'), d.page, () => set('pdf', 'busy'));
       if (result.kind === 'saved') saved('pdf', result.file);
       else set('pdf', 'idle');
       if (result.kind === 'printDialog') showToast('To save a PDF, pick “Microsoft Print to PDF” as the printer.');
@@ -136,6 +156,7 @@ async function print(): Promise<void> {
 }
 
 function CutListView({ job }: { job: JobRecord }) {
+  const [view, setView] = useState<View>('cutlist');
   const [mode, setMode] = useState<CutListMode>('merged');
   const [sort, setSort] = useState<CutListOptions['sort']>(DEFAULT_SORT);
   const [includeFronts, setIncludeFronts] = useIncludeFronts(job.id);
@@ -144,8 +165,47 @@ function CutListView({ job }: { job: JobRecord }) {
   const [hoverRow, setHoverRow] = useState<string | null>(null);
   const [pinnedRow, setPinnedRow] = useState<string | null>(null);
 
+  // A job made before materials uses the shop defaults, copied as of when it was opened.
+  const { catalog, estimate: estimateSettings } = useMaterials();
+  const [openedAt] = useState(() => new Date().toISOString());
+  const record = useMemo(() => effectiveJobMaterials(job, catalog, estimateSettings, openedAt), [job, catalog, estimateSettings, openedAt]);
+  const materials = useMemo(() => engineMaterials(record, catalog), [record, catalog]);
+
   const specs = useMemo(() => job.cabinets.map(cabinetSpec), [job.cabinets]);
-  const list = useMemo(() => buildCutList(specs, job.rules, { mode, includeFronts, sort }), [specs, job.rules, mode, includeFronts, sort]);
+  const list = useMemo(
+    () => buildCutList(specs, job.rules, { mode, includeFronts, sort }, materials),
+    [specs, job.rules, mode, includeFronts, sort, materials],
+  );
+  const estimate = useMemo(() => estimateJob(list, materials, estimateSettings), [list, materials, estimateSettings]);
+  const usedSlots = useMemo<JobSlot[]>(() => {
+    const used = new Set(estimate.lines.flatMap((l) => l.slots));
+    return JOB_SLOTS.filter((slot) => used.has(slot));
+  }, [estimate]);
+  const asOf = useMemo(() => {
+    const at = pricesAsOf(record, usedSlots);
+    return at ? isoDate(new Date(at)) : null;
+  }, [record, usedSlots]);
+  const changes = useMemo(() => priceChanges(record, catalog, usedSlots), [record, catalog, usedSlots]);
+  const estimateData = useMemo<EstimateData>(() => ({ estimate, pricesAsOf: asOf }), [estimate, asOf]);
+
+  /** Commit new materials, with Undo back to what the job had. */
+  const commitMaterials = (next: JobMaterialsRecord, message: string) => {
+    const before = record;
+    jobSession.commit((current) => ({ ...current, materials: next }));
+    showToast(message, { label: 'Undo', run: () => jobSession.commit((current) => ({ ...current, materials: before })) });
+  };
+  const chooseMaterial = (slot: JobSlot, id: string | null) => {
+    const found = id === null ? null : (catalog.find((m) => m.id === id) ?? null);
+    if (id !== null && !found) return; // the job's own copy, already chosen
+    commitMaterials(withSlotMaterial(record, slot, found, new Date().toISOString()), `${SLOT_INFO[slot].name}: ${found ? found.name : 'no material'}`);
+  };
+  const updatePrices = () => {
+    const count = changedMaterialCount(changes);
+    commitMaterials(
+      withCurrentPrices(record, catalog, changes.map((c) => c.slot), new Date().toISOString()),
+      count === 1 ? 'Updated 1 price from the catalog' : `Updated ${count} prices from the catalog`,
+    );
+  };
 
   const chips = useMemo<CabinetChip[]>(() => {
     const blocked = new Set(list.blocked.map((b) => b.index));
@@ -198,8 +258,8 @@ function CutListView({ job }: { job: JobRecord }) {
   const sketchLine = list.lines.find((l) => l.key === sketchKey) ?? (sketchKey ? undefined : list.lines[0]);
   const source: SketchSource = hoverRow && hoverRow !== pinnedRow ? 'pointed' : pinnedRow ? 'pinned' : 'first';
 
-  const { phase, exportCsv, exportPdf } = useExports(job, data);
-  useShortcut({ id: 'cutlist.print', keys: ['Ctrl+P'], scope: 'cutlist', label: 'Print the cut list', run: () => void print() });
+  const { phase, exportCsv, exportPdf } = useExports(job, data, estimateData, view);
+  useShortcut({ id: 'cutlist.print', keys: ['Ctrl+P'], scope: 'cutlist', label: 'Print the cut list or estimate', run: () => void print() });
 
   const onPaginated = useCallback(() => {
     if (takePrintRequest()) void print();
@@ -219,6 +279,20 @@ function CutListView({ job }: { job: JobRecord }) {
         <ButtonLink size="lg" href={routeHref({ name: 'workspace', jobId: job.id })} icon={<ChevronLeftIcon />}>
           Workspace
         </ButtonLink>
+        <div className={styles.viewLabel}>
+          <span className="cap" aria-hidden="true">
+            Show
+          </span>
+          <Segmented<View>
+            label="Show"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: 'cutlist', label: 'Cut list' },
+              { value: 'estimate', label: 'Estimate' },
+            ]}
+          />
+        </div>
         <div className={styles.listLabel}>
           <span className="cap" aria-hidden="true">
             List
@@ -245,7 +319,7 @@ function CutListView({ job }: { job: JobRecord }) {
         </div>
       </div>
 
-      {(list.blocked.length > 0 || list.jobIssues.length > 0 || dupes.length > 0 || job.cabinets.length === 0) && (
+      {(list.blocked.length > 0 || list.jobIssues.length > 0 || list.materialIssues.length > 0 || dupes.length > 0 || job.cabinets.length === 0) && (
         <div className={styles.notices}>
           {list.blocked.length > 0 && (
             <p className={styles.notice} role="alert">
@@ -282,6 +356,13 @@ function CutListView({ job }: { job: JobRecord }) {
               {ref}: {issue.message}
             </p>
           ))}
+          {list.materialIssues.map((issue) => (
+            <p key={`${issue.slot}:${issue.message}`} className={cx(styles.notice, styles.noticeWarn)} role="note">
+              <span aria-hidden="true">△ </span>
+              <span className="visually-hidden">Warning: </span>
+              {issue.message}
+            </p>
+          ))}
           {job.cabinets.length === 0 && (
             <p className={cx(styles.notice, styles.noticeWarn)} role="note">
               This job has no cabinets yet. Add them in the workspace and they’ll appear here.
@@ -291,8 +372,24 @@ function CutListView({ job }: { job: JobRecord }) {
       )}
 
       <div className={styles.content}>
-        <Sheets data={data} ui={ui} onPaginated={onPaginated} />
-        <PartSketch line={sketchLine ?? null} source={source} totals={list.totals} />
+        {view === 'cutlist' ? (
+          <Sheets data={data} ui={ui} onPaginated={onPaginated} />
+        ) : (
+          <EstimateSheet estimate={estimate} list={list} rules={job.rules} job={data.job} printed={printed} pricesAsOf={asOf} page={data.page} />
+        )}
+        <PartSketch line={view === 'cutlist' ? (sketchLine ?? null) : undefined} source={source} totals={list.totals}>
+          <MaterialsPanel
+            record={record}
+            usingDefaults={!job.materials}
+            catalog={catalog}
+            slots={usedSlots}
+            issues={list.materialIssues}
+            pricesAsOf={asOf}
+            changes={changes}
+            onChoose={chooseMaterial}
+            onUpdatePrices={updatePrices}
+          />
+        </PartSketch>
       </div>
     </div>
   );

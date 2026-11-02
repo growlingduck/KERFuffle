@@ -1,8 +1,8 @@
 # Pending checks
 
-Things built so far (prompts 01–08) that still need you to look at them, try
+Things built so far (prompts 01–11) that still need you to look at them, try
 them, or make a call. Tick them off or delete lines as you go. Last updated
-2026-11-01.
+2026-11-02.
 
 ## 1. Try in the desktop app (`npm run dev`)
 
@@ -226,3 +226,86 @@ Choices made. Keep or change?
 - [ ] **A silent install (`/S`) still creates a desktop shortcut** (Tauri's
       behavior; `/NS` skips all shortcuts). The normal installer leaves the box
       unticked.
+
+## 8. Construction methods in the app (prompt 10)
+
+Try in the desktop app:
+
+- [ ] **New job → Construction:** the three choices and their diagrams read
+      right to you, and the shop default is picked to start with.
+- [ ] **Load sample jobs** adds two jobs to try: *Integral toe kick sample*
+      (method B) and *Ladder base: two runs* (A1, with a 102″ run that splits).
+- [ ] **Workspace:** the drawings for B (sides to the floor, notched), A1 (kick
+      skin, rails, sleeper) and A2 (legs, clip-on board) look like how you
+      build. They are small at the panel's size; say if they need to be bigger.
+- [ ] **Printouts.** Grayscale PDFs of both samples from headless Edge, if you
+      want to look first (temporary folder; it may be cleaned up):
+      `C:\Users\Owner\AppData\Local\Temp\claude\c--Users-Owner-Documents-websites-KERFuffle\bbd076d3-df5b-408d-a121-ad491f3b7ab5\scratchpad\prints\`
+
+Choices made. Keep or change?
+
+- [ ] **Changing a job made before construction methods lists its base.**
+      Those jobs print without a base. Choosing any construction for one in
+      the workspace (even the one it shows) adds the base parts from then on.
+      Undo puts it back.
+- [ ] **A copy keeps its source's construction** in the New job dialog
+      unless you pick another.
+- [ ] **Settings checks every method setting as all three constructions
+      would use it**, not only the default, because each job can pick its
+      own. A kick depth too deep for method B blocks Save even while A1 is the
+      default.
+- [ ] **The Run field only shows for A1** (ladder base). Runs typed while a
+      job is A1 are kept if it changes to A2 or B, and come back if it
+      changes back.
+- [ ] **Group by run** is a view setting that resets when you open another
+      job.
+
+## 9. Materials and the purchase estimate (prompt 11)
+
+Automated tests cover the catalog, the add form for each kind, the cut list by
+material, the estimate and its CSV. The sample job's estimate is worked out by
+hand in `engine/test/estimate.test.ts` ($812.50 with test prices). Checked in
+headless Edge in the browser preview only, not in the desktop window.
+
+- [ ] **Try it in the desktop app:** Settings → Materials (add one of each
+      kind, edit, duplicate, archive, delete), then a job's Cut list → Show:
+      Estimate. Print it, Save PDF and Export CSV (file names end
+      "– estimate"), and open the CSV in Excel.
+- [ ] **Delete is refused** for a material a job uses, and for one that's a
+      default for new jobs. The message says to archive it instead.
+- [ ] **Enter your real prices.** The standard materials start with none, so
+      every estimate says "Incomplete: n materials need a price" until they're
+      priced.
+- [ ] **Update prices** on a job after changing a catalog price: it updates
+      only when clicked, and the toast offers Undo.
+
+Choices made. Keep or change?
+
+- [ ] **The estimate follows the Include fronts switch.** With fronts on, door
+      and front-laminate blanks count toward the sheets, since they're cut
+      from the box material (Front is in the Box slot). Turn fronts off to
+      leave them out.
+- [ ] **Wide shelves have their own slot** ("Wide shelves", default Plywood
+      1″), because one Shelves slot can't be both 3/4″ and 1″. The plan
+      listed one shelves slot.
+- [ ] **Edge banding and the A2 hardware are slots too** (Edge banding,
+      Leveling legs, Kick clips), set in Settings like the others.
+- [ ] **Method B sides are banded above the kick notch only**, not along the
+      notch.
+- [ ] **Edge trim for the estimate is a shop setting** (1/4″ each edge, the
+      plan's saw-profile default) until prompt 12 adds saw profiles.
+- [ ] **A job made before materials** shows the shop defaults (and today's
+      prices) until a material is picked or prices are updated; only then is
+      a copy saved in the job. Just opening it changes nothing.
+- [ ] **"Prices as of"** is the oldest price copy among the materials the job
+      uses.
+- [ ] **On hand is not copied into the job**: it's the shop's stock, read from
+      the catalog. It isn't subtracted when a job is completed (later).
+- [ ] **The two seeded HPL sheets are named with their sizes** ("HPL laminate
+      48 × 96", "… 60 × 144") so they can be told apart.
+- [ ] **New default slot materials** don't check thickness: a 1/4″ inset back
+      starts on Birch 3/4″ and shows the thickness warning until you pick
+      Birch 1/4″ (or change the Back default in Settings).
+- [ ] **`.kerfjob` files are now format 2** (they carry the materials). An
+      older KERFuffle refuses them with "made by a newer KERFuffle"; update
+      both PCs together. Format 1 files still import.

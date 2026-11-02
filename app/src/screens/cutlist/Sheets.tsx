@@ -1,5 +1,6 @@
 import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
+import { constructionName } from '@kerfuffle/engine';
 import type { CabinetType, ConstructionRules, CutList, CutListLine, CutListSortKey, Ticks } from '@kerfuffle/engine';
 import { STATUS_INFO } from '../../components/Stamp';
 import { TitleBlock } from '../../components/TitleBlock';
@@ -110,7 +111,7 @@ function sheetGroups(data: SheetData): SheetGroup[] {
 const ZONES = ['A', 'B', 'C', 'D'];
 
 /** Sheet border with zone marks 1–4 across and A–D down. */
-function Zones() {
+export function Zones() {
   return (
     <div aria-hidden="true">
       {[1, 2, 3, 4].map((n, i) => (
@@ -427,7 +428,10 @@ const Frame = memo(function Frame({ data, groups, pieces, sheet, sheets, ui, mea
               {job.name}
             </div>
           </div>
-          <div className={cx('mono', styles.modeLine)}>{optionsText(list.options)}</div>
+          <div className={cx('mono', styles.modeLine)}>
+            <span className={styles.modeConstruction}>{constructionName(data.rules.method)}</span>
+            <span>{optionsText(list.options)}</span>
+          </div>
         </header>
         {excludes && (
           <p className={styles.excludes}>
@@ -466,8 +470,9 @@ const Frame = memo(function Frame({ data, groups, pieces, sheet, sheets, ui, mea
                   ),
                   span: 3,
                 },
-                { label: 'List', value: optionsText(list.options), span: 5 },
+                { label: 'Construction', value: constructionName(data.rules.method), span: 5 },
                 { label: 'Contents', value: `${list.totals.boxes} boxes · ${totalPieces} pieces`, span: 3 },
+                { label: 'List', value: optionsText(list.options), span: 8 },
                 { label: 'Printed', value: <span className="mono">{data.printed}</span>, span: 3 },
                 { label: 'Scale', value: <span className="mono">N.T.S.</span>, span: 2 },
                 {

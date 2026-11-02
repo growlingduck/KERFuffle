@@ -60,7 +60,16 @@ export function blockedText(blocked: readonly BlockedCabinet[]): string | null {
   return `Excludes ${ids.join(', ')}: ${blocked.length === 1 ? 'needs a fix' : 'need a fix'}`;
 }
 
+/**
+ * A merged group's heading: the material and thickness ("Birch plywood 3/4″ ·
+ * 3/4″ thick"), or the thickness alone for parts with no material.
+ */
 export function groupTitle(group: CutListGroup, rules: ConstructionRules): string {
+  const material = group.material;
+  if (material) {
+    if (group.category === 'laminate') return `${material.name} · ${displayInches(rules.laminateOversizePerEdge)} oversize each edge`;
+    return `${material.name} · ${displayInches(group.thickness ?? rules.panelThickness)} thick`;
+  }
   if (group.category === 'panel') return `Panels · ${displayInches(group.thickness ?? rules.panelThickness)} thick`;
   if (group.category === 'lumber') return `Solid stock · ${displayInches(group.thickness ?? rules.panelThickness)} thick`;
   return `Laminate · ${displayInches(rules.laminateOversizePerEdge)} oversize each edge`;
@@ -88,7 +97,7 @@ export function isoDate(date: Date): string {
 }
 
 /** "Kitchen remodel – cut list.pdf", safe as a Windows file name. */
-export function exportFileName(jobName: string, extension: 'pdf' | 'csv'): string {
+export function exportFileName(jobName: string, extension: 'pdf' | 'csv', what: 'cut list' | 'estimate' = 'cut list'): string {
   const safe = jobName
     // Characters Windows forbids in names, and control characters.
     .replace(/[<>:"/\\|?*]/g, '-')
@@ -96,7 +105,7 @@ export function exportFileName(jobName: string, extension: 'pdf' | 'csv'): strin
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/[. ]+$/, '');
-  return `${safe || 'Job'} – cut list.${extension}`;
+  return `${safe || 'Job'} – ${what}.${extension}`;
 }
 
 export type PageSizeName = 'letter' | 'a4';

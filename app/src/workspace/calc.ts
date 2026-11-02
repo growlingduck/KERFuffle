@@ -67,7 +67,7 @@ export function evaluateCabinet(cabinet: CabinetRecord, rules: ConstructionRules
   return { spec, parts, issues, valid, byRole: Object.fromEntries(parts.map((p) => [p.role, p])) };
 }
 
-export type FieldKey = DimensionField | 'shelfCount' | 'quantity' | 'label';
+export type FieldKey = DimensionField | 'shelfCount' | 'quantity' | 'label' | 'run';
 
 /** Where an engine issue is shown: the field the user would change to fix it. */
 export function issueField(issue: ValidationIssue): FieldKey | null {

@@ -6,9 +6,10 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
 use super::error::{DbError, DbResult};
+use super::materials::ESTIMATE_SETTING;
 use super::models::{
-    Cabinet, CabinetOutline, CabinetType, FinishedEnds, Job, JobFields, JobListItem, JobSnapshot,
-    JobStatus, NewJob, Saved, RULES_VERSION,
+    check_job_materials, Cabinet, CabinetOutline, CabinetType, ConstructionChoice, FinishedEnds, Job, JobFields,
+    MethodId, JobListItem, JobSnapshot, JobStatus, NewJob, Saved, RULES_VERSION,
 };
 
 /// Shop default rules used until the user saves their own (prompt 07). A test in
@@ -19,10 +20,10 @@ pub const RULES_SETTING: &str = "construction_rules";
 /// Shop settings the app knows about. Anything else is refused. "backups" is
 /// reserved: backup settings live in backup-settings.json (backups.rs), outside
 /// the database, so a restore never moves the backup folder.
-pub const SHOP_SETTING_KEYS: &[&str] = &[RULES_SETTING, "display", "backups"];
+pub const SHOP_SETTING_KEYS: &[&str] = &[RULES_SETTING, "display", "backups", ESTIMATE_SETTING];
 
 const JOB_COLUMNS: &str = "id, number, name, customer, notes, status, rules_json, rules_version, \
-                           created_at, updated_at, revision";
+                           created_at, updated_at, revision, materials_json";
 const CABINET_COLUMNS: &str =
     "id, label, type, width, height, depth, shelf_count, finished_ends, quantity, room, run";
 
@@ -42,6 +43,7 @@ struct JobRow {
     created_at: String,
     updated_at: String,
     revision: i64,
+    materials_json: Option<String>,
 }
 
 fn read_job_row(row: &Row<'_>) -> rusqlite::Result<JobRow> {
@@ -57,6 +59,7 @@ fn read_job_row(row: &Row<'_>) -> rusqlite::Result<JobRow> {
         created_at: row.get(8)?,
         updated_at: row.get(9)?,
         revision: row.get(10)?,
+        materials_json: row.get(11)?,
     })
 }
 
@@ -175,6 +178,7 @@ pub fn get_job(conn: &Connection, id: &str) -> DbResult<Job> {
         updated_at: row.updated_at,
         revision: row.revision,
         cabinets,
+        materials: row.materials_json.as_deref().map(serde_json::from_str).transpose()?,
     })
 }
 
@@ -260,13 +264,15 @@ pub(crate) struct JobInsert<'a> {
     pub rules_json: &'a str,
     pub rules_version: i64,
     pub now: &'a str,
+    /// The job's materials JSON; None for a job without (made before materials).
+    pub materials_json: Option<&'a str>,
 }
 
 pub(crate) fn insert_job(conn: &Connection, job: &JobInsert<'_>) -> DbResult<()> {
     conn.execute(
         "INSERT INTO jobs (id, number, name, customer, notes, status, rules_json, rules_version,
-                           created_at, updated_at, revision)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9, 0)",
+                           created_at, updated_at, revision, materials_json)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9, 0, ?10)",
         params![
             job.id,
             job.number,
@@ -277,6 +283,7 @@ pub(crate) fn insert_job(conn: &Connection, job: &JobInsert<'_>) -> DbResult<()>
             job.rules_json,
             job.rules_version,
             job.now,
+            job.materials_json,
         ],
     )?;
     Ok(())
@@ -363,15 +370,39 @@ pub fn upgrade_shop_rules(mut rules: serde_json::Value) -> DbResult<serde_json::
     Ok(rules)
 }
 
-/// Create an empty draft job that snapshots the current shop rules.
+/// Apply the New job dialog's construction choice to a rules snapshot. Only the
+/// method and (for method A) the base type change; every other setting stays
+/// the shop's, as the app's `applyConstructionChoice` does.
+pub fn with_construction(mut rules: serde_json::Value, choice: ConstructionChoice) -> DbResult<serde_json::Value> {
+    let method = rules
+        .get_mut("method")
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or_else(|| DbError::Corrupt("shop rules have no method block".into()))?;
+    method.insert("id".into(), choice.id.as_str().into());
+    if choice.id == MethodId::A {
+        method.insert("baseType".into(), choice.base_type.as_str().into());
+    }
+    Ok(rules)
+}
+
+/// Create an empty draft job that snapshots the current shop rules, with the
+/// construction chosen for it.
 pub fn create_job(conn: &mut Connection, new_job: &NewJob) -> DbResult<Job> {
     let name = new_job.name.trim();
     if name.is_empty() {
         return Err(DbError::invalid("A job needs a name."));
     }
+    if let Some(materials) = &new_job.materials {
+        check_job_materials(materials)?;
+    }
+    let materials = new_job.materials.as_ref().map(serde_json::Value::to_string);
     let id = fresh_id();
     let tx = conn.transaction()?;
-    let rules = current_rules(&tx)?.to_string();
+    let mut rules = current_rules(&tx)?;
+    if let Some(choice) = new_job.construction {
+        rules = with_construction(rules, choice)?;
+    }
+    let rules = rules.to_string();
     let number = next_job_number(&tx)?;
     let now = now(&tx)?;
     insert_job(
@@ -386,6 +417,7 @@ pub fn create_job(conn: &mut Connection, new_job: &NewJob) -> DbResult<Job> {
             rules_json: &rules,
             rules_version: RULES_VERSION,
             now: &now,
+            materials_json: materials.as_deref(),
         },
     )?;
     tx.commit()?;
@@ -402,6 +434,7 @@ pub fn duplicate_job(conn: &mut Connection, id: &str) -> DbResult<Job> {
     let now = now(&tx)?;
     let name = format!("{} (copy)", source.name);
     let rules = source.rules.to_string();
+    let materials = source.materials.as_ref().map(serde_json::Value::to_string);
     insert_job(
         &tx,
         &JobInsert {
@@ -414,6 +447,7 @@ pub fn duplicate_job(conn: &mut Connection, id: &str) -> DbResult<Job> {
             rules_json: &rules,
             rules_version: source.rules_version,
             now: &now,
+            materials_json: materials.as_deref(),
         },
     )?;
     for (position, cabinet) in source.cabinets.iter().enumerate() {
@@ -471,6 +505,16 @@ pub fn save_job(conn: &mut Connection, snapshot: &JobSnapshot) -> DbResult<Saved
 
 /// The body of `save_job`, for callers that already hold a transaction.
 pub(crate) fn save_snapshot(conn: &Connection, snapshot: &JobSnapshot) -> DbResult<Saved> {
+    // Before the status is written: the lock reads the status the job had.
+    if let Some(rules) = &snapshot.rules {
+        save_rules(conn, snapshot, rules)?;
+    }
+    if let Some(materials) = &snapshot.materials {
+        conn.execute(
+            "UPDATE jobs SET materials_json = ?2 WHERE id = ?1",
+            params![snapshot.id, materials.to_string()],
+        )?;
+    }
     let changed = conn.execute(
         "UPDATE jobs SET name = ?2, customer = ?3, notes = ?4, status = ?5 WHERE id = ?1",
         params![
@@ -496,6 +540,27 @@ pub(crate) fn save_snapshot(conn: &Connection, snapshot: &JobSnapshot) -> DbResu
     }
     conn.execute("DELETE FROM pending_edits WHERE job_id = ?1", [&snapshot.id])?;
     touch_job(conn, &snapshot.id)
+}
+
+/// A changed construction (the workspace's Construction control). Allowed only
+/// while the job is a draft: it is one now, or this snapshot makes it one again
+/// (an undo back past "Mark ready"). From ready to cut onward the cut list
+/// must not move, so the rules are locked.
+fn save_rules(conn: &Connection, snapshot: &JobSnapshot, rules: &serde_json::Value) -> DbResult<()> {
+    let stored: Option<String> = conn
+        .query_row("SELECT status FROM jobs WHERE id = ?1", [&snapshot.id], |row| row.get(0))
+        .optional()?;
+    let stored = JobStatus::parse(&stored.ok_or(DbError::JobNotFound)?)?;
+    if stored != JobStatus::Draft && snapshot.status != JobStatus::Draft {
+        return Err(DbError::invalid(
+            "This job's construction is locked because it is no longer a draft. Duplicate the job to try another method.",
+        ));
+    }
+    conn.execute(
+        "UPDATE jobs SET rules_json = ?2, rules_version = ?3 WHERE id = ?1",
+        params![snapshot.id, rules.to_string(), RULES_VERSION],
+    )?;
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------

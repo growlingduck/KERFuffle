@@ -47,8 +47,8 @@ describe('cut list screen', () => {
     expect(marks()).toHaveLength(26);
     expect(cellsOf('P4')).toEqual(['Left side / Right side', 'grain up and down', '30 1/2″', '23 1/4″', '8', 'B1×2, B2×2, B3×4']);
     expect(cellsOf('L3')).toEqual(['Left side / Right side', 'grain up and down', '32 1/2″', '26″', '3', 'B1, B3×2']);
-    expect(within(sheet()).getByRole('region', { name: 'Panels · 3/4″ thick' })).toBeInTheDocument();
-    expect(within(sheet()).getByRole('region', { name: 'Laminate · 1″ oversize each edge' })).toBeInTheDocument();
+    expect(within(sheet()).getByRole('region', { name: 'Birch plywood 3/4″ · 3/4″ thick' })).toBeInTheDocument();
+    expect(within(sheet()).getByRole('region', { name: 'HPL laminate 48 × 96 · 1″ oversize each edge' })).toBeInTheDocument();
   });
 
   it('prints its options, revision, date and sheet number in the title block', async () => {
@@ -90,7 +90,7 @@ describe('cut list screen', () => {
 
   it('re-sorts without moving the marks', async () => {
     const { user } = await openCutList();
-    const panels = within(sheet()).getByRole('region', { name: 'Panels · 3/4″ thick' });
+    const panels = within(sheet()).getByRole('region', { name: 'Birch plywood 3/4″ · 3/4″ thick' });
     const lengthHeader = within(panels).getByRole('columnheader', { name: /Length/ });
     expect(lengthHeader).toHaveAttribute('aria-sort', 'descending');
     const before = new Map([...sheet().querySelectorAll<HTMLElement>('tr[data-mark]')].map((tr) => [tr.dataset.mark, tr.textContent]));
@@ -133,7 +133,7 @@ describe('cut list screen', () => {
 
   it('sketches the row pointed at or pinned, with totals beside it', async () => {
     const { user } = await openCutList();
-    const rail = screen.getByRole('complementary', { name: 'Part sketch and totals' });
+    const rail = screen.getByRole('complementary', { name: 'Part sketch, totals and materials' });
     expect(rail).toHaveTextContent('First row');
     expect(within(rail).getByRole('img')).toHaveAccessibleName('Bottom / Top, 40 1/2″ long by 23 1/4″ wide, grain along the length');
 

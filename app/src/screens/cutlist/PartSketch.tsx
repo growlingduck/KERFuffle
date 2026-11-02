@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { CutListLine, CutListTotals } from '@kerfuffle/engine';
 import { lineName, refsText, thicknessText } from '../../cutlist/format';
 import { displayInches } from '../../lib/dimensions';
@@ -72,16 +73,19 @@ function Drawing({ line }: { line: CutListLine }) {
 }
 
 export interface PartSketchProps {
-  line: CutListLine | null;
+  /** Undefined hides the sketch (the estimate is on show). */
+  line: CutListLine | null | undefined;
   source: SketchSource;
   totals: CutListTotals;
+  /** More panels, after the totals. */
+  children?: ReactNode;
 }
 
-/** Screen-only rail beside the sheets: the part sketch and the job totals. */
-export function PartSketch({ line, source, totals }: PartSketchProps) {
+/** Screen-only rail beside the sheets: the part sketch, the job totals, then any other panels. */
+export function PartSketch({ line, source, totals, children }: PartSketchProps) {
   return (
-    <aside className={styles.rail} aria-label="Part sketch and totals">
-      <div className={styles.railPanel}>
+    <aside className={styles.rail} aria-label={line === undefined ? 'Totals and materials' : 'Part sketch, totals and materials'}>
+      {line !== undefined && <div className={styles.railPanel}>
         <div className={styles.sketchHead}>
           <span className={styles.sketchBubble} aria-hidden="true">
             {line?.mark ?? '–'}
@@ -119,7 +123,7 @@ export function PartSketch({ line, source, totals }: PartSketchProps) {
           Point at a row to sketch it; click to keep it here. Point at a cabinet to trace its parts; click to show only that
           cabinet. Screen only: never printed.
         </p>
-      </div>
+      </div>}
       <div className={styles.railPanel}>
         <h2 className={cx('cap', styles.totalsTitle)}>Totals</h2>
         <dl className={styles.totals}>
@@ -141,6 +145,7 @@ export function PartSketch({ line, source, totals }: PartSketchProps) {
           </div>
         </dl>
       </div>
+      {children}
     </aside>
   );
 }

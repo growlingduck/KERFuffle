@@ -15,7 +15,7 @@ import { testCabinet, testJob, useTestDatabase } from './storage';
 const b1 = testCabinet('c-b1', 'B1', { height: inches(36), finishedEnds: 'left' });
 const b2 = testCabinet('c-b2', 'B2', { width: inches(42) });
 const w1 = testCabinet('c-w1', 'W1', { type: 'wall', height: inches(30), depth: inches(12), shelfCount: 2 });
-const content = (): JobContent => ({ cabinets: [b1, b2, w1], status: 'draft' });
+const content = (): JobContent => ({ cabinets: [b1, b2, w1], status: 'draft', rules: DEFAULT_RULES });
 
 describe('command reducers', () => {
   const cases: [string, Command, (c: JobContent) => void, string][] = [
@@ -58,7 +58,7 @@ describe('command reducers', () => {
   });
 
   it('never removes the last cabinet', () => {
-    expect(applyCommand({ cabinets: [b1], status: 'draft' }, { type: 'removeCabinet', cabinetId: 'c-b1' })).toBeNull();
+    expect(applyCommand({ cabinets: [b1], status: 'draft', rules: DEFAULT_RULES }, { type: 'removeCabinet', cabinetId: 'c-b1' })).toBeNull();
   });
 
   it('removing selects the next cabinet, or the previous at the end', () => {

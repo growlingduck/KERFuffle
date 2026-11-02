@@ -171,6 +171,11 @@
   line-height: 1.6;
   text-transform: uppercase;
 }
+/* How the job is built, on its own line above the list options. */
+.modeConstruction {
+  display: block;
+  font-weight: 600;
+}
 
 .excludes {
   margin-top: 8px;
@@ -655,4 +660,128 @@
 .muted {
   color: var(--muted);
   font-size: 13px;
+}
+
+/* ---- Materials panel (rail, screen only) ---- */
+.slots {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+.slotLabel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin-bottom: 4px;
+  font: 600 13px var(--font-sans);
+}
+.slotParts {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--muted);
+}
+.select {
+  width: 100%;
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid var(--rule-input);
+  border-radius: var(--radius-control);
+  background: var(--white);
+  color: var(--ink);
+  font: 400 14px var(--font-sans);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.select:hover {
+  border-color: var(--hover-border);
+}
+.select:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.select[aria-invalid='true'] {
+  border-style: dashed;
+}
+.slotNote {
+  min-height: 18px;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.slotWarn {
+  display: block;
+  color: var(--amber);
+}
+.prices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--rule-divider);
+  font-size: 13px;
+}
+.viewLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.viewLabel > span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ---- Estimate sheet ---- */
+.estTbl td {
+  vertical-align: top;
+}
+/* Six columns on a letter page: 14 px mono, and a cell may wrap. */
+.estTbl .num {
+  font-size: 14px;
+  white-space: normal;
+}
+.colEstNum {
+  width: 20%;
+}
+.colEstSmall {
+  width: 11%;
+}
+.colEstPrice {
+  width: 13%;
+}
+.colEstCost {
+  width: 13%;
+}
+.estName {
+  font-weight: 600;
+}
+.estSub {
+  font: 400 11px var(--font-sans);
+  color: #000;
+}
+.estWarn {
+  font-size: 11px;
+}
+.estBuy {
+  font-weight: 700;
+}
+.estNeedsPrice {
+  font-style: italic;
+}
+.estTotal th,
+.estTotal td {
+  white-space: normal;
+  padding-top: 8px;
+  border-top: 2px solid #000;
+  font-weight: 700;
+  text-align: right;
+}
+.estIncomplete {
+  font: 700 13px var(--font-sans);
+}
+.estimateEmpty {
+  margin: 12px 0;
 }

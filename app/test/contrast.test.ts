@@ -51,6 +51,10 @@ describe('token contrast', () => {
     ['--amber', '--white'],
     ['--amber', '--highlighter'],
     ['--green', '--white'],
+    // The construction picker's chosen card.
+    ['--blue', '--blue-tint-faint'],
+    ['--ink', '--blue-tint-faint'],
+    ['--muted', '--blue-tint-faint'],
   ])('%s on %s is at least 4.5:1', (fg, bg) => {
     expect(contrast(token(fg), token(bg))).toBeGreaterThanOrEqual(4.5);
   });

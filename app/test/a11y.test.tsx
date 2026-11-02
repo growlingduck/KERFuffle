@@ -1,4 +1,5 @@
-import { inches } from '@kerfuffle/engine';
+import { DEFAULT_RULES, inches } from '@kerfuffle/engine';
+import type { ConstructionRules } from '@kerfuffle/engine';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import axe from 'axe-core';
@@ -126,6 +127,82 @@ describe('accessibility (axe)', { timeout: 20_000 }, () => {
       const { user, container } = await open();
       await user.click(screen.getByRole('button', { name: /^B2/ }));
       expect(screen.getByRole('button', { name: 'Go to height' })).toBeInTheDocument();
+      const violations = await seriousViolations(container);
+      expect(violations, describeViolations(violations)).toEqual([]);
+    });
+    describe('construction', () => {
+      const openWith = async (rules: ConstructionRules, status: 'draft' | 'ready' = 'draft') => {
+        await seedDatabase([
+          testJob({
+            rules,
+            rulesVersion: 2,
+            status,
+            cabinets: [
+              testCabinet('c-b1', 'B1', { height: inches(36), finishedEnds: 'left', run: 'Sink wall' }),
+              testCabinet('c-b2', 'B2', { height: inches(36), run: 'Sink wall' }),
+              testCabinet('c-b3', 'B3', { height: inches(36) }),
+              testCabinet('c-w1', 'W1', { type: 'wall', height: inches(30), depth: inches(12) }),
+            ],
+          }),
+        ]);
+        window.location.hash = '#/jobs/j-0014/workspace';
+        const user = userEvent.setup();
+        const view = render(<App />);
+        await screen.findByRole('heading', { name: 'Cabinet B1' });
+        return { user, ...view };
+      };
+
+      it('has no serious or critical violations with the run field, the list grouped by run and a run’s base traced', async () => {
+        const { user, container } = await openWith(DEFAULT_RULES);
+        expect(screen.getByLabelText('Run')).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Group by run' }));
+        await user.click(screen.getByRole('button', { name: /^Construction/ }));
+        await user.hover(screen.getByLabelText(/^Width/, { selector: 'input' }));
+        const violations = await seriousViolations(container);
+        expect(violations, describeViolations(violations)).toEqual([]);
+      });
+
+      it('has no serious or critical violations with the Change construction dialog open', async () => {
+        const { user } = await openWith(DEFAULT_RULES);
+        await user.click(screen.getByRole('button', { name: /^Construction/ }));
+        await user.click(screen.getByRole('button', { name: 'Change…' }));
+        await user.click(screen.getByRole('radio', { name: 'Frameless with integral toe kick' }));
+        const violations = await seriousViolations(document.body);
+        expect(violations, describeViolations(violations)).toEqual([]);
+      });
+
+      it.each([
+        ['method B', { ...DEFAULT_RULES, method: { ...DEFAULT_RULES.method, id: 'B' } }],
+        ['legs, an inset back and stretchers', { ...DEFAULT_RULES, method: { ...DEFAULT_RULES.method, baseType: 'legs', backType: 'dado', baseTop: 'stretchers' } }],
+      ] as [string, ConstructionRules][])('has no serious or critical violations drawing %s', async (_name, rules) => {
+        const { container } = await openWith(rules);
+        const violations = await seriousViolations(container);
+        expect(violations, describeViolations(violations)).toEqual([]);
+      });
+
+      it('has no serious or critical violations with the construction locked', async () => {
+        const { user, container } = await openWith(DEFAULT_RULES, 'ready');
+        await user.click(screen.getByRole('button', { name: /^Construction/ }));
+        const violations = await seriousViolations(container);
+        expect(violations, describeViolations(violations)).toEqual([]);
+      });
+    });
+  });
+
+  describe('Settings: construction', () => {
+    it('has no serious or critical violations with every construction setting showing, and an error', async () => {
+      await useTestDatabase();
+      window.location.hash = '#/settings';
+      const user = userEvent.setup();
+      const { container } = render(<App />);
+      await screen.findByRole('heading', { name: 'Construction defaults' });
+      await user.click(screen.getByRole('radio', { name: 'Frameless on leveling legs' }));
+      await user.click(screen.getByRole('radio', { name: 'Inset in a dado' }));
+      await user.click(screen.getByRole('radio', { name: 'Two stretchers' }));
+      const kick = screen.getByLabelText(/^Kick depth/, { selector: 'input' });
+      await user.clear(kick);
+      await user.type(kick, '30');
+      expect(screen.getByRole('img', { name: /^Detail J: Toe kick/ })).toBeInTheDocument();
       const violations = await seriousViolations(container);
       expect(violations, describeViolations(violations)).toEqual([]);
     });

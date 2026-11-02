@@ -1,9 +1,10 @@
 import { validate } from '@kerfuffle/engine';
-import type { CabinetSpec, ValidationIssue } from '@kerfuffle/engine';
+import type { CabinetSpec, ConstructionRules, ValidationIssue } from '@kerfuffle/engine';
 import { createStore } from '../state/createStore';
 import type { Store } from '../state/createStore';
 import type { StorageClient } from './client';
 import { toStorageError } from './errors';
+import { RULES_VERSION } from './rules';
 import type { CabinetRecord, JobRecord, Saved } from './types';
 import { toSnapshot } from './types';
 
@@ -19,6 +20,9 @@ import { toSnapshot } from './types';
  *      into one save: one transaction and one revision.
  * All storage calls run one at a time, in order, so a save never overtakes
  * a journal write.
+ *
+ * The job's rules change only when its construction is changed (a draft
+ * only). They go to the database only while they differ from what it holds.
  */
 
 export type SaveState =
@@ -58,7 +62,7 @@ export interface JobSession {
   getJob(): JobRecord | null;
   /** Load a job, first saving anything pending for the current one. */
   open(id: string): Promise<void>;
-  /** Replace the open job's editable contents and schedule a save. */
+  /** Replace the open job's editable contents (and, for a draft, its rules) and schedule a save. */
   commit(next: JobRecord | ((job: JobRecord) => JobRecord)): void;
   /** Save now and wait until every pending write has finished. Never rejects. */
   flush(): Promise<void>;
@@ -95,6 +99,19 @@ export function validateJob(job: JobRecord): Record<string, ValidationIssue[]> {
   return issues;
 }
 
+/**
+ * The rules a commit may leave the job with. Only the construction method may
+ * change, and only while the job is (or becomes) a draft, as the database
+ * enforces; anything else keeps the rules the job has.
+ */
+function committedRules(current: JobRecord, proposed: JobRecord): ConstructionRules {
+  if (proposed.rules === current.rules) return current.rules;
+  const draft = current.status === 'draft' || proposed.status === 'draft';
+  const keys = Object.keys(current.rules) as (keyof ConstructionRules)[];
+  const onlyMethod = keys.every((key) => key === 'method' || current.rules[key] === proposed.rules[key]);
+  return draft && onlyMethod ? proposed.rules : current.rules;
+}
+
 export function createJobSession(options: JobSessionOptions): JobSession {
   const debounceMs = options.debounceMs ?? 400;
   const savingIndicatorMs = options.savingIndicatorMs ?? 300;
@@ -108,6 +125,8 @@ export function createJobSession(options: JobSessionOptions): JobSession {
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   let tail: Promise<void> = Promise.resolve();
   let disposed = false;
+  /** The rules the database holds for the open job; a different object means they changed. */
+  let storedRules: ConstructionRules | null = null;
 
   /** Run storage work strictly one after another. Tasks handle their own errors. */
   const enqueue = (task: () => Promise<void>): Promise<void> => {
@@ -120,7 +139,7 @@ export function createJobSession(options: JobSessionOptions): JobSession {
     const job = store.getState().job;
     if (!dirty || !job || disposed) return;
     try {
-      await client().writePendingEdit(toSnapshot(job), job.revision);
+      await client().writePendingEdit(toSnapshot(job, job.rules !== storedRules), job.revision);
     } catch (error) {
       // The save that follows reports the problem; the journal is only insurance.
       console.warn('Could not write the recovery journal', toStorageError(error));
@@ -131,13 +150,14 @@ export function createJobSession(options: JobSessionOptions): JobSession {
     const job = store.getState().job;
     if (!dirty || !job || disposed) return;
     const jobId = job.id;
+    const sentRules = job.rules !== storedRules ? job.rules : null;
     dirty = false;
     const indicator = setTimeout(() => {
       if (store.getState().jobId === jobId) set({ save: { kind: 'saving' } });
     }, savingIndicatorMs);
     let saved: Saved;
     try {
-      saved = await client().saveJob(toSnapshot(job));
+      saved = await client().saveJob(toSnapshot(job, sentRules !== null));
     } catch (error) {
       clearTimeout(indicator);
       if (store.getState().jobId !== jobId) return;
@@ -148,9 +168,12 @@ export function createJobSession(options: JobSessionOptions): JobSession {
     clearTimeout(indicator);
     const current = store.getState();
     if (current.jobId !== jobId || !current.job) return;
-    const updated = { ...current.job, revision: saved.revision, updatedAt: saved.updatedAt };
+    // Rules written by this save are stored in the current shape from now on.
+    const version = sentRules !== null ? { rulesVersion: RULES_VERSION } : {};
+    if (sentRules !== null) storedRules = sentRules;
+    const updated = { ...current.job, ...version, revision: saved.revision, updatedAt: saved.updatedAt };
     set({ job: updated, save: { kind: 'saved', at: saved.updatedAt } });
-    options.onSaved?.({ ...job, revision: saved.revision, updatedAt: saved.updatedAt });
+    options.onSaved?.({ ...job, ...version, revision: saved.revision, updatedAt: saved.updatedAt });
   };
 
   const cancelTimer = () => {
@@ -171,6 +194,7 @@ export function createJobSession(options: JobSessionOptions): JobSession {
       try {
         const job = await client().getJob(id);
         if (store.getState().jobId !== id) return;
+        storedRules = job.rules;
         set({ status: 'ready', job, save: { kind: 'saved', at: job.updatedAt }, issues: validateJob(job) });
       } catch (error) {
         if (store.getState().jobId !== id) return;
@@ -184,12 +208,13 @@ export function createJobSession(options: JobSessionOptions): JobSession {
       if (!current || disposed) return;
       const proposed = typeof next === 'function' ? next(current) : next;
       if (proposed === current) return;
-      // The database owns these; an edit (or an undo to an older copy) never changes them.
+      // The database owns these; an edit (or an undo to an older copy) never
+      // changes them. A draft's construction method may change; the save says so.
       const job: JobRecord = {
         ...proposed,
         id: current.id,
         number: current.number,
-        rules: current.rules,
+        rules: committedRules(current, proposed),
         rulesVersion: current.rulesVersion,
         createdAt: current.createdAt,
         updatedAt: current.updatedAt,

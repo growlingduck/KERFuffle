@@ -1,7 +1,10 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
-import { DEFAULT_RULES } from '@kerfuffle/engine';
-import type { CabinetType, ConstructionRules, FinishedEnds, TraceKey } from '@kerfuffle/engine';
+import { boxGeometry, CONSTRUCTION_NAMES, constructionChoiceOf, constructionName, DEFAULT_RULES, runOf, usesRuns } from '@kerfuffle/engine';
+import type { CabinetType, ConstructionChoice, ConstructionRules, FinishedEnds, MethodSettings, TraceKey } from '@kerfuffle/engine';
+import { Button } from '../../components/Button';
+import { ConstructionPicker } from '../../components/ConstructionPicker';
+import { Dialog } from '../../components/Dialog';
 import { DimensionInput } from '../../components/DimensionInput';
 import { FieldLabel } from '../../components/Field';
 import fieldStyles from '../../components/Field.module.css';
@@ -11,15 +14,19 @@ import { Sheet } from '../../components/Sheet';
 import { Stepper } from '../../components/Stepper';
 import { ViewTitle } from '../../components/ViewTitle';
 import { getStorageClient } from '../../data/client';
+import { jobSession } from '../../data/storage';
 import type { CabinetRecord } from '../../data/types';
 import { displayInches } from '../../lib/dimensions';
 import { cx } from '../../lib/interaction';
 import { routeHref } from '../../routes';
+import { useStore } from '../../state/createStore';
+import { showToast } from '../../state/toast';
 import { duplicateLabels, isDuplicateLabel, TYPE_LABEL } from '../../workspace/cabinets';
 import { issueFor } from '../../workspace/calc';
+import { constructionLocked, diffConstruction, diffText, LOCKED_REASON, methodRows, withConstruction } from '../../workspace/construction';
 import type { Evaluation, FieldKey } from '../../workspace/calc';
 import type { DimensionField } from '../../workspace/commands';
-import { runCommand } from '../../workspace/history';
+import { runCommand, undoIfLatest } from '../../workspace/history';
 import { hoverKeyHandlers, setUi, traceKeyOf, useSelectedCabinetId, useUi, workspaceUi } from '../../workspace/ui';
 import { useCabinet, useCabinets, useEvaluation, useRules } from './hooks';
 import styles from './Workspace.module.css';
@@ -31,6 +38,7 @@ export const FIELD_TRACE: Record<FieldKey, TraceKey | null> = {
   shelfCount: 'shelves',
   quantity: 'qty',
   label: null,
+  run: null,
 };
 
 export const FIELD_NAME: Record<FieldKey, string> = {
@@ -40,6 +48,7 @@ export const FIELD_NAME: Record<FieldKey, string> = {
   shelfCount: 'shelves',
   quantity: 'quantity',
   label: 'ID',
+  run: 'run',
 };
 
 export const fieldId = (field: FieldKey) => `ws-field-${field}`;
@@ -87,7 +96,9 @@ function DimensionField({ cabinet, evaluation, field, label, symbol }: { cabinet
 function CalcTape({ evaluation, type, rules }: { evaluation: Evaluation; type: CabinetType; rules: ConstructionRules }) {
   const trace = useUi(traceKeyOf);
   const heightOk = !evaluation.issues.some((i) => i.severity === 'error' && i.field === 'height');
-  const box = evaluation.byRole['side-left']?.length;
+  // From the box calculator: method B's sides run past the box to the floor.
+  const box = evaluation.valid ? boxGeometry(evaluation.spec, rules).boxHeight : undefined;
+  const toFloor = type === 'base' && rules.method.id === 'B';
   const term = (key: TraceKey, text: string) => (
     <span className={cx(styles.term, (trace === key || (key === 'box' && trace === 'h')) && styles.termOn)} {...hoverKeyHandlers(key)}>
       {text}
@@ -108,7 +119,13 @@ function CalcTape({ evaluation, type, rules }: { evaluation: Evaluation; type: C
           {term('h', h)} = {term('box', hb)}
         </>
       )}
-      <span className={styles.tapeNote}>{type === 'base' ? 'overall − toe kick − countertop' : 'wall cabinets use full height'}</span>
+      <span className={styles.tapeNote}>
+        {type === 'base'
+          ? toFloor
+            ? 'overall − toe kick − countertop; the sides run on to the floor'
+            : 'overall − toe kick − countertop'
+          : 'wall cabinets use full height'}
+      </span>
     </div>
   );
 }
@@ -199,6 +216,98 @@ function LabelField({ cabinet, warning }: { cabinet: CabinetRecord; warning: str
   );
 }
 
+/** The base cabinets' runs, in the order they first appear. */
+function runNames(cabinets: readonly CabinetRecord[]): string[] {
+  const names: string[] = [];
+  for (const c of cabinets) {
+    const run = c.type === 'base' ? runOf(c) : null;
+    if (run !== null && !names.includes(run)) names.push(run);
+  }
+  return names;
+}
+
+/**
+ * Run (method A1): the straight row of base cabinets this one shares a ladder
+ * base with. Free text with the job's runs as suggestions, committed on blur
+ * or Enter; Esc reverts. Blank: the cabinet gets its own base.
+ */
+function RunField({ cabinet }: { cabinet: CabinetRecord }) {
+  const cabinets = useCabinets();
+  const stored = cabinet.run ?? '';
+  const [text, setText] = useState(stored);
+  const [focused, setFocused] = useState(false);
+  const [atFocus, setAtFocus] = useState(stored);
+  const [prev, setPrev] = useState(stored);
+  if (prev !== stored) {
+    setPrev(stored);
+    if (!focused) setText(stored);
+  }
+  const msgId = useId();
+  const listId = useId();
+  const runs = useMemo(() => runNames(cabinets), [cabinets]);
+
+  const name = text.trim();
+  const others = cabinets.filter((c) => c.id !== cabinet.id && c.type === 'base' && name !== '' && runOf(c) === name);
+  const message =
+    name === ''
+      ? 'No run: this cabinet gets its own base.'
+      : others.length > 0
+        ? `Shares one ladder base with ${others.map((c) => c.label.trim() || 'Unnamed').join(', ')}.`
+        : 'A new run. Give other base cabinets in the same row this name to share its base.';
+
+  const commit = () => {
+    if (name !== (cabinet.run ?? '').trim()) runCommand({ type: 'setRun', cabinetId: cabinet.id, run: name || null });
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.currentTarget.blur();
+    } else if (event.key === 'Escape' && text !== atFocus) {
+      event.preventDefault();
+      event.stopPropagation();
+      setText(atFocus);
+    }
+  };
+
+  return (
+    <div className={cx(fieldStyles.field, styles.runField)} data-field="run">
+      <FieldLabel htmlFor={fieldId('run')}>Run</FieldLabel>
+      <input
+        id={fieldId('run')}
+        className={fieldStyles.input}
+        type="text"
+        autoComplete="off"
+        spellCheck={false}
+        list={listId}
+        placeholder="e.g. Sink wall"
+        value={text}
+        aria-describedby={msgId}
+        data-dirty={(focused && text !== atFocus) || undefined}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={onKeyDown}
+        onFocus={() => {
+          setAtFocus(text);
+          setFocused(true);
+          setUi({ editing: 'run' });
+        }}
+        onBlur={() => {
+          setFocused(false);
+          setUi({ editing: null });
+          commit();
+        }}
+      />
+      <datalist id={listId}>
+        {runs.map((run) => (
+          <option key={run} value={run} />
+        ))}
+      </datalist>
+      <MessageLine id={msgId} tone="hint">
+        {message}
+      </MessageLine>
+    </div>
+  );
+}
+
 const ENDS: readonly { value: FinishedEnds; label: string }[] = [
   { value: 'none', label: 'Neither' },
   { value: 'left', label: 'Left' },
@@ -240,12 +349,69 @@ function EndsTiles({ cabinet }: { cabinet: CabinetRecord }) {
   );
 }
 
-/**
- * The rules this panel shows. The construction method is not among them yet
- * (prompt 10 adds it), so it is left out of the comparison too.
- */
+/** The rules this panel compares with the shop's. The method block is compared setting by setting. */
 type RuleKey = Exclude<keyof ConstructionRules, 'method'>;
 const RULE_KEYS = (Object.keys(DEFAULT_RULES) as (keyof ConstructionRules)[]).filter((k): k is RuleKey => k !== 'method');
+/** Method settings the shop sets. Whether the base is listed only marks jobs made before methods. */
+const METHOD_KEYS = (Object.keys(DEFAULT_RULES.method) as (keyof MethodSettings)[]).filter((k) => k !== 'listBase');
+
+function differences(shop: ConstructionRules, rules: ConstructionRules): number {
+  return RULE_KEYS.filter((k) => shop[k] !== rules[k]).length + METHOD_KEYS.filter((k) => shop.method[k] !== rules.method[k]).length;
+}
+
+/**
+ * Change the job's construction (a draft only): pick, see what it does to the
+ * cut list, then apply as one undoable step with a toast that offers Undo.
+ */
+function ChangeConstructionDialog({ rules, onClose }: { rules: ConstructionRules; onClose: () => void }) {
+  const current = constructionChoiceOf(rules.method);
+  const [choice, setChoice] = useState<ConstructionChoice>(current);
+  const cabinets = useCabinets();
+  const next = withConstruction(rules, choice);
+  const preview = next === rules ? null : diffText(diffConstruction(cabinets, rules, next));
+
+  const apply = () => {
+    const entry = runCommand({ type: 'setConstruction', choice });
+    onClose();
+    if (!entry) return;
+    showToast(`Construction: ${CONSTRUCTION_NAMES[choice].short}. ${diffText(diffConstruction(cabinets, rules, next))}.`, {
+      label: 'Undo',
+      run: () => void undoIfLatest(entry),
+    });
+  };
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      mark="◆"
+      title="Change construction"
+      sub="THIS JOB ONLY · ONE UNDOABLE STEP"
+      width={720}
+      footer={
+        <>
+          <Button size="lg" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" size="lg" disabled={preview === null} disabledReason="Pick a different construction" onClick={apply}>
+            Change construction
+          </Button>
+        </>
+      }
+    >
+      <ConstructionPicker
+        legend="Build this job as"
+        hint="Every cabinet in the job uses it. Other settings, like kick depth and the back, stay as they are."
+        value={choice}
+        onChange={setChoice}
+        currentLabel={{ choice: current, text: '(now)' }}
+      />
+      <p className={styles.changePreview} role="status">
+        {preview === null ? 'This is how the job is built now.' : `On the cut list: ${preview}.`}
+      </p>
+    </Dialog>
+  );
+}
 
 /** The shop defaults, to say whether this job's copy still matches them. */
 function useShopRules(): ConstructionRules | null {
@@ -268,13 +434,20 @@ function wideRule(rules: ConstructionRules): string {
   return `${displayInches(rules.wideShelfThickness)} at ${rules.shelfThickComparison === 'gte' ? `${at} and wider` : `over ${at}`}`;
 }
 
-/** The job's copy of the construction rules. Read-only here; pointing at a rule traces it. */
+/**
+ * The job's copy of the construction rules. Pointing at a rule traces it. The
+ * construction method can be changed here while the job is a draft.
+ */
 function Construction({ rules, type }: { rules: ConstructionRules; type: CabinetType }) {
   const open = useUi((ui) => ui.constructionOpen);
   const trace = useUi(traceKeyOf);
   const shop = useShopRules();
   const bodyId = useId();
-  const differs = shop ? RULE_KEYS.filter((k) => shop[k] !== rules[k]).length : 0;
+  const lockId = useId();
+  const status = useStore(jobSession.store, (s) => s.job?.status ?? 'draft');
+  const locked = constructionLocked(status);
+  const [changing, setChanging] = useState(false);
+  const differs = shop ? differences(shop, rules) : 0;
 
   const rows: [string, string, TraceKey][] = [
     ['Panel thickness', displayInches(rules.panelThickness), 'p'],
@@ -304,7 +477,7 @@ function Construction({ rules, type }: { rules: ConstructionRules; type: Cabinet
           <path d="M4 2.5L7.5 6 4 9.5" />
         </svg>
         <span className={styles.disclosureTitle}>Construction</span>
-        <span className={styles.disclosureSub}>This job’s copy of the shop defaults</span>
+        <span className={styles.disclosureSub}>{constructionName(rules.method)}</span>
         {shop &&
           (differs === 0 ? (
             <span className={styles.matches}>
@@ -318,9 +491,26 @@ function Construction({ rules, type }: { rules: ConstructionRules; type: Cabinet
       </button>
       <div id={bodyId} className={cx(styles.disclosureBody, open && styles.disclosureBodyOpen)} inert={!open}>
         <div className={styles.disclosureInner}>
+          <div className={styles.method}>
+            <div>
+              <div className={styles.methodName}>{CONSTRUCTION_NAMES[constructionChoiceOf(rules.method)].long}</div>
+              <p id={lockId} className={styles.methodNote}>
+                {locked ? LOCKED_REASON : 'Every cabinet in this job is built this way. You can change it while the job is a draft.'}
+              </p>
+            </div>
+            <Button disabled={locked} disabledReason={LOCKED_REASON} aria-describedby={lockId} onClick={() => setChanging(true)}>
+              Change…
+            </Button>
+          </div>
           <dl className={styles.rules}>
             {rows.map(([label, value, key]) => (
               <div key={label} className={cx(styles.rule, trace === key && styles.ruleOn)} {...hoverKeyHandlers(key)}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+            {methodRows(rules, type).map(([label, value]) => (
+              <div key={label} className={styles.rule}>
                 <dt>{label}</dt>
                 <dd>{value}</dd>
               </div>
@@ -332,6 +522,7 @@ function Construction({ rules, type }: { rules: ConstructionRules; type: Cabinet
           </p>
         </div>
       </div>
+      {changing && <ChangeConstructionDialog rules={rules} onClose={() => setChanging(false)} />}
     </div>
   );
 }
@@ -430,6 +621,8 @@ function EditorFor({ cabinet, rules }: { cabinet: CabinetRecord; rules: Construc
         </div>
         <LabelField cabinet={cabinet} warning={issueFor(evaluation.issues, 'label', 'warning')} />
       </div>
+
+      {cabinet.type === 'base' && usesRuns(rules.method) && <RunField cabinet={cabinet} />}
 
       <EndsTiles cabinet={cabinet} />
       <Construction rules={rules} type={cabinet.type} />

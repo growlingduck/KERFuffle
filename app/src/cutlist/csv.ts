@@ -10,6 +10,8 @@ export interface CsvMeta {
   /** 2026-10-31 */
   date: string;
   revision: number;
+  /** "Frameless · separate ladder base": how the job is built. */
+  construction?: string;
 }
 
 export const CSV_COLUMNS = [
@@ -37,7 +39,8 @@ export function decimalInches(value: Ticks): string {
   return String(value / TICKS_PER_INCH);
 }
 
-function field(value: string | number): string {
+/** One CSV cell: quoted when needed, and never read by Excel as a formula. */
+export function csvField(value: string | number): string {
   let text = String(value);
   // A cell starting with = + - @ is run as a formula by Excel; a label like "=B1" must stay text.
   if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
@@ -60,7 +63,7 @@ function row(line: CutListLine, cabinets: string): string {
     line.quantity,
     cabinets,
   ]
-    .map(field)
+    .map(csvField)
     .join(',');
 }
 
@@ -73,6 +76,7 @@ export function cutListCsv(list: CutList, meta: CsvMeta): string {
   const about = [
     `# KERFuffle cut list: ${meta.jobName}`,
     meta.jobNumber,
+    meta.construction,
     `Rev. ${meta.revision}`,
     `printed ${meta.date}`,
     optionsText(list.options),
@@ -87,5 +91,5 @@ export function cutListCsv(list: CutList, meta: CsvMeta): string {
           ...list.sections.flatMap((s) => s.lines.map((line) => row(line, s.cabinet.id))),
           ...list.runSections.flatMap((s) => s.lines.map((line) => row(line, s.ref))),
         ];
-  return BOM + [field(about), CSV_COLUMNS.map(field).join(','), ...rows].join('\r\n') + '\r\n';
+  return BOM + [csvField(about), CSV_COLUMNS.map(csvField).join(','), ...rows].join('\r\n') + '\r\n';
 }

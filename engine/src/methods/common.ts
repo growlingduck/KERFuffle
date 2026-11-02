@@ -1,5 +1,6 @@
 import { DEFAULT_METHOD } from '../rules';
-import type { MethodSettings, PartRole } from '../types';
+import type { MethodSettings, Part, PartRole } from '../types';
+import { ticks, type Ticks } from '../units';
 import type { MaterialSlot } from './types';
 
 /** Material slots shared by the frameless methods. */
@@ -23,6 +24,32 @@ export const FRAMELESS_SLOTS: Readonly<Record<PartRole, MaterialSlot>> = Object.
   'laminate-side-right': 'laminate',
   'laminate-front': 'laminate',
 });
+
+/**
+ * Parts whose front edge shows in a frameless cabinet, and so is edge banded:
+ * the sides, the top or front stretcher, the bottom and the shelves.
+ */
+export const FRAMELESS_BANDED: ReadonlySet<PartRole> = new Set([
+  'side-left',
+  'side-right',
+  'top',
+  'stretcher-front',
+  'bottom',
+  'shelf',
+]);
+
+/**
+ * Banding on one frameless piece: its front edge, which runs the part's length
+ * (y = width is the front, see PartCorner). A notch at a front corner takes
+ * its length off the edge: method B's kick notch leaves the edge above the kick.
+ */
+export function framelessBanding(part: Part): Ticks {
+  if (!FRAMELESS_BANDED.has(part.role)) return ticks(0);
+  const notched = (part.features ?? [])
+    .filter((f) => f.corner === 'start-front' || f.corner === 'end-front')
+    .reduce((sum, f) => sum + f.length, 0);
+  return ticks(Math.max(0, part.length - notched));
+}
 
 /** The settings every frameless box reads. */
 export const BOX_SETTINGS: readonly (keyof MethodSettings)[] = [

@@ -1,10 +1,13 @@
 import type { CabinetSpec, CabinetType, ConstructionRules, MethodId, MethodSettings, Part, PartRole, ValidationIssue } from '../types';
+import type { Ticks } from '../units';
 
 /**
  * What each part is cut from, by job-level material slot. A job assigns one
- * material to each slot (prompt 11).
+ * material to each slot (materials.ts). A method maps every part role to one
+ * slot. `wide-shelves` is never declared by a method: it is the `shelves`
+ * slot for shelves the wide-shelf rule makes thicker (see `partSlot`).
  */
-export type MaterialSlot = 'box' | 'back' | 'shelves' | 'base' | 'kick-face' | 'laminate';
+export type MaterialSlot = 'box' | 'back' | 'shelves' | 'wide-shelves' | 'base' | 'kick-face' | 'laminate';
 
 /** Bought items a method needs, counted per cabinet. Not on the cut list. */
 export interface HardwareItem {
@@ -72,4 +75,9 @@ export interface ConstructionMethod {
   slots: Readonly<Record<PartRole, MaterialSlot>>;
   /** Hardware per cabinet (method A2's legs and clips). */
   hardware?: (spec: CabinetSpec, rules: ConstructionRules) => HardwareItem[];
+  /**
+   * Edge banding on one piece: the length of its exposed front edges. Absent,
+   * or 0 for a part: no banding.
+   */
+  banding?: (part: Part) => Ticks;
 }

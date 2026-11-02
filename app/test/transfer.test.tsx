@@ -157,7 +157,7 @@ describe('Import job', () => {
 
     const doc = JSON.parse(text) as Record<string, unknown>;
     delete doc.checksum;
-    const newer = { ...doc, formatVersion: 2 };
+    const newer = { ...doc, formatVersion: 3 };
     await importFile(user, JSON.stringify({ ...newer, checksum: await sha256Hex(canonicalJson(newer)) }));
     expect(toastText()).toContain(NEWER_FILE_MESSAGE);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

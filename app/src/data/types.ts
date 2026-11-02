@@ -1,4 +1,4 @@
-import type { CabinetType, ConstructionRules, FinishedEnds, Ticks } from '@kerfuffle/engine';
+import type { CabinetType, ConstructionChoice, ConstructionRules, FinishedEnds, JobSlot, Material, Ticks } from '@kerfuffle/engine';
 
 /**
  * Records exchanged with the job database. They mirror the Rust types in
@@ -48,18 +48,57 @@ export interface JobRecord {
   revision: number;
   /** In list order. */
   cabinets: CabinetRecord[];
+  /**
+   * The material for each slot, with a copy of each as it was chosen. Null
+   * (or missing): made before materials; the job uses the shop defaults until
+   * a material is chosen for it.
+   */
+  materials?: JobMaterialsRecord | null;
+}
+
+/** One material in the shop's catalog (`Material` in app/src-tauri/src/db/models.rs). */
+export interface MaterialRecord extends Material {
+  supplier: string | null;
+  sku: string | null;
+  notes: string | null;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * A job's copy of a material: name, size, grain and price as they were when it
+ * was chosen or its price last updated. On hand is not copied: it's the
+ * shop's stock, read from the catalog.
+ */
+export interface MaterialSnapshot extends Omit<Material, 'onHand'> {
+  /** When the price was copied: 2026-11-02T14:05:00.000Z. */
+  pricedAt: string;
+}
+
+/** A job's materials (`materials_json` on the job). */
+export interface JobMaterialsRecord {
+  slots: Partial<Record<JobSlot, MaterialSnapshot>>;
 }
 
 /** The fields the database owns; edits to a job never change them. */
 export type ServerOwnedField = 'id' | 'number' | 'rules' | 'rulesVersion' | 'createdAt' | 'updatedAt' | 'revision';
 
-/** Everything the user edits in a job, saved as one snapshot. */
-export type JobSnapshot = Omit<JobRecord, ServerOwnedField | 'id'> & { id: string };
+/**
+ * Everything the user edits in a job, saved as one snapshot. `rules` is sent
+ * only when the construction was changed, which the database allows only
+ * while the job is a draft.
+ */
+export type JobSnapshot = Omit<JobRecord, ServerOwnedField | 'id'> & { id: string; rules?: ConstructionRules };
 
 export interface NewJob {
   name: string;
   customer?: string | null;
   notes?: string | null;
+  /** Absent: the shop's default method. */
+  construction?: ConstructionChoice;
+  /** The shop's default materials, copied for the job. */
+  materials?: JobMaterialsRecord;
 }
 
 export interface JobFields {
@@ -140,8 +179,10 @@ export interface RestoreResult {
 
 export const RULES_SETTING = 'construction_rules';
 export const DISPLAY_SETTING = 'display';
+/** Waste, edge trim and the default material per slot (data/materials.ts). */
+export const ESTIMATE_SETTING = 'estimate';
 /** `backups` is reserved; backup settings live in their own file (see BackupSettings). */
-export type ShopSettingKey = typeof RULES_SETTING | typeof DISPLAY_SETTING | 'backups';
+export type ShopSettingKey = typeof RULES_SETTING | typeof DISPLAY_SETTING | typeof ESTIMATE_SETTING | 'backups';
 
 /** Denominator sizes are rounded to on screen and paper. Storage is always exact (1/64″). */
 export type RoundTo = 8 | 16 | 32;
@@ -169,7 +210,8 @@ export function formatJobNumber(n: number): string {
   return `J-${String(n).padStart(4, '0')}`;
 }
 
-export function toSnapshot(job: JobRecord): JobSnapshot {
+/** The job's editable contents. `withRules` adds its rules, for a changed construction. */
+export function toSnapshot(job: JobRecord, withRules = false): JobSnapshot {
   return {
     id: job.id,
     name: job.name,
@@ -177,5 +219,8 @@ export function toSnapshot(job: JobRecord): JobSnapshot {
     notes: job.notes,
     status: job.status,
     cabinets: job.cabinets,
+    // Null tells the database to leave them as they are.
+    materials: job.materials ?? null,
+    ...(withRules ? { rules: job.rules } : {}),
   };
 }

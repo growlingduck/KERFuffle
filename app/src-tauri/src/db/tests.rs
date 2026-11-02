@@ -24,7 +24,7 @@ fn cabinet(id: &str, label: &str) -> Cabinet {
 }
 
 fn new_job(conn: &mut Connection, name: &str) -> Job {
-    create_job(conn, &NewJob { name: name.into(), customer: None, notes: None }).unwrap()
+    create_job(conn, &NewJob { name: name.into(), customer: None, notes: None, construction: None, materials: None }).unwrap()
 }
 
 fn snapshot(job: &Job, cabinets: Vec<Cabinet>) -> JobSnapshot {
@@ -35,6 +35,8 @@ fn snapshot(job: &Job, cabinets: Vec<Cabinet>) -> JobSnapshot {
         notes: job.notes.clone(),
         status: job.status,
         cabinets,
+        rules: None,
+        materials: None,
     }
 }
 
@@ -176,8 +178,8 @@ fn migration_2_adds_cabinet_runs_to_a_version_1_database_with_jobs_in_it() {
     conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
     conn.execute_batch(include_str!("fixtures/schema_v1.sql")).unwrap();
     let report = migrate(&mut conn, None).unwrap();
-    assert_eq!((report.from_version, report.to_version), (1, 2));
-    assert_eq!(schema_version(&conn).unwrap(), 2);
+    assert_eq!((report.from_version, report.to_version), (1, LATEST_VERSION));
+    assert_eq!(schema_version(&conn).unwrap(), LATEST_VERSION);
 
     // Existing cabinets have no run; everything else reads back as it was.
     let kitchen = get_job(&conn, "fixture-job-1").unwrap();
@@ -258,7 +260,7 @@ fn round_trips_every_field() {
     let mut conn = db();
     let job = create_job(
         &mut conn,
-        &NewJob { name: "Kitchen".into(), customer: Some("Pat".into()), notes: Some("Uppers?".into()) },
+        &NewJob { name: "Kitchen".into(), customer: Some("Pat".into()), notes: Some("Uppers?".into()), construction: None, materials: None },
     )
     .unwrap();
     let cabinets = vec![
@@ -298,6 +300,8 @@ fn round_trips_every_field() {
         notes: Some("Island deferred.\nUppers to ceiling?".into()),
         status: JobStatus::Ready,
         cabinets: cabinets.clone(),
+        rules: None,
+        materials: None,
     };
     let saved = save_job(&mut conn, &snap).unwrap();
     assert_eq!(saved.revision, 1);
@@ -431,6 +435,8 @@ fn missing_jobs_report_not_found() {
         notes: None,
         status: JobStatus::Draft,
         cabinets: vec![],
+        rules: None,
+        materials: None,
     };
     assert_eq!(save_job(&mut conn, &ghost).unwrap_err().kind(), "notFound");
     assert_eq!(write_pending_edit(&conn, &ghost, 0).unwrap_err().kind(), "notFound");
@@ -456,7 +462,7 @@ fn duplicate_is_a_fully_independent_copy() {
     let mut conn = db();
     let source = create_job(
         &mut conn,
-        &NewJob { name: "Kitchen".into(), customer: Some("Pat".into()), notes: Some("n".into()) },
+        &NewJob { name: "Kitchen".into(), customer: Some("Pat".into()), notes: Some("n".into()), construction: None, materials: None },
     )
     .unwrap();
     let mut snap = snapshot(&source, vec![cabinet("a", "B1"), cabinet("b", "W1")]);
@@ -614,14 +620,19 @@ fn an_unreadable_journal_entry_is_kept_and_does_not_block_others() {
 fn loads_the_sample_jobs() {
     let mut conn = db();
     let jobs = load_sample_jobs(&mut conn).unwrap();
-    assert_eq!(jobs.iter().map(|j| j.number).collect::<Vec<_>>(), [14, 13, 12, 11, 9, 15, 16]);
+    assert_eq!(jobs.iter().map(|j| j.number).collect::<Vec<_>>(), [14, 13, 12, 11, 9, 15, 16, 17, 18]);
     assert_eq!(jobs[0].name, "Kitchen remodel");
     assert_eq!(jobs[2].cabinets.len(), 8);
     assert_eq!(jobs[4].status, JobStatus::Archived);
     assert_eq!(jobs[6].cabinets.len(), 40);
+    // One sample per construction to try: method B, and a ladder base under two runs.
+    assert_eq!(jobs[7].rules["method"]["id"], json!("B"));
+    assert_eq!(jobs[8].rules["method"]["baseType"], json!("ladder"));
+    assert_eq!(jobs[8].cabinets[0].run.as_deref(), Some("Sink wall"));
+    assert_eq!(jobs[0].rules, current_rules(&conn).unwrap());
     // Loading again doesn't collide on job numbers.
     let again = load_sample_jobs(&mut conn).unwrap();
-    assert_eq!(again.iter().map(|j| j.number).collect::<Vec<_>>(), [17, 18, 19, 20, 21, 22, 23]);
+    assert_eq!(again.iter().map(|j| j.number).collect::<Vec<_>>(), [19, 20, 21, 22, 23, 24, 25, 26, 27]);
 }
 
 #[test]
@@ -648,6 +659,7 @@ fn exported(job: &Job) -> ImportJob {
         updated_at: job.updated_at.clone(),
         revision: job.revision,
         cabinets: job.cabinets.clone(),
+        materials: job.materials.clone(),
     }
 }
 
@@ -750,4 +762,272 @@ fn import_refuses_data_the_database_must_never_hold() {
         assert_eq!(import_job(&mut conn, &bad, ImportMode::Copy).unwrap_err().kind(), "invalid");
     }
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM jobs"), 1);
+}
+
+#[test]
+fn a_new_job_takes_the_chosen_construction_and_the_shop_settings() {
+    let mut conn = db();
+    let mut shop: serde_json::Value = serde_json::from_str(DEFAULT_RULES_JSON).unwrap();
+    shop["method"]["kickDepth"] = json!(128);
+    set_shop_setting(&conn, RULES_SETTING, &shop).unwrap();
+
+    shop["method"]["baseType"] = json!("legs");
+    set_shop_setting(&conn, RULES_SETTING, &shop).unwrap();
+    let choice = ConstructionChoice { id: MethodId::B, base_type: BaseType::Ladder };
+    let job = create_job(&mut conn, &NewJob { name: "Integral".into(), construction: Some(choice), ..Default::default() }).unwrap();
+    assert_eq!(job.rules["method"]["id"], json!("B"));
+    assert_eq!(job.rules["method"]["baseType"], json!("legs"), "method B keeps the shop base type, unused");
+    assert_eq!(job.rules["method"]["kickDepth"], json!(128), "the shop's other settings are kept");
+
+    let ladder = ConstructionChoice { id: MethodId::A, base_type: BaseType::Ladder };
+    let job = create_job(&mut conn, &NewJob { name: "Ladder".into(), construction: Some(ladder), ..Default::default() }).unwrap();
+    assert_eq!((job.rules["method"]["id"].clone(), job.rules["method"]["baseType"].clone()), (json!("A"), json!("ladder")));
+
+    // No choice: the shop default, here A2.
+    let default = new_job(&mut conn, "Default");
+    assert_eq!(default.rules["method"]["id"], json!("A"));
+    assert_eq!(default.rules["method"]["baseType"], json!("legs"));
+}
+
+#[test]
+fn construction_changes_save_only_while_the_job_is_a_draft() {
+    let mut conn = db();
+    let job = new_job(&mut conn, "Kitchen");
+    let mut rules = job.rules.clone();
+    rules["method"]["id"] = json!("B");
+
+    let mut snap = snapshot(&job, vec![cabinet("a", "B1")]);
+    snap.rules = Some(rules.clone());
+    save_job(&mut conn, &snap).unwrap();
+    let saved = get_job(&conn, &job.id).unwrap();
+    assert_eq!(saved.rules["method"]["id"], json!("B"));
+    assert_eq!(saved.rules_version, RULES_VERSION);
+
+    // Changing the method and marking it ready in one save is still a draft change.
+    snap.rules = Some(job.rules.clone());
+    snap.status = JobStatus::Ready;
+    save_job(&mut conn, &snap).unwrap();
+    assert_eq!(get_job(&conn, &job.id).unwrap().rules["method"]["id"], json!("A"));
+
+    // Ready to cut: locked, and nothing in the snapshot is written.
+    snap.rules = Some(rules.clone());
+    snap.name = "Renamed".into();
+    let error = save_job(&mut conn, &snap).unwrap_err();
+    assert_eq!(error.kind(), "invalid");
+    let after = get_job(&conn, &job.id).unwrap();
+    assert_eq!((after.name.as_str(), after.rules["method"]["id"].clone()), ("Kitchen", json!("A")));
+
+    // An undo back to draft may restore it.
+    snap.status = JobStatus::Draft;
+    save_job(&mut conn, &snap).unwrap();
+    assert_eq!(get_job(&conn, &job.id).unwrap().rules["method"]["id"], json!("B"));
+
+    // Without rules, a ready job saves as before.
+    snap.status = JobStatus::Ready;
+    snap.rules = None;
+    save_job(&mut conn, &snap).unwrap();
+}
+
+#[test]
+fn a_version_1_job_becomes_version_2_when_its_construction_changes() {
+    let mut conn = db();
+    let job = new_job(&mut conn, "Old");
+    let mut v1 = job.rules.clone();
+    v1.as_object_mut().unwrap().remove("method");
+    conn.execute("UPDATE jobs SET rules_json = ?2, rules_version = 1 WHERE id = ?1", rusqlite::params![job.id, v1.to_string()])
+        .unwrap();
+
+    // A save without rules leaves the version 1 snapshot alone.
+    save_job(&mut conn, &snapshot(&job, vec![])).unwrap();
+    assert_eq!(get_job(&conn, &job.id).unwrap().rules_version, 1);
+
+    let mut snap = snapshot(&job, vec![]);
+    snap.rules = Some(job.rules.clone());
+    save_job(&mut conn, &snap).unwrap();
+    let saved = get_job(&conn, &job.id).unwrap();
+    assert_eq!(saved.rules_version, RULES_VERSION);
+    assert!(saved.rules["method"].is_object());
+}
+
+#[test]
+fn journaled_construction_changes_are_recovered() {
+    let mut conn = db();
+    let job = new_job(&mut conn, "Kitchen");
+    let mut snap = snapshot(&job, vec![cabinet("a", "B1")]);
+    let mut rules = job.rules.clone();
+    rules["method"]["baseType"] = json!("legs");
+    snap.rules = Some(rules);
+    write_pending_edit(&conn, &snap, job.revision).unwrap();
+    recover_pending_edits(&mut conn).unwrap();
+    assert_eq!(get_job(&conn, &job.id).unwrap().rules["method"]["baseType"], json!("legs"));
+
+    let mut bad = snap.clone();
+    bad.rules = Some(json!({ "panelThickness": 48 }));
+    assert_eq!(save_job(&mut conn, &bad).unwrap_err().kind(), "invalid");
+}
+
+// ---------------------------------------------------------------------------
+// Materials (schema version 3)
+// ---------------------------------------------------------------------------
+
+fn material(id: &str, kind: MaterialKind, name: &str) -> Material {
+    Material {
+        id: id.into(),
+        kind,
+        name: name.into(),
+        thickness: None,
+        length: None,
+        width: None,
+        grain: MaterialGrain::None,
+        banding_width: None,
+        roll_feet: None,
+        unit: None,
+        price: None,
+        supplier: None,
+        sku: None,
+        notes: None,
+        on_hand: None,
+        archived: false,
+        created_at: String::new(),
+        updated_at: String::new(),
+    }
+}
+
+fn job_materials(id: &str) -> serde_json::Value {
+    json!({ "slots": { "box": { "id": id, "kind": "sheet", "name": "Birch", "price": 6800, "pricedAt": "2026-11-02" } } })
+}
+
+#[test]
+fn a_new_database_has_the_standard_materials_without_prices() {
+    let conn = db();
+    let all = list_materials(&conn).unwrap();
+    assert_eq!(all.len(), 12);
+    assert!(all.iter().all(|m| m.price.is_none() && !m.archived));
+    let birch = &all[0];
+    assert_eq!((birch.id.as_str(), birch.name.as_str()), ("std-birch-3-4", "Birch plywood 3/4″"));
+    assert_eq!((birch.thickness, birch.length, birch.width, birch.grain), (Some(48), Some(6144), Some(3072), MaterialGrain::Length));
+    let melamine = all.iter().find(|m| m.id == "std-melamine-white-3-4").unwrap();
+    assert_eq!((melamine.length, melamine.width, melamine.grain), (Some(97 * 64), Some(49 * 64), MaterialGrain::None));
+    let kinds: Vec<_> = all.iter().map(|m| m.kind.as_str()).collect();
+    assert_eq!(kinds.iter().filter(|k| **k == "laminate").count(), 2);
+    assert_eq!(kinds.iter().filter(|k| **k == "hardware").count(), 2);
+}
+
+#[test]
+fn migration_3_adds_materials_to_a_version_2_database_with_jobs_in_it() {
+    let mut conn = Connection::open_in_memory().unwrap();
+    conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+    conn.execute_batch(include_str!("fixtures/schema_v1.sql")).unwrap();
+    conn.execute_batch(include_str!("migrations/0002_cabinet_runs.sql")).unwrap();
+    conn.execute("UPDATE meta SET value = '2' WHERE key = 'schema_version'", []).unwrap();
+    assert_eq!(schema_version(&conn).unwrap(), 2);
+
+    let report = migrate(&mut conn, None).unwrap();
+    assert_eq!((report.from_version, report.to_version), (2, 3));
+    assert_eq!(schema(&conn), schema(&db()), "a migrated database must equal a fresh one");
+    assert_eq!(list_materials(&conn).unwrap().len(), 12);
+    // Existing jobs have no materials: the app gives them the shop defaults when they open.
+    assert_eq!(get_job(&conn, "fixture-job-1").unwrap().materials, None);
+}
+
+#[test]
+fn materials_are_added_edited_normalized_and_archived() {
+    let mut conn = db();
+    let mut ply = material("m1", MaterialKind::Sheet, "  Baltic birch 18mm ");
+    ply.thickness = Some(45);
+    ply.length = Some(60 * 64);
+    ply.width = Some(60 * 64);
+    ply.grain = MaterialGrain::Length;
+    ply.unit = Some("each".into()); // not a hardware field: dropped
+    ply.supplier = Some("  ".into());
+    ply.price = Some(8999);
+    let saved = save_material(&mut conn, &ply).unwrap();
+    assert_eq!(saved.name, "Baltic birch 18mm");
+    assert_eq!((&saved.unit, &saved.supplier), (&None, &None));
+    assert!(!saved.created_at.is_empty());
+    assert_eq!(list_materials(&conn).unwrap().last().unwrap().id, "m1");
+
+    let archived = save_material(&mut conn, &Material { archived: true, on_hand: Some(3), ..saved.clone() }).unwrap();
+    assert!(archived.archived);
+    assert_eq!(archived.on_hand, Some(3));
+    assert_eq!(list_materials(&conn).unwrap().len(), 13, "archived materials are still listed");
+    assert_eq!(list_materials(&conn).unwrap().last().unwrap().id, "m1", "an edit keeps its place");
+
+    for bad in [
+        Material { name: " ".into(), ..ply.clone() },
+        Material { thickness: None, ..ply.clone() },
+        Material { length: Some(0), ..ply.clone() },
+        Material { price: Some(-1), ..ply.clone() },
+        Material { on_hand: Some(-2), ..ply.clone() },
+        material("m2", MaterialKind::Laminate, "HPL"),
+    ] {
+        assert!(matches!(save_material(&mut conn, &bad), Err(DbError::Invalid(_))), "{bad:?}");
+    }
+    let mut leg = material("m3", MaterialKind::Hardware, "Leg");
+    leg.thickness = Some(48);
+    leg.unit = Some("each".into());
+    let leg = save_material(&mut conn, &leg).unwrap();
+    assert_eq!((leg.thickness, leg.unit.as_deref()), (None, Some("each")));
+}
+
+#[test]
+fn a_material_a_job_uses_cant_be_deleted() {
+    let mut conn = db();
+    let job = create_job(
+        &mut conn,
+        &NewJob { name: "Kitchen".into(), customer: None, notes: None, construction: None, materials: Some(job_materials("std-birch-3-4")) },
+    )
+    .unwrap();
+    assert_eq!(job.materials, Some(job_materials("std-birch-3-4")));
+    let error = delete_material(&conn, "std-birch-3-4").unwrap_err();
+    assert_eq!(error.to_string(), "This material is used by Kitchen, so it can't be deleted. Archive it instead.");
+
+    set_shop_setting(&conn, "estimate", &json!({ "wastePercent": 15, "defaults": { "laminate": "std-hpl-48x96" } })).unwrap();
+    assert!(delete_material(&conn, "std-hpl-48x96").unwrap_err().to_string().contains("default for new jobs"));
+
+    delete_material(&conn, "std-mdf-3-4").unwrap();
+    assert!(list_materials(&conn).unwrap().iter().all(|m| m.id != "std-mdf-3-4"));
+
+    // Once the job chooses another material, the first can go.
+    let mut snap = snapshot(&job, vec![]);
+    snap.materials = Some(job_materials("std-maple-prefinished-3-4"));
+    save_job(&mut conn, &snap).unwrap();
+    delete_material(&conn, "std-birch-3-4").unwrap();
+}
+
+#[test]
+fn job_materials_save_duplicate_and_import_with_the_job() {
+    let mut conn = db();
+    let job = new_job(&mut conn, "Kitchen");
+    assert_eq!(job.materials, None);
+
+    // A snapshot without materials leaves them as they are.
+    save_job(&mut conn, &snapshot(&job, vec![])).unwrap();
+    assert_eq!(get_job(&conn, &job.id).unwrap().materials, None);
+
+    let mut snap = snapshot(&job, vec![]);
+    snap.materials = Some(job_materials("std-birch-3-4"));
+    save_job(&mut conn, &snap).unwrap();
+    let saved = get_job(&conn, &job.id).unwrap();
+    assert_eq!(saved.materials, Some(job_materials("std-birch-3-4")));
+    save_job(&mut conn, &snapshot(&saved, vec![])).unwrap();
+    assert_eq!(get_job(&conn, &job.id).unwrap().materials, Some(job_materials("std-birch-3-4")));
+
+    let copy = duplicate_job(&mut conn, &job.id).unwrap();
+    assert_eq!(copy.materials, saved.materials);
+
+    let mut bad = snapshot(&saved, vec![]);
+    bad.materials = Some(json!({ "slots": { "box": { "name": "no id" } } }));
+    assert!(matches!(save_job(&mut conn, &bad), Err(DbError::Invalid(_))));
+
+    // A crash-recovery journal carries them too.
+    write_pending_edit(&conn, &snap, saved.revision).unwrap();
+    assert_eq!(recover_pending_edits(&mut conn).unwrap().len(), 1);
+
+    // An exported job brings its materials; a file from before materials has none.
+    let saved = get_job(&conn, &job.id).unwrap();
+    let imported = import_job(&mut conn, &exported(&saved), ImportMode::Copy).unwrap();
+    assert_eq!(imported.materials, saved.materials);
+    let older = ImportJob { materials: None, ..exported(&saved) };
+    assert_eq!(import_job(&mut conn, &older, ImportMode::Copy).unwrap().materials, None);
 }

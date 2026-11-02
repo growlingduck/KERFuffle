@@ -1,5 +1,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
-import { toStorageError } from './errors';
+import type { BaseType, ConstructionChoice, MethodId } from '@kerfuffle/engine';
+import { StorageError, toStorageError } from './errors';
+import { parseJobMaterials } from './materials';
 import { createMemoryClient } from './memoryClient';
 import { parseRules, parseShopRules } from './rules';
 import type {
@@ -13,6 +15,7 @@ import type {
   JobRecord,
   JobSnapshot,
   JobStatus,
+  MaterialRecord,
   NewJob,
   RecoveredJob,
   RestoreResult,
@@ -53,6 +56,13 @@ export interface StorageClient {
   /** Development builds only. */
   devLoadSampleJobs(): Promise<JobRecord[]>;
 
+  /** The materials catalog, archived ones too, in catalog order. */
+  listMaterials(): Promise<MaterialRecord[]>;
+  /** Add (last in the list) or replace one material. Jobs keep their own copies, so none change. */
+  saveMaterial(material: MaterialRecord): Promise<MaterialRecord>;
+  /** Refused while a job uses it or it's a default for new jobs. */
+  deleteMaterial(id: string): Promise<void>;
+
   /**
    * Store a job read from a .kerfjob file (already checked by data/jobFile.ts),
    * keeping its own rules. 'replace' backs up all jobs first.
@@ -70,10 +80,22 @@ export interface StorageClient {
   setBackupSettings(settings: BackupSettings): Promise<BackupOverview>;
 }
 
-type WireJob = Omit<JobRecord, 'rules'> & { rules: unknown };
+type WireJob = Omit<JobRecord, 'rules' | 'materials'> & { rules: unknown; materials?: unknown };
 
 function fromWire(job: WireJob): JobRecord {
-  return { ...job, rules: parseRules(job.rules, job.rulesVersion) };
+  let materials: JobRecord['materials'];
+  try {
+    materials = parseJobMaterials(job.materials);
+  } catch (error) {
+    throw new StorageError('corrupt', 'This job’s materials couldn’t be read. Restore a backup from Settings.', String(error));
+  }
+  return { ...job, rules: parseRules(job.rules, job.rulesVersion), materials };
+}
+
+/** The construction choice as the database takes it (`ConstructionChoice` in models.rs). */
+export function constructionWire(choice: ConstructionChoice | undefined): { id: MethodId; baseType: BaseType } | null {
+  if (!choice) return null;
+  return { id: choice === 'B' ? 'B' : 'A', baseType: choice === 'A2' ? 'legs' : 'ladder' };
 }
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -88,7 +110,17 @@ export const tauriClient: StorageClient = {
   listJobs: () => call('list_jobs'),
   getJob: async (id) => fromWire(await call<WireJob>('get_job', { id })),
   createJob: async (job) =>
-    fromWire(await call<WireJob>('create_job', { job: { name: job.name, customer: job.customer ?? null, notes: job.notes ?? null } })),
+    fromWire(
+      await call<WireJob>('create_job', {
+        job: {
+          name: job.name,
+          customer: job.customer ?? null,
+          notes: job.notes ?? null,
+          construction: constructionWire(job.construction),
+          materials: job.materials ?? null,
+        },
+      }),
+    ),
   duplicateJob: async (id) => fromWire(await call<WireJob>('duplicate_job', { id })),
   updateJobFields: (id, fields) => call('update_job_fields', { id, fields }),
   setJobStatus: (id, status) => call('set_job_status', { id, status }),
@@ -105,6 +137,9 @@ export const tauriClient: StorageClient = {
   },
   setShopSetting: (key, value) => call('set_shop_setting', { key, value }),
   devLoadSampleJobs: async () => (await call<WireJob[]>('dev_load_sample_jobs')).map(fromWire),
+  listMaterials: () => call('list_materials'),
+  saveMaterial: (material) => call('save_material', { material }),
+  deleteMaterial: (id) => call('delete_material', { id }),
   importJob: async (job, mode) => fromWire(await call<WireJob>('import_job', { job, mode })),
   backupOverview: () => call('backup_overview'),
   backUpNow: () => call('back_up_now'),

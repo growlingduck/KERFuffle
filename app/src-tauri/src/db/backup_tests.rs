@@ -14,7 +14,7 @@ fn file_db(dir: &Path) -> (PathBuf, Connection) {
 }
 
 fn add_job(conn: &mut Connection, name: &str) {
-    create_job(conn, &NewJob { name: name.into(), customer: None, notes: None }).unwrap();
+    create_job(conn, &NewJob { name: name.into(), customer: None, notes: None, construction: None, materials: None }).unwrap();
 }
 
 fn job_names(conn: &Connection) -> Vec<String> {

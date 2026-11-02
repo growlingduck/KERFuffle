@@ -1,5 +1,6 @@
 import type { ValidationIssue } from '@kerfuffle/engine';
 import { validateJob } from './jobSession';
+import { parseJobMaterials } from './materials';
 import { parseRules, RULES_VERSION } from './rules';
 import type { CabinetRecord, JobRecord } from './types';
 import { formatJobNumber, JOB_STATUSES } from './types';
@@ -9,9 +10,13 @@ import { formatJobNumber, JOB_STATUSES } from './types';
  *
  * A UTF-8 JSON document:
  *
- *   { format: "kerfuffle-job", formatVersion: 1, appVersion, exportedAt,
+ *   { format: "kerfuffle-job", formatVersion: 2, appVersion, exportedAt,
  *     job: { id, number, name, customer, notes, status, createdAt, updatedAt, revision },
- *     cabinets: [...], rules: {...}, rulesVersion, checksum }
+ *     cabinets: [...], rules: {...}, rulesVersion, materials?: { slots: {...} }, checksum }
+ *
+ * Version 2 added `materials`: the job's material per slot with its copy (name,
+ * size, grain, price), present once the job has them. Version 1 files have
+ * none and still import; the job then uses the shop's default materials.
  *
  * Sizes are integer ticks (1/64″). `checksum` is the SHA-256 (lowercase hex) of
  * the canonical JSON of the document without the checksum field: object keys
@@ -26,7 +31,7 @@ import { formatJobNumber, JOB_STATUSES } from './types';
 
 export const JOB_FILE_FORMAT = 'kerfuffle-job';
 /** Bump when the file's shape changes; older readers then refuse newer files. */
-export const JOB_FILE_VERSION = 1;
+export const JOB_FILE_VERSION = 2;
 export const JOB_FILE_EXTENSION = 'kerfjob';
 
 export const NEWER_FILE_MESSAGE = 'This job was made by a newer KERFuffle. Update this PC first.';
@@ -102,6 +107,7 @@ export async function writeJobFile(job: JobRecord, header: JobFileHeader): Promi
     })),
     rules: job.rules,
     rulesVersion: job.rulesVersion,
+    ...(job.materials ? { materials: job.materials } : {}),
   };
   const checksum = await sha256Hex(canonicalJson(body));
   return `${JSON.stringify({ ...body, checksum }, null, 2)}\n`;
@@ -215,6 +221,13 @@ export async function readJobFile(fileText: string): Promise<JobFileReading> {
       throw new Refused('its construction settings are unreadable');
     }
 
+    let materials: JobRecord['materials'];
+    try {
+      materials = parseJobMaterials(doc.materials);
+    } catch (error) {
+      throw new Refused(error instanceof Error ? error.message : 'its materials are unreadable');
+    }
+
     const j = doc.job;
     const job: JobRecord = {
       id: text(j, 'id', 'the job'),
@@ -229,6 +242,7 @@ export async function readJobFile(fileText: string): Promise<JobFileReading> {
       updatedAt: text(j, 'updatedAt', 'the job'),
       revision: whole(j, 'revision', 'the job', 0),
       cabinets: doc.cabinets.map(readCabinet),
+      materials,
     };
     if (job.id.trim() === '') throw new Refused('the job has no id');
     if (job.name.trim() === '') throw new Refused('the job has no name');

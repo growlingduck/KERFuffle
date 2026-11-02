@@ -1,9 +1,10 @@
-import { dependenciesFor, toInches } from '@kerfuffle/engine';
+import { boxGeometry, toInches } from '@kerfuffle/engine';
 import type { CabinetType, ConstructionRules, DependencyMap, FinishedEnds, Part, PartRole, Ticks, TraceKey } from '@kerfuffle/engine';
 import { Centerline, DimensionLine, HatchDefs, SectionMark, useHatchIds } from '../../components/drawing';
 import type { HatchIds } from '../../components/drawing';
 import { displayInches } from '../../lib/dimensions';
 import { cx } from '../../lib/interaction';
+import type { CabinetBase } from '../../workspace/base';
 import { ENDS_TEXT } from '../../workspace/cabinets';
 import type { Evaluation } from '../../workspace/calc';
 import { hotPartOf, hoverKeyHandlers, hoverPartHandlers, requestFocus, setUi, togglePin, traceKeyOf, useUi } from '../../workspace/ui';
@@ -29,6 +30,8 @@ interface Shape {
   y: number;
   w: number;
   h: number;
+  /** An outline that isn't a plain rectangle (a notched side). */
+  d?: string;
 }
 
 interface Ghost {
@@ -42,11 +45,22 @@ interface Ghost {
   dash: 'ref' | 'lam';
 }
 
+/** Something drawn for context that isn't on the cut list: a leveling leg. */
+interface Passive {
+  key: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface DrawingLayout {
   /** SVG units per inch, the same for both views. */
   scale: number;
   shapes: Shape[];
   ghosts: Ghost[];
+  /** Leveling legs (method A2): bought, not cut. */
+  legs: Passive[];
   base: boolean;
   /** Elevation box, countertop and toe kick edges, in SVG units. */
   ox: number;
@@ -66,19 +80,28 @@ export interface DrawingLayout {
 
 /**
  * Lay the cabinet out from the engine's part sizes and the job's rules. Nothing
- * is re-derived: the shelf drawn is the engine's shelf length, the box height is
- * the engine's side length.
+ * is re-derived: the shelf drawn is the engine's shelf length, the box height
+ * and back position come from the engine's box calculator.
+ *
+ * The drawing follows the construction method: stretchers or a top, an applied
+ * or inset back with its nailer, and under a base box either the ladder base
+ * (A1: kick skin, rails, sleepers), legs and a clip-on kick board (A2), or
+ * sides that run to the floor, notched, with a kick board between them (B).
  */
-export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules): DrawingLayout | null {
-  const { spec, byRole: parts } = evaluation;
+export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules, base: CabinetBase | null = null): DrawingLayout | null {
+  const { spec } = evaluation;
+  // The base parts a run shares draw under this cabinet like its own.
+  const parts: Partial<Record<PartRole, Part>> = { ...evaluation.byRole };
+  for (const part of base?.parts ?? []) parts[part.role] ??= part;
   const side = parts['side-left'];
   const back = parts.back;
-  const top = parts.top;
   const bottom = parts.bottom;
   const front = parts.front;
-  if (!evaluation.valid || !side || !back || !top || !bottom || !front) return null;
+  if (!evaluation.valid || !side || !back || !bottom || !front) return null;
 
-  const base = spec.type === 'base';
+  const g = boxGeometry(spec, rules);
+  const m = rules.method;
+  const isBase = spec.type === 'base';
   const W = toInches(spec.width);
   const H = toInches(spec.height);
   const D = toInches(spec.depth);
@@ -89,25 +112,37 @@ export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules):
 
   const ws = W * s;
   const ds = D * s;
-  const ctop = base ? inch(rules.countertopThickness) : 0;
-  const toe = base ? inch(rules.toeKickHeight) : 0;
+  const ctop = isBase ? inch(rules.countertopThickness) : 0;
+  const toe = isBase ? inch(rules.toeKickHeight) : 0;
+  const kick = isBase ? inch(m.kickDepth) : 0;
   const boxY = OY + ctop;
-  const boxH = inch(side.length);
+  const boxH = inch(g.boxHeight);
+  // Method B's sides run past the box to the floor.
+  const sideH = inch(side.length);
   const bot = OY + H * s;
   const sx = OX + ws + GAP;
   const ps = thick(side);
   const sideW = inch(side.width);
+  const interior = inch(g.interiorDepth);
+  const notched = Boolean(side.features?.some((f) => f.kind === 'notch'));
 
   const shapes: Shape[] = [];
-  const add = (key: string, role: PartRole, kind: ShapeKind, x: number, y: number, w: number, h: number) => {
-    if (parts[role]) shapes.push({ key, role, kind, x, y, w: Math.max(0.5, w), h: Math.max(0.5, h) });
+  const add = (key: string, role: PartRole, kind: ShapeKind, x: number, y: number, w: number, h: number, d?: string) => {
+    if (parts[role]) shapes.push({ key, role, kind, x, y, w: Math.max(0.5, w), h: Math.max(0.5, h), ...(d ? { d } : {}) });
   };
 
-  // A: front elevation. The back shows through the opening.
-  add('a-back', 'back', 'face', OX + ps, boxY + ps, inch(back.width) - 2 * ps, boxH - 2 * ps);
-  add('a-side-left', 'side-left', 'edge', OX, boxY, ps, boxH);
-  add('a-side-right', 'side-right', 'edge', OX + ws - ps, boxY, ps, boxH);
-  add('a-top', 'top', 'edge', OX + (ws - inch(top.length)) / 2, boxY, inch(top.length), thick(top));
+  // A: front elevation. The back (and a nailer) show through the opening.
+  add('a-back', 'back', 'face', OX + ps, boxY + ps, ws - 2 * ps, boxH - 2 * ps);
+  const top = parts.top;
+  const stretcher = parts['stretcher-front'];
+  const lid = top ?? stretcher;
+  const lidT = lid ? thick(lid) : ps;
+  const nailer = parts.nailer;
+  if (nailer) add('a-nailer', 'nailer', 'face', OX + ps, boxY + lidT, inch(nailer.length), inch(nailer.width));
+  add('a-side-left', 'side-left', 'edge', OX, boxY, ps, sideH);
+  add('a-side-right', 'side-right', 'edge', OX + ws - ps, boxY, ps, sideH);
+  if (top) add('a-top', 'top', 'edge', OX + (ws - inch(top.length)) / 2, boxY, inch(top.length), thick(top));
+  if (stretcher) add('a-stretcher', 'stretcher-front', 'edge', OX + (ws - inch(stretcher.length)) / 2, boxY, inch(stretcher.length), thick(stretcher));
   add('a-bottom', 'bottom', 'edge', OX + (ws - inch(bottom.length)) / 2, boxY + boxH - thick(bottom), inch(bottom.length), thick(bottom));
 
   const shelf = parts.shelf;
@@ -121,19 +156,69 @@ export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules):
       add(`a-shelf-${i}`, 'shelf', 'edge', OX + (ws - inch(shelf.length)) / 2, yc - t / 2, inch(shelf.length), t);
     }
   }
-  add('a-lam-left', 'laminate-side-left', 'lam', OX - 3.5, boxY, 3, boxH);
-  add('a-lam-right', 'laminate-side-right', 'lam', OX + ws + 0.5, boxY, 3, boxH);
+  // End laminate covers the side: the box, or to the floor with an integral kick.
+  add('a-lam-left', 'laminate-side-left', 'lam', OX - 3.5, boxY, 3, sideH);
+  add('a-lam-right', 'laminate-side-right', 'lam', OX + ws + 0.5, boxY, 3, sideH);
+
+  // Under a base box, seen from the front: the kick skin (A1) or kick board (A2, B).
+  const kickBoard = parts['kick-board'];
+  if (kickBoard) {
+    const x = OX + (ws - inch(kickBoard.length)) / 2;
+    add('a-kick-board', 'kick-board', 'face', x, bot - toe, inch(kickBoard.length), toe);
+  }
+  if (parts['kick-skin']) add('a-kick-skin', 'kick-skin', 'face', OX, bot - toe, ws, toe);
 
   // B: section, front at the left. Top, bottom, back and shelves are cut.
-  add('b-side', 'side-right', 'face', sx, boxY, sideW, boxH);
-  add('b-back', 'back', 'cut', sx + sideW, boxY + boxH - inch(back.length), thick(back), inch(back.length));
-  add('b-top', 'top', 'cut', sx, boxY, inch(top.width), thick(top));
+  if (notched) {
+    // Outline of a side notched at the front bottom for the toe kick.
+    const yb = boxY + sideH;
+    const d = `M${sx} ${boxY}H${sx + sideW}V${yb}H${sx + kick}V${yb - toe}H${sx}Z`;
+    add('b-side', 'side-right', 'face', sx, boxY, sideW, sideH, d);
+  } else {
+    add('b-side', 'side-right', 'face', sx, boxY, sideW, sideH);
+  }
+  if (g.inset) {
+    // In a groove in every member: centered on the box, its front face at the interior depth.
+    const len = inch(back.length);
+    add('b-back', 'back', 'cut', sx + interior, boxY + (boxH - len) / 2, thick(back), len);
+  } else {
+    add('b-back', 'back', 'cut', sx + sideW, boxY + boxH - inch(back.length), thick(back), inch(back.length));
+  }
+  if (top) add('b-top', 'top', 'cut', sx, boxY, inch(top.width), thick(top));
+  if (stretcher) add('b-stretcher-front', 'stretcher-front', 'cut', sx, boxY, inch(stretcher.width), thick(stretcher));
+  const rear = parts['stretcher-back'];
+  if (rear) add('b-stretcher-back', 'stretcher-back', 'cut', sx + interior - inch(rear.width), boxY, inch(rear.width), thick(rear));
+  if (nailer) add('b-nailer', 'nailer', 'cut', sx + interior - thick(nailer), boxY + lidT, thick(nailer), inch(nailer.width));
   add('b-bottom', 'bottom', 'cut', sx, boxY + boxH - thick(bottom), inch(bottom.width), thick(bottom));
   if (shelf) {
     const t = thick(shelf);
-    // The setback is whatever the side is deeper than the shelf.
-    const setback = sideW - inch(shelf.width);
-    shelfYs.forEach((yc, i) => add(`b-shelf-${i}`, 'shelf', 'cut', sx + setback, yc - t / 2, inch(shelf.width), t));
+    shelfYs.forEach((yc, i) => add(`b-shelf-${i}`, 'shelf', 'cut', sx + inch(rules.shelfSetback), yc - t / 2, inch(shelf.width), t));
+  }
+
+  // Under a base box, in section: what the toe kick is made of.
+  const legs: Passive[] = [];
+  if (kickBoard) add('b-kick-board', 'kick-board', 'cut', sx + kick, bot - toe, thick(kickBoard), toe);
+  if (kickBoard && m.id === 'A') {
+    // A2: leveling legs carry the box; the kick board clips to the front pair.
+    const legW = Math.max(2, inch(rules.panelThickness) * 1.4);
+    for (const [key, x] of [
+      ['leg-front', sx + kick + thick(kickBoard) + 2],
+      ['leg-back', sx + sideW - legW - 2],
+    ] as const) {
+      legs.push({ key, x, y: bot - toe, w: legW, h: toe });
+    }
+  }
+  const frontRail = parts['base-rail-front'];
+  const sleeper = parts['base-sleeper'];
+  if (frontRail) {
+    const skin = parts['kick-skin'];
+    if (skin) add('b-kick-skin', 'kick-skin', 'cut', sx + kick - thick(skin), bot - toe, thick(skin), toe);
+    add('b-rail-front', 'base-rail-front', 'cut', sx + kick, bot - toe, thick(frontRail), toe);
+    const sleeperX = sx + kick + thick(frontRail);
+    const sleeperL = sleeper ? inch(sleeper.length) : 0;
+    if (sleeper) add('b-sleeper', 'base-sleeper', 'face', sleeperX, bot - toe, sleeperL, toe);
+    const backRail = parts['base-rail-back'];
+    if (backRail) add('b-rail-back', 'base-rail-back', 'cut', sleeperX + sleeperL, bot - toe, thick(backRail), toe);
   }
 
   const ghosts: Ghost[] = [];
@@ -151,7 +236,7 @@ export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules):
     if (!lam) continue;
     const w = inch(lam.width);
     const h = inch(lam.length);
-    const y = boxY + boxH / 2 - h / 2;
+    const y = boxY + sideH / 2 - h / 2;
     const left = role === 'laminate-side-left';
     ghosts.push({ role, x: sx + ds / 2 - w / 2, y, w, h, label: left ? 'LEFT END LAM' : 'RIGHT END LAM', labelY: left ? y - 4 : y + h + 11, dash: 'lam' });
   }
@@ -160,7 +245,8 @@ export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules):
     scale: s,
     shapes,
     ghosts,
-    base,
+    legs,
+    base: isBase,
     ox: OX,
     oy: OY,
     ws,
@@ -171,7 +257,7 @@ export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules):
     bot,
     sideW,
     toeS: toe,
-    values: { w: spec.width, h: spec.height, d: spec.depth, box: side.length, toe: rules.toeKickHeight, ctop: rules.countertopThickness },
+    values: { w: spec.width, h: spec.height, d: spec.depth, box: g.boxHeight, toe: rules.toeKickHeight, ctop: rules.countertopThickness },
   };
 }
 
@@ -184,13 +270,27 @@ function plural(n: number, one: string, many: string) {
   return `${n} ${n === 1 ? one : many}`;
 }
 
+/** What the drawing shows of the construction method, beyond a plain box. */
+function methodSentence(type: CabinetType, rules: ConstructionRules): string {
+  const m = rules.method;
+  const out: string[] = [];
+  if (m.backType !== 'applied') out.push(`The back is inset in a ${m.backType}, with a nailer under the top.`);
+  if (type === 'wall') return out.map((s) => ` ${s}`).join('');
+  if (m.baseTop === 'stretchers') out.push('Two stretchers close the top.');
+  if (m.id === 'B') out.push('The sides run to the floor, notched for the toe kick, with a kick board between them.');
+  else if (m.listBase && m.baseType === 'ladder') out.push('It stands on a ladder base: kick skin, rails and sleepers.');
+  else if (m.listBase) out.push('It stands on leveling legs behind a clip-on kick board.');
+  return out.map((s) => ` ${s}`).join('');
+}
+
 /** The sentence a screen reader gets for the drawing. */
-export function drawingLabel(label: string, type: CabinetType, ends: FinishedEnds, evaluation: Evaluation): string {
+export function drawingLabel(label: string, type: CabinetType, ends: FinishedEnds, evaluation: Evaluation, rules?: ConstructionRules): string {
   const { spec } = evaluation;
+  const built = rules ? methodSentence(type, rules) : '';
   return (
     `${type === 'base' ? 'Base' : 'Wall'} cabinet ${label || 'without an ID'}, front elevation and section: ` +
     `${displayInches(spec.width)} wide, ${displayInches(spec.height)} high, ${displayInches(spec.depth)} deep, ` +
-    `${plural(spec.shelfCount, 'shelf', 'shelves')}, ${ENDS_TEXT[ends].toLowerCase()}.`
+    `${plural(spec.shelfCount, 'shelf', 'shelves')}, ${ENDS_TEXT[ends].toLowerCase()}.${built}`
   );
 }
 
@@ -214,13 +314,23 @@ function dimensionClick(key: TraceKey) {
   };
 }
 
-export function CabinetDrawing({ evaluation, layout, label, type, ends }: { evaluation: Evaluation; layout: DrawingLayout; label: string; type: CabinetType; ends: FinishedEnds }) {
+export interface CabinetDrawingProps {
+  evaluation: Evaluation;
+  layout: DrawingLayout;
+  label: string;
+  type: CabinetType;
+  ends: FinishedEnds;
+  rules: ConstructionRules;
+  /** What the traced key moves, on this cabinet and its base. */
+  deps: DependencyMap | null;
+}
+
+export function CabinetDrawing({ evaluation, layout, label, type, ends, rules, deps }: CabinetDrawingProps) {
   const ids = useHatchIds();
   const trace = useUi(traceKeyOf);
   const hot = useUi(hotPartOf);
   const showDims = useUi((ui) => ui.showDims);
   const showOversize = useUi((ui) => ui.showOversize);
-  const deps = trace ? dependenciesFor(trace, type) : null;
   const L = layout;
   const cx0 = L.ox + L.ws / 2;
   const right = L.ox + L.ws;
@@ -257,7 +367,7 @@ export function CabinetDrawing({ evaluation, layout, label, type, ends }: { eval
       className={styles.drawing}
       viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
       role="img"
-      aria-label={drawingLabel(label, type, ends, evaluation)}
+      aria-label={drawingLabel(label, type, ends, evaluation, rules)}
       data-hot={hot ?? undefined}
     >
       <HatchDefs ids={ids} />
@@ -270,24 +380,26 @@ export function CabinetDrawing({ evaluation, layout, label, type, ends }: { eval
         </>
       )}
 
+      {L.legs.map((leg) => (
+        <rect key={leg.key} className={cx(styles.leg, styles.passive)} data-leg x={leg.x} y={leg.y} width={leg.w} height={leg.h} />
+      ))}
+
       {L.shapes.map((shape) => {
         const isHot = hot === shape.role;
-        return (
-          <rect
-            key={shape.key}
-            className={cx(styles.shape, styles[`shape_${shape.kind}`])}
-            data-part={shape.role}
-            data-hot={isHot || undefined}
-            data-dep={(!hot && depends(deps, shape.role)) || undefined}
-            data-faded={(hot !== null && !isHot) || undefined}
-            x={shape.x}
-            y={shape.y}
-            width={shape.w}
-            height={shape.h}
-            fill={shapeFill(shape.kind, ids, isHot)}
-            onClick={() => togglePin(shape.role)}
-            {...hoverPartHandlers(shape.role)}
-          />
+        const common = {
+          className: cx(styles.shape, styles[`shape_${shape.kind}`]),
+          'data-part': shape.role,
+          'data-hot': isHot || undefined,
+          'data-dep': (!hot && depends(deps, shape.role)) || undefined,
+          'data-faded': (hot !== null && !isHot) || undefined,
+          fill: shapeFill(shape.kind, ids, isHot),
+          onClick: () => togglePin(shape.role),
+          ...hoverPartHandlers(shape.role),
+        };
+        return shape.d ? (
+          <path key={shape.key} d={shape.d} {...common} />
+        ) : (
+          <rect key={shape.key} x={shape.x} y={shape.y} width={shape.w} height={shape.h} {...common} />
         );
       })}
 

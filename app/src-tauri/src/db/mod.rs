@@ -4,6 +4,7 @@
 pub mod backup;
 mod error;
 mod journal;
+mod materials;
 mod migrations;
 mod models;
 mod repo;
@@ -22,6 +23,7 @@ pub use backup::BackupPolicy;
 
 pub use error::{DbError, DbResult};
 pub use journal::{recover_pending_edits, write_pending_edit};
+pub use materials::{delete_material, list_materials, save_material};
 pub use migrations::{migrate, schema_version, MigrationReport, LATEST_VERSION};
 pub use models::*;
 pub use repo::*;

@@ -1,4 +1,5 @@
-import type { CabinetType, PartRole } from './types';
+import type { CabinetSpec, CabinetType, ConstructionRules, Part, PartRole } from './types';
+import { ticks } from './units';
 
 /**
  * Linked tracing (interaction-design §5.5): which part dimensions move when an
@@ -30,8 +31,8 @@ export type TraceKey =
 
 export const TRACE_KEYS: readonly TraceKey[] = ['w', 'h', 'box', 'toe', 'ctop', 'd', 'shelves', 'ends', 'qty', 'p', 'cl', 'sb', 'wide', 'lam'];
 
-/** A part's Length, Width, Thickness or Quantity. */
-export type PartField = 'L' | 'W' | 'T' | 'qty';
+/** A part's Length, Width, Thickness or Quantity, or its Features (method B's kick notch). */
+export type PartField = 'L' | 'W' | 'T' | 'qty' | 'F';
 
 export type DependencyMap = Readonly<Partial<Record<PartRole, readonly PartField[]>>>;
 
@@ -106,4 +107,140 @@ const NONE: DependencyMap = {};
 export function dependenciesFor(key: TraceKey, type: CabinetType): DependencyMap {
   if (type === 'wall' && (key === 'toe' || key === 'ctop')) return NONE;
   return DEPENDENCIES[key];
+}
+
+// ---------------------------------------------------------------------------
+// Derived tracing: what a key moves under any construction method
+// ---------------------------------------------------------------------------
+
+/** One cabinet and the rules it is built with. */
+export interface TraceCase {
+  spec: CabinetSpec;
+  rules: ConstructionRules;
+}
+
+/** Parts for a case, or null when the case doesn't calculate (an invalid nudge). */
+export type TraceParts = (c: TraceCase) => readonly Part[] | null;
+
+/** Keys whose input is a size: nudged both ways, and only what moves both ways counts. */
+const SIZE_KEYS: ReadonlySet<TraceKey> = new Set(['w', 'h', 'box', 'toe', 'ctop', 'd', 'p', 'cl', 'sb', 'wide', 'lam']);
+
+const nudge = (value: number, step: 1 | -1) => ticks(value + step);
+
+/** Move one input by the smallest step (one tick), or flip it for finished ends. */
+export function perturb(key: TraceKey, { spec, rules }: TraceCase, step: 1 | -1 = 1): TraceCase {
+  const withRules = (patch: Partial<ConstructionRules>) => ({ spec, rules: { ...rules, ...patch } });
+  const withSpec = (patch: Partial<CabinetSpec>) => ({ spec: { ...spec, ...patch }, rules });
+  switch (key) {
+    case 'w':
+      return withSpec({ width: nudge(spec.width, step) });
+    // Box height has no input of its own: it moves with the overall height.
+    case 'h':
+    case 'box':
+      return withSpec({ height: nudge(spec.height, step) });
+    case 'd':
+      return withSpec({ depth: nudge(spec.depth, step) });
+    case 'toe':
+      return withRules({ toeKickHeight: nudge(rules.toeKickHeight, step) });
+    case 'ctop':
+      return withRules({ countertopThickness: nudge(rules.countertopThickness, step) });
+    case 'p':
+      return withRules({ panelThickness: nudge(rules.panelThickness, step) });
+    case 'cl':
+      return withRules({ shelfClearancePerSide: nudge(rules.shelfClearancePerSide, step) });
+    case 'sb':
+      return withRules({ shelfSetback: nudge(rules.shelfSetback, step) });
+    // The wide-shelf rule picks between two thicknesses; nudge both.
+    case 'wide':
+      return withRules({ shelfThickness: nudge(rules.shelfThickness, step), wideShelfThickness: nudge(rules.wideShelfThickness, step) });
+    case 'lam':
+      return withRules({ laminateOversizePerEdge: nudge(rules.laminateOversizePerEdge, step) });
+    case 'shelves':
+      return withSpec({ shelfCount: spec.shelfCount + 1 });
+    case 'qty':
+      return withSpec({ quantity: spec.quantity + 1 });
+    case 'ends': {
+      const flipped = { none: 'both', both: 'none', left: 'right', right: 'left' } as const;
+      return withSpec({ finishedEnds: flipped[spec.finishedEnds] });
+    }
+  }
+}
+
+const FIELD_ORDER: readonly PartField[] = ['L', 'W', 'T', 'qty', 'F'];
+
+function featureKey(part: Part): string {
+  return (part.features ?? []).map((f) => `${f.kind}:${f.corner}:${f.length}x${f.width}`).join(',');
+}
+
+/** Parts by role, numbered when a role repeats (a split platform has two front rails). */
+function byPart(parts: readonly Part[]): Map<string, Part> {
+  const seen = new Map<PartRole, number>();
+  const out = new Map<string, Part>();
+  for (const part of parts) {
+    const n = seen.get(part.role) ?? 0;
+    seen.set(part.role, n + 1);
+    out.set(`${part.role}#${n}`, part);
+  }
+  return out;
+}
+
+/** Which fields moved between two parts lists, by role. A part that appears or goes counts as quantity. */
+function moved(before: readonly Part[], after: readonly Part[]): Map<PartRole, Set<PartField>> {
+  const a = byPart(before);
+  const b = byPart(after);
+  const out = new Map<PartRole, Set<PartField>>();
+  const mark = (role: PartRole, field: PartField) => {
+    let fields = out.get(role);
+    if (!fields) out.set(role, (fields = new Set()));
+    fields.add(field);
+  };
+  for (const key of new Set([...a.keys(), ...b.keys()])) {
+    const pa = a.get(key);
+    const pb = b.get(key);
+    const role = (pa ?? pb)!.role;
+    if (!pa || !pb) {
+      mark(role, 'qty');
+      continue;
+    }
+    if (pa.length !== pb.length) mark(role, 'L');
+    if (pa.width !== pb.width) mark(role, 'W');
+    if (pa.thickness !== pb.thickness) mark(role, 'T');
+    if (pa.quantity !== pb.quantity) mark(role, 'qty');
+    if (featureKey(pa) !== featureKey(pb)) mark(role, 'F');
+  }
+  return out;
+}
+
+/**
+ * What a trace key moves on this cabinet with these rules, found the way
+ * engine/test/dependencies.test.ts checks the fixed map: nudge the input by
+ * one tick and see which part fields change. Works for every method, and for
+ * parts a run shares when `partsOf` returns them.
+ *
+ * Sizes are nudged both ways and only fields that move both ways count, so a
+ * cabinet sitting exactly on a threshold (the wide-shelf width) doesn't light
+ * up the shelf thickness. Where one way is invalid (a setback of 0 can't go
+ * lower), the other way decides.
+ */
+export function traceDependencies(key: TraceKey, base: TraceCase, partsOf: TraceParts): DependencyMap {
+  const before = partsOf(base);
+  if (!before) return {};
+  const steps: (1 | -1)[] = SIZE_KEYS.has(key) ? [1, -1] : [1];
+  let result: Map<PartRole, Set<PartField>> | null = null;
+  for (const step of steps) {
+    const after = partsOf(perturb(key, base, step));
+    if (!after) continue;
+    const found = moved(before, after);
+    if (result === null) {
+      result = found;
+      continue;
+    }
+    for (const [role, fields] of result) {
+      const other = found.get(role);
+      for (const field of fields) if (!other?.has(field)) fields.delete(field);
+      if (fields.size === 0) result.delete(role);
+    }
+  }
+  if (!result) return {};
+  return Object.fromEntries([...result].map(([role, fields]) => [role, FIELD_ORDER.filter((f) => fields.has(f))]));
 }

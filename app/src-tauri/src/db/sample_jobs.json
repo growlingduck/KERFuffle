@@ -132,5 +132,38 @@
       {"label": "W15", "type": "wall", "width": 768, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "right", "quantity": 1},
       {"label": "W16", "type": "wall", "width": 1344, "height": 2688, "depth": 784, "shelfCount": 3, "finishedEnds": "left", "quantity": 1}
     ]
+  },
+  {
+    "number": 17,
+    "name": "Integral toe kick sample",
+    "customer": "[Customer name]",
+    "status": "draft",
+    "notes": "Method B: base cabinet sides run to the floor, notched for the kick.",
+    "construction": "B",
+    "cabinets": [
+      {"label": "B1", "type": "base", "width": 1920, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "left", "quantity": 1},
+      {"label": "B2", "type": "base", "width": 2304, "height": 2208, "depth": 1536, "shelfCount": 0, "finishedEnds": "none", "quantity": 1},
+      {"label": "B3", "type": "base", "width": 1152, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "right", "quantity": 2},
+      {"label": "W1", "type": "wall", "width": 1920, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "both", "quantity": 1},
+      {"label": "W2", "type": "wall", "width": 2304, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "none", "quantity": 1}
+    ]
+  },
+  {
+    "number": 18,
+    "name": "Ladder base: two runs",
+    "customer": "[Customer name]",
+    "status": "draft",
+    "notes": "Method A1: a sink-wall run, a range-wall run long enough to split, and an island cabinet on its own base.",
+    "construction": "A1",
+    "cabinets": [
+      {"label": "B1", "type": "base", "width": 1920, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "left", "quantity": 1, "run": "Sink wall"},
+      {"label": "B2", "type": "base", "width": 2304, "height": 2208, "depth": 1536, "shelfCount": 0, "finishedEnds": "none", "quantity": 1, "run": "Sink wall"},
+      {"label": "B3", "type": "base", "width": 1152, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "right", "quantity": 1, "run": "Sink wall"},
+      {"label": "B4", "type": "base", "width": 2304, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "left", "quantity": 1, "run": "Range wall"},
+      {"label": "B5", "type": "base", "width": 1920, "height": 2208, "depth": 1536, "shelfCount": 0, "finishedEnds": "none", "quantity": 1, "run": "Range wall"},
+      {"label": "B6", "type": "base", "width": 2304, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "right", "quantity": 1, "run": "Range wall"},
+      {"label": "B7", "type": "base", "width": 2304, "height": 2208, "depth": 1536, "shelfCount": 1, "finishedEnds": "both", "quantity": 1},
+      {"label": "W1", "type": "wall", "width": 1920, "height": 1920, "depth": 768, "shelfCount": 2, "finishedEnds": "both", "quantity": 1}
+    ]
   }
 ]

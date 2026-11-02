@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { Dispatch, ReactNode } from 'react';
-import { inches } from '@kerfuffle/engine';
+import { backThicknessOf, CONSTRUCTION_NAMES, constructionChoiceOf, inches } from '@kerfuffle/engine';
 import type { ShelfThickComparison, Ticks } from '@kerfuffle/engine';
 import { Button } from '../components/Button';
+import { ConstructionPicker } from '../components/ConstructionPicker';
 import { Dialog } from '../components/Dialog';
 import { DimensionInput } from '../components/DimensionInput';
 import { Sheet } from '../components/Sheet';
@@ -11,8 +12,9 @@ import { ViewTitle } from '../components/ViewTitle';
 import { backupsStore, estimateBackupBytes, formatBytes, saveBackupSettings, useBackups } from '../data/backups';
 import { getStorageClient } from '../data/client';
 import { toStorageError } from '../data/errors';
+import { BUILT_IN_ESTIMATE, estimateSettingValue, parseEstimateSettings } from '../data/materials';
 import type { RoundTo } from '../data/types';
-import { DISPLAY_SETTING, parseDisplaySettings, ROUND_TO_OPTIONS, RULES_SETTING } from '../data/types';
+import { DISPLAY_SETTING, ESTIMATE_SETTING, parseDisplaySettings, ROUND_TO_OPTIONS, RULES_SETTING } from '../data/types';
 import { useShortcutScope } from '../keyboard/shortcuts';
 import { displayInches, exactInches } from '../lib/dimensions';
 import { cx } from '../lib/interaction';
@@ -22,10 +24,22 @@ import { chooseBackupFolder, hasFileSystem, openBackupFolder } from '../platform
 import { APP_VERSION, checkForUpdates, restartToUpdate, useUpdates } from '../platform/updates';
 import { setNavigationGuard } from '../routes';
 import { setDisplaySettings } from '../state/display';
+import { loadMaterials, setEstimateSettings } from '../state/materials';
 import { showToast } from '../state/toast';
 import styles from './Screen.module.css';
 import { DETAILS, DetailDrawing } from './settings/DetailDrawing';
-import type { DetailKey, DraftAction, FieldIssues, RuleRow, SettingsDraft, SettingsValues } from './settings/draft';
+import { MaterialsSection } from './settings/MaterialsSection';
+import type {
+  DetailKey,
+  DraftAction,
+  FieldIssues,
+  MethodChoiceRow,
+  MethodLengthKey,
+  MethodRow,
+  RuleRow,
+  SettingsDraft,
+  SettingsValues,
+} from './settings/draft';
 import {
   backupsChanged,
   BUILT_IN_RULES,
@@ -35,8 +49,13 @@ import {
   differsFromDefault,
   draftReducer,
   effectLine,
+  estimateChanged,
   hasRuleErrors,
+  isCountKey,
   MAX_KEEP,
+  METHOD_GROUPS,
+  methodDiffers,
+  methodField,
   MIN_KEEP,
   RULE_GROUPS,
   ruleIssues,
@@ -46,9 +65,10 @@ import s from './settings/Settings.module.css';
 
 const SECTIONS = [
   { id: 'construction', num: '01', label: 'Construction' },
-  { id: 'display', num: '02', label: 'Display' },
-  { id: 'backups', num: '03', label: 'Backups' },
-  { id: 'about', num: '04', label: 'About' },
+  { id: 'materials', num: '02', label: 'Materials' },
+  { id: 'display', num: '03', label: 'Display' },
+  { id: 'backups', num: '04', label: 'Backups' },
+  { id: 'about', num: '05', label: 'About' },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 
@@ -71,7 +91,7 @@ export function SettingsScreen() {
 
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [draft, dispatch] = useReducer(draftReducer, undefined, () =>
-    createDraft({ rules: BUILT_IN_RULES, roundTo: 16, backups: { folder: null, keep: 14 } }),
+    createDraft({ rules: BUILT_IN_RULES, roundTo: 16, backups: { folder: null, keep: 14 }, estimate: BUILT_IN_ESTIMATE }),
   );
   const [saving, setSaving] = useState(false);
   const [leaving, setLeaving] = useState<{ proceed: () => void } | null>(null);
@@ -79,7 +99,7 @@ export function SettingsScreen() {
   useEffect(() => {
     let live = true;
     const client = getStorageClient();
-    Promise.all([client.getShopSettings(), client.backupOverview()])
+    Promise.all([client.getShopSettings(), client.backupOverview(), loadMaterials()])
       .then(([settings, overview]) => {
         backupsStore.dispatch({ overview, error: null });
         if (!live) return;
@@ -87,6 +107,7 @@ export function SettingsScreen() {
           rules: settings.rules,
           roundTo: parseDisplaySettings(settings.other[DISPLAY_SETTING]).roundTo,
           backups: { folder: overview.folder === overview.defaultFolder ? null : overview.folder, keep: overview.keep },
+          estimate: parseEstimateSettings(settings.other[ESTIMATE_SETTING]),
         };
         dispatch({ type: 'loaded', values });
         setLoad({ kind: 'ready' });
@@ -134,6 +155,11 @@ export function SettingsScreen() {
       if (rulesChanged(draft)) {
         await client.setShopSetting(RULES_SETTING, current.rules);
         dispatch({ type: 'saved', part: { rules: current.rules } });
+      }
+      if (estimateChanged(draft)) {
+        await client.setShopSetting(ESTIMATE_SETTING, estimateSettingValue(current.estimate));
+        setEstimateSettings(current.estimate);
+        dispatch({ type: 'saved', part: { estimate: current.estimate } });
       }
       if (draft.saved.roundTo !== current.roundTo) {
         await client.setShopSetting(DISPLAY_SETTING, { roundTo: current.roundTo });
@@ -335,10 +361,13 @@ function SettingsBody({ draft, dispatch, issues, children }: BodyProps) {
             </div>
           ))}
           <ComparisonRow draft={draft} dispatch={dispatch} hot={active === 'wide'} pointer={point('wide')} focusHandlers={focusOn('wide')} />
+          <MethodSettingsView draft={draft} dispatch={dispatch} issues={issues} active={active} point={point} focusOn={focusOn} />
         </Sheet>
 
+        <MaterialsSection draft={draft} dispatch={dispatch} />
+
         <Sheet id="display" className={s.section} aria-labelledby="set-display">
-          <ViewTitle id="set-display" mark="2" title="Display" sub="HOW SIZES ARE SHOWN" />
+          <ViewTitle id="set-display" mark="3" title="Display" sub="HOW SIZES ARE SHOWN" />
           <div className={s.displayControls} style={{ marginTop: 14 }}>
             <fieldset className={s.choices}>
               <legend className={s.choiceLabel}>Units</legend>
@@ -504,6 +533,248 @@ function ComparisonRow({
   );
 }
 
+/** Status under a setting: the built-in default, or what it was changed from and a Reset. */
+function DefaultStatus({ modified, def, label, onReset }: { modified: boolean; def: string; label: string; onReset: () => void }) {
+  return (
+    <div className={s.status}>
+      {modified ? (
+        <>
+          <span className={s.diamond} aria-hidden="true" />
+          <span>
+            Changed from <span className="mono">{def}</span>
+          </span>
+          <button type="button" className={s.link} aria-label={`Reset ${label} to ${def}`} onClick={onReset}>
+            Reset
+          </button>
+        </>
+      ) : (
+        <span className={s.statusDefault}>
+          Default <span className="mono">{def}</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+interface MethodViewProps {
+  draft: SettingsDraft;
+  dispatch: Dispatch<DraftAction>;
+  issues: FieldIssues;
+  active: DetailKey;
+  point: (key: DetailKey) => RowProps['pointer'];
+  focusOn: (key: DetailKey) => RowProps['focusHandlers'];
+}
+
+/**
+ * The construction method: the default for new jobs, and every method setting
+ * (plan §1.3), grouped. Settings a construction doesn't use are hidden while
+ * it's the default, and keep their values.
+ */
+function MethodSettingsView({ draft, dispatch, issues, active, point, focusOn }: MethodViewProps) {
+  const method = draft.current.rules.method;
+  const choice = constructionChoiceOf(method);
+  const builtIn = constructionChoiceOf(BUILT_IN_RULES.method);
+  const pickerIssues = [...(issues['method.id'] ?? []), ...(issues['method.baseType'] ?? [])];
+  return (
+    <div className={s.methodSection}>
+      <div role="group" aria-label="Construction method">
+        <div className={cx('cap', s.groupLabel)} aria-hidden="true">
+          Construction method
+        </div>
+        <div className={cx(s.row, s.choiceRow)} data-hot={active === 'construction' || undefined} style={{ display: 'block' }} {...point('construction')} {...focusOn('construction')}>
+          <ConstructionPicker
+            legend="Default for new jobs"
+            hint="The New job dialog starts with this. Each job keeps its own, and a draft job can change it. Sizes below are checked on a 30″ × 34 1/2″ × 24″ base built every way."
+            value={choice}
+            onChange={(next) => dispatch({ type: 'construction', choice: next })}
+          />
+          {pickerIssues.map((issue) => (
+            <div key={issue.message} className={s.noteError}>
+              <span aria-hidden="true">⚠ </span>
+              {issue.message}
+            </div>
+          ))}
+          <DefaultStatus
+            modified={methodDiffers(draft.current.rules, 'construction')}
+            def={CONSTRUCTION_NAMES[builtIn].short}
+            label="the default construction"
+            onReset={() => dispatch({ type: 'methodReset', field: 'construction' })}
+          />
+        </div>
+      </div>
+      {METHOD_GROUPS.filter((group) => group.shown(method)).map((group) => (
+        <div key={group.label} role="group" aria-label={group.label}>
+          <div className={cx('cap', s.groupLabel)} aria-hidden="true">
+            {group.label}
+          </div>
+          {group.choice && (
+            <MethodChoiceView
+              row={group.choice}
+              draft={draft}
+              dispatch={dispatch}
+              hot={active === group.detail}
+              pointer={point(group.detail)}
+              focusHandlers={focusOn(group.detail)}
+            />
+          )}
+          {group.rows
+            .filter((row) => row.shown(method))
+            .map((row) =>
+              isCountKey(row.key) ? (
+                <MethodCountRow
+                  key={row.key}
+                  row={row}
+                  draft={draft}
+                  dispatch={dispatch}
+                  issues={issues}
+                  hot={active === group.detail}
+                  pointer={point(group.detail)}
+                  focusHandlers={focusOn(group.detail)}
+                />
+              ) : (
+                <MethodLengthRow
+                  key={row.key}
+                  row={row as MethodRow & { key: MethodLengthKey }}
+                  draft={draft}
+                  dispatch={dispatch}
+                  issues={issues}
+                  hot={active === group.detail}
+                  pointer={point(group.detail)}
+                  focusHandlers={focusOn(group.detail)}
+                />
+              ),
+            )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type MethodRowProps<R> = Omit<RowProps, 'row'> & { row: R };
+
+function MethodLengthRow({ row, draft, dispatch, issues, hot, pointer, focusHandlers }: MethodRowProps<MethodRow & { key: MethodLengthKey }>) {
+  const { key, label, help } = row;
+  const field = methodField(key);
+  const { rules } = draft.current;
+  // The back's thickness shows the panel thickness until it's set on its own.
+  const value = key === 'backThickness' ? backThicknessOf(rules) : rules.method[key];
+  const found = issues[field] ?? [];
+  const error = found.find((i) => i.severity === 'error')?.message;
+  const warning = found.find((i) => i.severity === 'warning')?.message;
+  const unparsed = draft.unparsed.has(field);
+  const modified = unparsed || methodDiffers(rules, key);
+  const builtIn = BUILT_IN_RULES.method[key];
+  const def = builtIn === null ? 'same as panels' : exactInches(builtIn);
+  const noteId = `set-method-${key}-note`;
+  return (
+    <div className={s.row} data-hot={hot || undefined} {...pointer}>
+      <DimensionInput
+        key={`${field}-${draft.generation}-${draft.resets[field] ?? 0}`}
+        id={`set-method-${key}`}
+        label={label}
+        value={value}
+        error={error ? 'Can’t be saved like this' : null}
+        warning={warning ? 'Check the note beside this field' : null}
+        describedBy={error || warning ? noteId : undefined}
+        className={cx(modified && s.modified)}
+        onLiveChange={(next) => dispatch({ type: 'methodLength', field: key, value: next })}
+        onCommit={(next) => dispatch({ type: 'methodLength', field: key, value: next })}
+        {...focusHandlers}
+      />
+      <div className={s.side}>
+        {error || warning ? (
+          <div id={noteId} className={error ? s.noteError : s.noteWarning}>
+            <span aria-hidden="true">{error ? '⚠ ' : '△ '}</span>
+            {error ?? warning}
+          </div>
+        ) : (
+          <div className={s.help}>{help}</div>
+        )}
+        <DefaultStatus modified={modified} def={def} label={label} onReset={() => dispatch({ type: 'methodReset', field: key })} />
+      </div>
+    </div>
+  );
+}
+
+function MethodCountRow({ row, draft, dispatch, issues, hot, pointer, focusHandlers }: MethodRowProps<MethodRow>) {
+  const key = row.key as 'legsPerBox' | 'legsPerWideBox';
+  const value = draft.current.rules.method[key];
+  const error = issues[`method.${key}`]?.find((i) => i.severity === 'error')?.message;
+  return (
+    <div className={s.row} data-hot={hot || undefined} {...pointer}>
+      <Stepper
+        id={`set-method-${key}`}
+        label={row.label}
+        value={value}
+        min={1}
+        max={24}
+        decrementLabel={`One fewer: ${row.label.toLowerCase()}`}
+        incrementLabel={`One more: ${row.label.toLowerCase()}`}
+        minReason="At least one leg"
+        maxReason="At most 24"
+        onChange={(next) => dispatch({ type: 'methodCount', field: key, value: next })}
+        {...focusHandlers}
+      />
+      <div className={s.side}>
+        {error ? (
+          <div className={s.noteError}>
+            <span aria-hidden="true">⚠ </span>
+            {error}
+          </div>
+        ) : (
+          <div className={s.help}>{row.help}</div>
+        )}
+        <DefaultStatus
+          modified={methodDiffers(draft.current.rules, key)}
+          def={String(BUILT_IN_RULES.method[key])}
+          label={row.label}
+          onReset={() => dispatch({ type: 'methodReset', field: key })}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MethodChoiceView({
+  row,
+  draft,
+  dispatch,
+  hot,
+  pointer,
+  focusHandlers,
+}: Pick<RowProps, 'draft' | 'dispatch' | 'hot' | 'pointer' | 'focusHandlers'> & { row: MethodChoiceRow }) {
+  const value = draft.current.rules.method[row.key];
+  const builtIn = BUILT_IN_RULES.method[row.key];
+  const builtInLabel = row.options.find(([option]) => option === builtIn)?.[1] ?? String(builtIn);
+  return (
+    <div className={cx(s.row, s.choiceRow)} data-hot={hot || undefined} style={{ display: 'block' }} {...pointer}>
+      <fieldset className={s.choices}>
+        <legend className={s.choiceLabel}>{row.label}</legend>
+        <p className={s.choiceHelp}>{row.help}</p>
+        {row.options.map(([option, label]) => (
+          <Choice
+            key={option}
+            name={`method-${row.key}`}
+            checked={value === option}
+            label={label}
+            onChange={() => dispatch({ type: 'methodChoice', field: row.key, value: option })}
+            {...focusHandlers}
+          />
+        ))}
+      </fieldset>
+      {value !== builtIn && (
+        <div className={s.status}>
+          <span className={s.diamond} aria-hidden="true" />
+          <span>Changed from {builtInLabel.toLowerCase()}</span>
+          <button type="button" className={s.link} aria-label={`Reset ${row.label} to ${builtInLabel.toLowerCase()}`} onClick={() => dispatch({ type: 'methodReset', field: row.key })}>
+            Reset
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Choice({
   name,
   label,
@@ -541,7 +812,7 @@ function BackupsSection({ draft, dispatch }: { draft: SettingsDraft; dispatch: D
 
   return (
     <Sheet id="backups" className={s.section} aria-labelledby="set-backups">
-      <ViewTitle id="set-backups" mark="3" title="Backups" sub="AUTOMATIC, EVERY DAY THE APP IS OPENED" />
+      <ViewTitle id="set-backups" mark="4" title="Backups" sub="AUTOMATIC, EVERY DAY THE APP IS OPENED" />
       <div className={s.backupGrid} style={{ marginTop: 14 }}>
         <div>
           <div className={s.fieldTitle} id="backup-folder-label">
@@ -636,7 +907,7 @@ function AboutSection() {
 
   return (
     <Sheet id="about" className={s.section} aria-labelledby="set-about">
-      <ViewTitle id="set-about" mark="4" title="About" sub="VERSION AND UPDATES" />
+      <ViewTitle id="set-about" mark="5" title="About" sub="VERSION AND UPDATES" />
       <div className={s.backupGrid} style={{ marginTop: 14 }}>
         <div>
           <div className={s.fieldTitle}>KERFuffle</div>

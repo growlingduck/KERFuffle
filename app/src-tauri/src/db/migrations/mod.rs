@@ -7,20 +7,40 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use super::backup::{create_and_rotate, BackupPolicy};
 use super::error::{DbError, DbResult};
+use super::materials::{insert_material, STANDARD_MATERIALS_JSON};
+use super::models::Material;
 
 struct Migration {
     version: i64,
     name: &'static str,
     sql: &'static str,
+    /// Data to add once the SQL has run, in the same transaction.
+    then: Option<fn(&Connection) -> DbResult<()>>,
 }
 
 const MIGRATIONS: &[Migration] = &[
-    Migration { version: 1, name: "initial", sql: include_str!("0001_initial.sql") },
-    Migration { version: 2, name: "cabinet runs", sql: include_str!("0002_cabinet_runs.sql") },
+    Migration { version: 1, name: "initial", sql: include_str!("0001_initial.sql"), then: None },
+    Migration { version: 2, name: "cabinet runs", sql: include_str!("0002_cabinet_runs.sql"), then: None },
+    Migration {
+        version: 3,
+        name: "materials",
+        sql: include_str!("0003_materials.sql"),
+        then: Some(seed_standard_materials),
+    },
 ];
 
 /// Must equal the last entry in `MIGRATIONS` (checked by a test).
-pub const LATEST_VERSION: i64 = 2;
+pub const LATEST_VERSION: i64 = 3;
+
+/// The standard materials (plan §3.1), added once when the catalog is created.
+/// They have no prices: prices vary too much by supplier to guess.
+fn seed_standard_materials(conn: &Connection) -> DbResult<()> {
+    let materials: Vec<Material> = serde_json::from_str(STANDARD_MATERIALS_JSON)?;
+    for (position, material) in materials.iter().enumerate() {
+        insert_material(conn, material, position as i64)?;
+    }
+    Ok(())
+}
 
 #[cfg(test)]
 pub fn listed_versions() -> Vec<i64> {
@@ -90,12 +110,16 @@ pub fn migrate(conn: &mut Connection, backups: Option<&BackupPolicy>) -> DbResul
 
     let tx = conn.transaction()?;
     for migration in MIGRATIONS.iter().filter(|m| m.version > from_version) {
-        tx.execute_batch(migration.sql).map_err(|error| {
+        let failed = |error: &dyn std::fmt::Display| {
             DbError::Storage(format!(
                 "upgrading the database to version {} ({}) failed: {error}",
                 migration.version, migration.name
             ))
-        })?;
+        };
+        tx.execute_batch(migration.sql).map_err(|error| failed(&error))?;
+        if let Some(then) = migration.then {
+            then(&tx).map_err(|error| failed(&error))?;
+        }
     }
     tx.execute(
         "INSERT INTO meta (key, value) VALUES ('schema_version', ?1)

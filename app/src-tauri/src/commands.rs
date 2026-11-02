@@ -10,7 +10,7 @@ use rusqlite::Connection;
 use tauri::State;
 
 use crate::db::{
-    self, Cabinet, DbError, DbResult, Job, JobFields, JobListItem, JobSnapshot, JobStatus, NewJob,
+    self, Cabinet, DbError, DbResult, Job, JobFields, JobListItem, JobSnapshot, JobStatus, Material, NewJob,
     RecoveredJob, Saved,
 };
 
@@ -154,4 +154,21 @@ pub async fn dev_load_sample_jobs(state: State<'_, DbState>) -> Result<Vec<Job>,
         return Err(DbError::invalid("Sample jobs are only available in development builds."));
     }
     state.with(|conn| db::load_sample_jobs(conn))
+}
+
+#[tauri::command]
+pub async fn list_materials(state: State<'_, DbState>) -> Result<Vec<Material>, DbError> {
+    state.with(|conn| db::list_materials(conn))
+}
+
+/// Add or replace a catalog material. Jobs keep their own copies, so this never changes a job.
+#[tauri::command]
+pub async fn save_material(state: State<'_, DbState>, material: Material) -> Result<Material, DbError> {
+    state.with(|conn| db::save_material(conn, &material))
+}
+
+/// Refused while a job uses the material, or it's a default for new jobs.
+#[tauri::command]
+pub async fn delete_material(state: State<'_, DbState>, id: String) -> Result<(), DbError> {
+    state.with(|conn| db::delete_material(conn, &id))
 }

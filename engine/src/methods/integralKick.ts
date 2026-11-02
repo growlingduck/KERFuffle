@@ -2,7 +2,7 @@ import { cabinetPart } from '../parts';
 import type { CabinetSpec, ConstructionRules, Part, PartFeature, PartRole } from '../types';
 import { subtractTicks } from '../units';
 import { boxParts } from './box';
-import { BOX_SETTINGS, FRAMELESS_SLOTS, defaultsFor } from './common';
+import { BOX_SETTINGS, FRAMELESS_SLOTS, defaultsFor, framelessBanding } from './common';
 import type { ConstructionMethod } from './types';
 
 /**
@@ -53,4 +53,5 @@ export const INTEGRAL_KICK: ConstructionMethod = Object.freeze({
   parts: Object.freeze({ base: baseCabinet, wall: (spec: CabinetSpec, rules: ConstructionRules) => boxParts(spec, rules) }),
   visible: VISIBLE,
   slots: FRAMELESS_SLOTS,
+  banding: framelessBanding,
 } satisfies ConstructionMethod);

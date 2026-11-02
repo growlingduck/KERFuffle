@@ -4,15 +4,18 @@ import { clearJobRecords, rememberJobRecord } from '../state/jobRecords';
 import { jobsStore, summarize } from '../state/jobs';
 import type { JobStatus, JobSummary } from '../state/jobs';
 import { setDisplaySettings } from '../state/display';
+import { loadMaterials, materialsStore } from '../state/materials';
 import { showToast } from '../state/toast';
 import { getStorageClient } from './client';
 import { installCloseGuard } from './closeGuard';
 import { toStorageError } from './errors';
 import { createJobSession } from './jobSession';
+import { defaultJobMaterials } from './materials';
 import type { SaveState } from './jobSession';
 import { recoverPendingEdits } from './recovery';
+import { RULES_VERSION, withConstruction } from './rules';
 import type { JobRecord, NewJob } from './types';
-import { DISPLAY_SETTING, parseDisplaySettings } from './types';
+import { DISPLAY_SETTING, parseDisplaySettings, toSnapshot } from './types';
 
 /** The app's one open job. Screens read it synchronously; commits autosave. */
 export const jobSession = createJobSession({
@@ -52,13 +55,19 @@ export async function duplicateJob(id: string): Promise<JobSummary | null> {
 
 /**
  * Create a job from the New job dialog. An empty job snapshots the shop
- * defaults. A copy of a job takes that job's cabinets and its own rules (as
- * Duplicate does) under the new name, customer and notes. Rejects with a
+ * defaults with the chosen construction. A copy of a job takes that job's
+ * cabinets and its own rules (as Duplicate does) under the new name, customer
+ * and notes, and the chosen construction if it differs. Rejects with a
  * StorageError.
  */
 export async function createJob(input: NewJob, copyFromId?: string): Promise<JobSummary> {
   const client = getStorageClient();
-  if (!copyFromId) return listed(await client.createJob(input));
+  if (!copyFromId) {
+    // A new job copies the shop's default materials, prices and all, as they are now.
+    const { catalog, estimate } = materialsStore.getState();
+    const materials = input.materials ?? defaultJobMaterials(catalog, estimate, new Date().toISOString());
+    return listed(await client.createJob({ ...input, materials }));
+  }
 
   // Duplicate, then rename. Two calls: if the rename fails, the copy is still
   // listed as "… (copy)" and can be renamed or archived like any job.
@@ -69,8 +78,15 @@ export async function createJob(input: NewJob, copyFromId?: string): Promise<Job
     customer: input.customer?.trim() || null,
     notes: input.notes?.trim() || null,
   };
-  const saved = await client.updateJobFields(copy.id, fields);
-  return listed({ ...copy, ...fields, ...saved });
+  const rules = input.construction ? withConstruction(copy.rules, input.construction) : copy.rules;
+  if (rules === copy.rules) {
+    const saved = await client.updateJobFields(copy.id, fields);
+    return listed({ ...copy, ...fields, ...saved });
+  }
+  // The copy is a draft, so its construction can be saved with the new name.
+  const renamed = { ...copy, ...fields, rules, rulesVersion: RULES_VERSION };
+  const saved = await client.saveJob(toSnapshot(renamed, true));
+  return listed({ ...renamed, ...saved });
 }
 
 /** Read the "round shown sizes to" setting. Keeps the current one if it can't be read. */
@@ -99,6 +115,7 @@ export async function startStorage(): Promise<void> {
   try {
     await recoverPendingEdits(client, (message) => showToast(message));
     await loadDisplaySettings();
+    await loadMaterials();
     await refreshJobList();
   } catch (error) {
     showToast(toStorageError(error).message);

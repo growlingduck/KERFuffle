@@ -1,4 +1,5 @@
 import { createStore, useStore } from '../state/createStore';
+import { loadMaterials } from '../state/materials';
 import { showToast } from '../state/toast';
 import { getStorageClient } from './client';
 import { toStorageError } from './errors';
@@ -62,6 +63,7 @@ export async function restoreBackup(fileName: string): Promise<RestoreResult> {
   } finally {
     await refreshJobList().catch((error: unknown) => showToast(toStorageError(error).message));
     await loadDisplaySettings();
+    await loadMaterials();
     await refreshBackups();
   }
 }

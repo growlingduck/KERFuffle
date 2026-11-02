@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
 import type { KeyboardEvent } from 'react';
-import { inches } from '@kerfuffle/engine';
+import { inches, runOf, usesRuns } from '@kerfuffle/engine';
 import type { CabinetType, ConstructionRules, Ticks } from '@kerfuffle/engine';
 import { IconButton } from '../../components/IconButton';
 import { DuplicateIcon, PlusIcon, TrashIcon } from '../../components/icons';
@@ -150,6 +150,44 @@ const CabinetRow = memo(function CabinetRow({ cabinet, rules, selected, fresh, l
   );
 });
 
+export interface CabinetGroup {
+  id: string;
+  title: string;
+  /** "3 cabinets · 84″ long": what the run's base will be built for. */
+  sub: string;
+  cabinets: CabinetRecord[];
+}
+
+/**
+ * The list by run: each run in the order it first appears, then base cabinets
+ * with no run (each gets its own base), then wall cabinets (no base).
+ */
+export function groupByRun(cabinets: readonly CabinetRecord[]): CabinetGroup[] {
+  const runs = new Map<string, CabinetRecord[]>();
+  const loose: CabinetRecord[] = [];
+  const walls: CabinetRecord[] = [];
+  for (const c of cabinets) {
+    if (c.type === 'wall') {
+      walls.push(c);
+      continue;
+    }
+    const run = runOf(c);
+    if (run === null) loose.push(c);
+    else runs.set(run, [...(runs.get(run) ?? []), c]);
+  }
+  const count = (list: readonly CabinetRecord[]) => {
+    const boxes = list.reduce((n, c) => n + c.quantity, 0);
+    return `${boxes} ${boxes === 1 ? 'cabinet' : 'cabinets'}`;
+  };
+  const groups: CabinetGroup[] = [...runs].map(([run, list]) => {
+    const length = list.reduce((sum, c) => sum + c.width * c.quantity, 0) as Ticks;
+    return { id: `run:${run}`, title: `Run: ${run}`, sub: `${count(list)} · ${displayInches(length)} long`, cabinets: list };
+  });
+  if (loose.length > 0) groups.push({ id: 'loose', title: 'No run (own base)', sub: count(loose), cabinets: loose });
+  if (walls.length > 0) groups.push({ id: 'walls', title: 'Wall cabinets', sub: count(walls), cabinets: walls });
+  return groups;
+}
+
 function presetItems(cabinets: readonly CabinetRecord[], rules: ConstructionRules): MenuEntry[] {
   return (['base', 'wall'] as const).map((type) => {
     const size = NEW_CABINET[type];
@@ -194,38 +232,65 @@ export function CabinetList() {
   const dupes = useMemo(() => duplicateLabels(cabinets), [cabinets]);
   const boxes = cabinets.reduce((n, c) => n + c.quantity, 0);
   const currentType = cabinets.find((c) => c.id === selected)?.type ?? 'base';
+  const runsApply = rules ? usesRuns(rules.method) : false;
+  const grouped = useUi((ui) => ui.groupByRun) && runsApply;
+  const groups = useMemo(() => (grouped ? groupByRun(cabinets) : null), [grouped, cabinets]);
+  // Arrow keys follow the list as shown.
+  const ordered = useMemo(() => groups?.flatMap((g) => g.cabinets) ?? cabinets, [groups, cabinets]);
 
   const onRowKey = (event: KeyboardEvent<HTMLButtonElement>, id: string) => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     event.preventDefault();
-    const index = cabinets.findIndex((c) => c.id === id);
-    const next = cabinets[Math.min(cabinets.length - 1, Math.max(0, index + (event.key === 'ArrowDown' ? 1 : -1)))];
+    const index = ordered.findIndex((c) => c.id === id);
+    const next = ordered[Math.min(ordered.length - 1, Math.max(0, index + (event.key === 'ArrowDown' ? 1 : -1)))];
     if (!next) return;
     selectCabinet(next.id);
     focusRow(next.id);
   };
 
   if (!rules) return null;
+  const row = (c: CabinetRecord) => (
+    <CabinetRow
+      key={c.id}
+      cabinet={c}
+      rules={rules}
+      selected={c.id === selected}
+      fresh={fresh === c.id}
+      leaving={leaving === c.id}
+      canRemove={cabinets.length > 1}
+      duplicateId={isDuplicateLabel(c.label, dupes)}
+      onKeyDown={onRowKey}
+    />
+  );
   return (
     <Sheet padding="sm" aria-labelledby="ws-cab" className={styles.listPanel}>
-      <ViewTitle id="ws-cab" mark="1" title="Cabinets" sub={`${cabinets.length} ${cabinets.length === 1 ? 'ENTRY' : 'ENTRIES'} · ${boxes} ${boxes === 1 ? 'BOX' : 'BOXES'}`} />
+      <div className={styles.listHead}>
+        <ViewTitle id="ws-cab" mark="1" title="Cabinets" sub={`${cabinets.length} ${cabinets.length === 1 ? 'ENTRY' : 'ENTRIES'} · ${boxes} ${boxes === 1 ? 'BOX' : 'BOXES'}`} />
+        {runsApply && cabinets.length > 0 && (
+          <button type="button" className={styles.toggle} aria-pressed={grouped} onClick={() => setUi({ groupByRun: !grouped })}>
+            Group by run
+          </button>
+        )}
+      </div>
       {cabinets.length === 0 ? (
         <p className={styles.empty}>No cabinets yet. Add one to start.</p>
+      ) : groups ? (
+        <div className={styles.cabGroups} data-cabinet-list role="group" aria-label="Cabinets in this job, by run">
+          {groups.map((g) => (
+            <section key={g.id} className={styles.cabGroup} aria-labelledby={`ws-group-${g.id}`}>
+              <h3 id={`ws-group-${g.id}`} className={styles.cabGroupHead}>
+                <span className={styles.cabGroupTitle}>{g.title}</span>
+                <span className={styles.cabGroupSub}>{g.sub}</span>
+              </h3>
+              <ul className={styles.cabList} aria-labelledby={`ws-group-${g.id}`}>
+                {g.cabinets.map(row)}
+              </ul>
+            </section>
+          ))}
+        </div>
       ) : (
         <ul className={styles.cabList} data-cabinet-list aria-label="Cabinets in this job">
-          {cabinets.map((c) => (
-            <CabinetRow
-              key={c.id}
-              cabinet={c}
-              rules={rules}
-              selected={c.id === selected}
-              fresh={fresh === c.id}
-              leaving={leaving === c.id}
-              canRemove={cabinets.length > 1}
-              duplicateId={isDuplicateLabel(c.label, dupes)}
-              onKeyDown={onRowKey}
-            />
-          ))}
+          {cabinets.map(row)}
         </ul>
       )}
       <SplitButton
