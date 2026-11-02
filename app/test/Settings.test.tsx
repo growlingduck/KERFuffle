@@ -1,4 +1,4 @@
-import { DEFAULT_RULES, inches } from '@kerfuffle/engine';
+import { DEFAULT_RULES, inches, upgradeVersion1Rules } from '@kerfuffle/engine';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -103,7 +103,8 @@ describe('Settings: construction defaults', () => {
 
     const saved = (await db.getShopSettings()).rules;
     expect(saved).toEqual({ ...DEFAULT_RULES, panelThickness: inches(23 / 32), shelfThickComparison: 'gt' });
-    expect((await db.getJob('j-0014')).rules).toEqual(DEFAULT_RULES);
+    // j-0014 was saved before construction methods; it keeps its own (upgraded) rules.
+    expect((await db.getJob('j-0014')).rules).toEqual(upgradeVersion1Rules(DEFAULT_RULES));
     const fresh = await db.createJob({ name: 'Garage' });
     expect(fresh.rules.panelThickness).toBe(inches(23 / 32));
   });

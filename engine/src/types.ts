@@ -18,9 +18,64 @@ export interface CabinetSpec {
   finishedEnds: FinishedEnds;
   /** Integer >= 1. Every part quantity is multiplied by this. */
   quantity: number;
+  /**
+   * The straight row of base cabinets this one belongs to, e.g. "Sink wall".
+   * Base cabinets in the same run share one ladder base (method A1). Blank or
+   * missing: the cabinet gets its own. Separate from any room grouping.
+   */
+  run?: string | null;
 }
 
 export type ShelfThickComparison = 'gt' | 'gte';
+
+/** A: frameless on a separate base. B: frameless with an integral toe kick. */
+export type MethodId = 'A' | 'B';
+/** Method A's base: a ladder base (A1) or leveling legs with a clip-on kick (A2). */
+export type BaseType = 'ladder' | 'legs';
+/** Applied: full width, behind the sides. Dado and rabbet: a thin back set into the box. */
+export type BackType = 'applied' | 'dado' | 'rabbet';
+/** What closes the top of a base box: a full panel, or a front and a back stretcher. */
+export type BaseTop = 'full' | 'stretchers';
+
+/**
+ * How the cabinets are built. Chosen once per job; every cabinet uses it.
+ * See docs/calculation-rules.md, "Construction methods". Settings a method
+ * does not use are kept, so switching back restores them.
+ */
+export interface MethodSettings {
+  id: MethodId;
+  backType: BackType;
+  /** Null: the back is the panel thickness. */
+  backThickness: Ticks | null;
+  /** Dado and rabbet backs: how deep the groove is. */
+  backGrooveDepth: Ticks;
+  /** Dado backs: how far the groove sits in from the back edge. */
+  backDadoInset: Ticks;
+  /** Inset backs: height of the nailer (hanging rail) under the top. */
+  nailerWidth: Ticks;
+  /** Base cabinets only. */
+  baseTop: BaseTop;
+  stretcherWidth: Ticks;
+  /** How far the kick face sits back from the cabinet front. */
+  kickDepth: Ticks;
+  /** Method A only. */
+  baseType: BaseType;
+  /** A1: largest center-to-center gap between sleepers. */
+  sleeperSpacingMax: Ticks;
+  /** A1: longest platform section; longer runs are split. */
+  platformLengthMax: Ticks;
+  /** A1: thickness of the finished skin over the front rail. */
+  kickSkinThickness: Ticks;
+  /** A2: leveling legs per box, and per box wider than `legWidthThreshold`. */
+  legsPerBox: number;
+  legsPerWideBox: number;
+  legWidthThreshold: Ticks;
+  /**
+   * Method A: whether the base parts are on the cut list. False only on rules
+   * upgraded from version 1, which never listed the base; new jobs get true.
+   */
+  listBase: boolean;
+}
 
 /**
  * Shop construction rules. Every hard-coded number or behavior from the legacy
@@ -69,6 +124,9 @@ export interface ConstructionRules {
    * keep false except in the LEGACY_* presets.
    */
   legacyWallLaminateDeductsBaseAllowances: boolean;
+
+  /** The construction method and its settings (rules version 2). */
+  method: MethodSettings;
 }
 
 export type PartRole =
@@ -77,15 +135,53 @@ export type PartRole =
   | 'side-left'
   | 'side-right'
   | 'top'
+  | 'stretcher-front'
+  | 'stretcher-back'
+  | 'nailer'
+  | 'kick-board'
   | 'front'
   | 'shelf'
+  | 'base-rail-front'
+  | 'base-rail-back'
+  | 'base-sleeper'
+  | 'kick-skin'
   | 'laminate-side-left'
   | 'laminate-side-right'
   | 'laminate-front';
 
-export type PartCategory = 'panel' | 'laminate';
+/** Sheet goods, solid stock (for a later face-frame method), or laminate. */
+export type PartCategory = 'panel' | 'lumber' | 'laminate';
+
+/**
+ * Part coordinates: the part lies flat, length along x (0 → length) and width
+ * along y (0 → width). x = 0 is the part's **start**: the bottom edge of a part
+ * that stands up in the cabinet, the left end of one that lies across it.
+ * y = width is the **front** edge (the one facing the room); y = 0 is the back.
+ * The coordinates are the same for left and right parts; a drawing of a
+ * part's outside face mirrors one of them.
+ */
+export type PartCorner = 'start-front' | 'start-back' | 'end-front' | 'end-back';
+
+/**
+ * A rectangle cut out of one corner of a part: `length` along x, `width`
+ * along y, both measured from that corner. Method B's toe-kick notch is
+ * `{ kind: 'notch', corner: 'start-front', length: kick height, width: kick depth }`.
+ */
+export interface NotchFeature {
+  kind: 'notch';
+  corner: PartCorner;
+  length: Ticks;
+  width: Ticks;
+}
+
+/** Machining on a part. The saw cut list ignores features except to note them. */
+export type PartFeature = NotchFeature;
 
 export interface Part {
+  /**
+   * The reference the cut list shows: the cabinet label ("B1"), or the run
+   * ("Run: Sink wall") for parts a run shares.
+   */
   cabinetId: string;
   role: PartRole;
   category: PartCategory;
@@ -106,9 +202,16 @@ export interface Part {
    * The cut-list layer decides whether to show optional parts.
    */
   optional: boolean;
+  /** Cutouts and machining, in part coordinates. Absent when there are none. */
+  features?: PartFeature[];
+  /** Set on parts a run of cabinets shares: the run's name. */
+  run?: string;
 }
 
-export type ValidationField = keyof CabinetSpec | keyof ConstructionRules;
+/** A method setting, as a validation field: "method.kickDepth". */
+export type MethodField = `method.${keyof MethodSettings}`;
+
+export type ValidationField = keyof CabinetSpec | keyof ConstructionRules | MethodField;
 
 export interface ValidationIssue {
   field: ValidationField;

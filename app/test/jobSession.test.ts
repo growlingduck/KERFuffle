@@ -1,4 +1,4 @@
-import { calculateParts, DEFAULT_RULES, inches, ticks, validate } from '@kerfuffle/engine';
+import { buildCutList, calculateParts, DEFAULT_METHOD, DEFAULT_RULES, inches, ticks, upgradeVersion1Rules, validate } from '@kerfuffle/engine';
 import type { ConstructionRules } from '@kerfuffle/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import defaultRulesJson from '../src-tauri/src/db/default_rules.json';
@@ -10,7 +10,7 @@ import type { JobSession } from '../src/data/jobSession';
 import { createMemoryClient } from '../src/data/memoryClient';
 import type { MemoryStorageClient } from '../src/data/memoryClient';
 import { recoverPendingEdits } from '../src/data/recovery';
-import { parseRules } from '../src/data/rules';
+import { parseRules, parseShopRules, RULES_VERSION } from '../src/data/rules';
 import type { JobRecord } from '../src/data/types';
 import { RULES_SETTING } from '../src/data/types';
 import { testCabinet, testJob } from './storage';
@@ -329,21 +329,62 @@ describe('rules snapshots', () => {
   it('a duplicate keeps its source job’s rules, not the shop defaults', async () => {
     await db.setShopSetting(RULES_SETTING, { ...DEFAULT_RULES, panelThickness: inches(23 / 32) });
     const copy = await db.duplicateJob('j-0014');
-    expect(copy).toMatchObject({ name: 'Kitchen remodel (copy)', status: 'draft', number: 15, rules: DEFAULT_RULES });
+    expect(copy).toMatchObject({ name: 'Kitchen remodel (copy)', status: 'draft', number: 15, rules: upgradeVersion1Rules(DEFAULT_RULES) });
     expect(copy.cabinets[0]?.id).not.toBe('c-b1');
   });
 
   it('parseRules reads version 1 and refuses damaged or newer snapshots', () => {
-    expect(parseRules({ ...DEFAULT_RULES }, 1)).toEqual(DEFAULT_RULES);
+    const version1 = version1Of(DEFAULT_RULES);
+    // Version 1 had no method: it becomes method A1 with the base left off, so its parts don't change.
+    expect(parseRules(version1, 1)).toEqual({ ...DEFAULT_RULES, method: { ...DEFAULT_METHOD, listBase: false } });
+    expect(parseRules({ ...version1, panelThickness: inches(23 / 32) }, 1).method.backThickness).toBeNull();
     expect(() => parseRules({ ...DEFAULT_RULES, panelThickness: 0.75 }, 1)).toThrow(/couldn’t be read/);
     expect(() => parseRules({ ...DEFAULT_RULES, shelfThickComparison: 'gteq' }, 1)).toThrow(StorageError);
-    expect(() => parseRules({ ...DEFAULT_RULES }, 2)).toThrow(/newer version/);
+    expect(() => parseRules({ ...DEFAULT_RULES }, RULES_VERSION + 1)).toThrow(/newer version/);
+  });
+
+  it('parseRules reads version 2 with its construction method, and refuses a damaged one', () => {
+    expect(RULES_VERSION).toBe(2);
+    const b = { ...DEFAULT_RULES, method: { ...DEFAULT_METHOD, id: 'B', backThickness: inches(1 / 4) } };
+    expect(parseRules(structuredClone(b), 2)).toEqual(b);
+    expect(() => parseRules(version1Of(DEFAULT_RULES), 2)).toThrow(/couldn’t be read/);
+    expect(() => parseRules({ ...DEFAULT_RULES, method: { ...DEFAULT_METHOD, id: 'C' } }, 2)).toThrow(StorageError);
+    expect(() => parseRules({ ...DEFAULT_RULES, method: { ...DEFAULT_METHOD, kickDepth: '3' } }, 2)).toThrow(/couldn’t be read/);
+    expect(() => parseRules({ ...DEFAULT_RULES, method: { ...DEFAULT_METHOD, listBase: 1 } }, 2)).toThrow(/couldn’t be read/);
+  });
+
+  it('reads shop defaults saved before construction methods with the default method, base listed', () => {
+    expect(parseShopRules(version1Of({ ...DEFAULT_RULES, panelThickness: inches(23 / 32) }))).toEqual({
+      ...DEFAULT_RULES,
+      panelThickness: inches(23 / 32),
+      method: DEFAULT_METHOD,
+    });
+    expect(parseShopRules(structuredClone(DEFAULT_RULES))).toEqual(DEFAULT_RULES);
   });
 });
+
+function version1Of(rules: ConstructionRules): Omit<ConstructionRules, 'method'> {
+  const v1: Partial<ConstructionRules> = { ...rules };
+  delete v1.method;
+  return v1 as Omit<ConstructionRules, 'method'>;
+}
 
 describe('shared data files', () => {
   it('the Rust built-in default rules match the engine DEFAULT_RULES', () => {
     expect(defaultRulesJson).toEqual({ ...DEFAULT_RULES });
+  });
+
+  it('the dev sample jobs, saved as version 1, keep exactly their old cut lists', async () => {
+    const jobs = await createMemoryClient().devLoadSampleJobs();
+    const v1 = parseRules(version1Of(DEFAULT_RULES), 1);
+    for (const job of jobs) {
+      const specs = job.cabinets.map(cabinetSpec);
+      // Same cabinet parts as the version 1 formulas (the golden fixtures pin those), and no base.
+      for (const spec of specs) expect(calculateParts(spec, v1), `${job.name} ${spec.id}`).toEqual(calculateParts(spec, DEFAULT_RULES));
+      const list = buildCutList(specs, v1);
+      expect(list.lines.flatMap((l) => l.roles).filter((r) => r.startsWith('base-') || r === 'kick-skin' || r === 'kick-board'), job.name).toEqual([]);
+      expect(list.jobIssues, job.name).toEqual([]);
+    }
   });
 
   it('the dev sample jobs are valid cabinets', async () => {

@@ -1,7 +1,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { toStorageError } from './errors';
 import { createMemoryClient } from './memoryClient';
-import { parseRules } from './rules';
+import { parseRules, parseShopRules } from './rules';
 import type {
   BackupInfo,
   BackupOverview,
@@ -101,7 +101,7 @@ export const tauriClient: StorageClient = {
   recoverPendingEdits: () => call('recover_pending_edits'),
   getShopSettings: async () => {
     const { [RULES_SETTING]: rules, ...other } = await call<Record<string, unknown>>('get_shop_settings');
-    return { rules: parseRules(rules, 1), other };
+    return { rules: parseShopRules(rules), other };
   },
   setShopSetting: (key, value) => call('set_shop_setting', { key, value }),
   devLoadSampleJobs: async () => (await call<WireJob[]>('dev_load_sample_jobs')).map(fromWire),

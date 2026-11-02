@@ -82,6 +82,7 @@ export function cabinetSpec(cabinet: CabinetRecord): CabinetSpec {
     shelfCount: cabinet.shelfCount,
     finishedEnds: cabinet.finishedEnds,
     quantity: cabinet.quantity,
+    ...(cabinet.run ? { run: cabinet.run } : {}),
   };
 }
 

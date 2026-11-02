@@ -1,7 +1,7 @@
 /**
  * Cut-list tests. The golden sample is the five-cabinet job from
  * docs/wireframes/CutList.dc.html. Its expected lines were worked out by hand
- * from docs/calculation-rules.md under DEFAULT_RULES:
+ * from docs/calculation-rules.md under DEFAULT_RULES (as upgraded from version 1, base left off):
  *
  *   base box height = 36 − 4 − 1 1/2 = 30 1/2; wall box height = full height
  *   bottom/top = (W − 1 1/2) × (D − 3/4); sides = box × (D − 3/4)
@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_RULES,
+  upgradeVersion1Rules,
   LEGACY_SHEET_RULES,
   buildCutList,
   calculateParts,
@@ -55,9 +56,11 @@ function row(line: CutListLine): string {
 const MERGED: CutListOptions = { mode: 'merged', includeFronts: true, sort: { key: 'length', dir: 'desc' } };
 const SAMPLE = loadJob('sample-job.json');
 const FRONT = 'Front (door/laminate size)';
+/** A job saved before construction methods (rules version 1): method A1, base left off. Its cut list must not change. */
+const V1_RULES = upgradeVersion1Rules(DEFAULT_RULES);
 
 describe('buildCutList: golden sample (B1–B3, W1–W2)', () => {
-  const list = buildCutList(SAMPLE, DEFAULT_RULES, MERGED);
+  const list = buildCutList(SAMPLE, V1_RULES, MERGED);
 
   it('lists panels by thickness, thinnest first, then laminate', () => {
     expect(list.groups.map((g) => [g.id, g.pieces])).toEqual([
@@ -124,8 +127,8 @@ describe('buildCutList: golden sample (B1–B3, W1–W2)', () => {
 });
 
 describe('buildCutList: fronts switch', () => {
-  const on = buildCutList(SAMPLE, DEFAULT_RULES, MERGED);
-  const off = buildCutList(SAMPLE, DEFAULT_RULES, { ...MERGED, includeFronts: false });
+  const on = buildCutList(SAMPLE, V1_RULES, MERGED);
+  const off = buildCutList(SAMPLE, V1_RULES, { ...MERGED, includeFronts: false });
   const lineOf = (list: CutList, mark: string) => list.lines.find((l) => l.mark === mark);
 
   it('drops the Front reference size and keeps every mark in place', () => {
@@ -155,7 +158,7 @@ describe('buildCutList: fronts switch', () => {
 
 describe('buildCutList: sorting', () => {
   const marksByKey = (list: CutList) => new Map(list.lines.map((l) => [l.key, l.mark]));
-  const base = buildCutList(SAMPLE, DEFAULT_RULES, MERGED);
+  const base = buildCutList(SAMPLE, V1_RULES, MERGED);
 
   it.each([
     ['name', 'asc'],
@@ -165,24 +168,24 @@ describe('buildCutList: sorting', () => {
     ['quantity', 'asc'],
     ['quantity', 'desc'],
   ] as const)('keeps marks when sorted by %s %s', (key, dir) => {
-    const sorted = buildCutList(SAMPLE, DEFAULT_RULES, { ...MERGED, sort: { key, dir } });
+    const sorted = buildCutList(SAMPLE, V1_RULES, { ...MERGED, sort: { key, dir } });
     expect(marksByKey(sorted)).toEqual(marksByKey(base));
   });
 
   it('sorts inside each group, breaking ties by mark', () => {
-    const byQty = buildCutList(SAMPLE, DEFAULT_RULES, { ...MERGED, sort: { key: 'quantity', dir: 'desc' } });
+    const byQty = buildCutList(SAMPLE, V1_RULES, { ...MERGED, sort: { key: 'quantity', dir: 'desc' } });
     expect(byQty.groups[0]?.lines.map((l) => l.mark)).toEqual([
       'P4', 'P5', 'P14', 'P1', 'P2', 'P3', 'P6', 'P7', 'P8', 'P9', 'P10', 'P11', 'P13', 'P15', 'P16', 'P17', 'P12',
     ]);
-    const byWidth = buildCutList(SAMPLE, DEFAULT_RULES, { ...MERGED, sort: { key: 'width', dir: 'asc' } });
+    const byWidth = buildCutList(SAMPLE, V1_RULES, { ...MERGED, sort: { key: 'width', dir: 'asc' } });
     expect(byWidth.groups[2]?.lines.map((l) => l.mark)).toEqual(['L8', 'L7', 'L6', 'L4', 'L3', 'L2', 'L5', 'L1']);
-    const byName = buildCutList(SAMPLE, DEFAULT_RULES, { ...MERGED, sort: { key: 'name', dir: 'asc' } });
+    const byName = buildCutList(SAMPLE, V1_RULES, { ...MERGED, sort: { key: 'name', dir: 'asc' } });
     expect(byName.groups[0]?.lines.slice(0, 5).map((l) => l.mark)).toEqual(['P2', 'P3', 'P5', 'P6', 'P7']);
   });
 });
 
 describe('buildCutList: by cabinet', () => {
-  const list = buildCutList(SAMPLE, DEFAULT_RULES, { ...MERGED, mode: 'by-cabinet' });
+  const list = buildCutList(SAMPLE, V1_RULES, { ...MERGED, mode: 'by-cabinet' });
 
   it('has one section per cabinet, in job order, and no merged groups', () => {
     expect(list.groups).toEqual([]);
@@ -217,7 +220,7 @@ describe('buildCutList: by cabinet', () => {
 
 describe('buildCutList: blocked cabinets', () => {
   const broken = SAMPLE.map((c) => (c.id === 'B3' ? { ...c, width: size('1') } : c));
-  const list = buildCutList(broken, DEFAULT_RULES, MERGED);
+  const list = buildCutList(broken, V1_RULES, MERGED);
 
   it('leaves out cabinets with errors and reports them with their issues', () => {
     expect(list.blocked).toHaveLength(1);
@@ -229,11 +232,11 @@ describe('buildCutList: blocked cabinets', () => {
 
   it('does not block on warnings', () => {
     const wide = SAMPLE.map((c) => (c.id === 'B2' ? { ...c, width: size('62') } : c));
-    expect(buildCutList(wide, DEFAULT_RULES, MERGED).blocked).toEqual([]);
+    expect(buildCutList(wide, V1_RULES, MERGED).blocked).toEqual([]);
   });
 
   it('handles a job with nothing listable', () => {
-    expect(buildCutList([], DEFAULT_RULES, MERGED)).toMatchObject({
+    expect(buildCutList([], V1_RULES, MERGED)).toMatchObject({
       groups: [],
       lines: [],
       totals: { boxes: 0, panelPieces: 0, laminatePieces: 0, distinctCuts: 0 },
@@ -244,7 +247,7 @@ describe('buildCutList: blocked cabinets', () => {
 describe('buildCutList: purity', () => {
   it('does not change its inputs and returns the same list every time', () => {
     const cabinets = structuredClone(SAMPLE);
-    const rules = structuredClone({ ...DEFAULT_RULES });
+    const rules = structuredClone({ ...V1_RULES });
     Object.freeze(rules);
     cabinets.forEach((c) => Object.freeze(c));
     const options = Object.freeze({ ...MERGED, sort: Object.freeze({ ...MERGED.sort }) });
@@ -258,7 +261,7 @@ describe('buildCutList: purity', () => {
 
 describe('buildCutList: 40-cabinet stress job', () => {
   const job = loadJob('stress-40-cabinets.json');
-  const list = buildCutList(job, DEFAULT_RULES, MERGED);
+  const list = buildCutList(job, V1_RULES, MERGED);
 
   it('lists every cabinet', () => {
     expect(job).toHaveLength(40);
@@ -267,14 +270,14 @@ describe('buildCutList: 40-cabinet stress job', () => {
   });
 
   it('accounts for every piece exactly once', () => {
-    const parts = job.flatMap((c) => calculateParts(c, DEFAULT_RULES).parts);
+    const parts = job.flatMap((c) => calculateParts(c, V1_RULES).parts);
     const total = (category: string) => parts.filter((p) => p.category === category).reduce((n, p) => n + p.quantity, 0);
     expect(list.totals.panelPieces).toBe(total('panel'));
     expect(list.totals.laminatePieces).toBe(total('laminate'));
     for (const line of list.lines) {
       expect(line.refs.reduce((n, r) => n + r.quantity, 0)).toBe(line.quantity);
     }
-    const byCabinet = buildCutList(job, DEFAULT_RULES, { ...MERGED, mode: 'by-cabinet' });
+    const byCabinet = buildCutList(job, V1_RULES, { ...MERGED, mode: 'by-cabinet' });
     expect(byCabinet.sections.reduce((n, s) => n + s.pieces, 0)).toBe(total('panel') + total('laminate'));
   });
 

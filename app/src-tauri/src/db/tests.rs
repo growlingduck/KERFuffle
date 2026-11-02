@@ -19,6 +19,7 @@ fn cabinet(id: &str, label: &str) -> Cabinet {
         finished_ends: FinishedEnds::None,
         quantity: 1,
         room: None,
+        run: None,
     }
 }
 
@@ -143,10 +144,13 @@ fn version_1_fixture_matches_the_migrated_schema_and_its_data_reads_back() {
     conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
     conn.execute_batch(include_str!("fixtures/schema_v1.sql")).unwrap();
     assert_eq!(schema_version(&conn).unwrap(), 1);
-    assert_eq!(schema(&conn), schema(&db()), "fixture schema must equal a fresh v1 database");
+    let fresh_v1 = Connection::open_in_memory().unwrap();
+    fresh_v1.execute_batch(&migrations::sql_through(1)).unwrap();
+    assert_eq!(schema(&conn), schema(&fresh_v1), "fixture schema must equal a fresh v1 database");
 
-    // Bring it up to date (a no-op today; later migrations must keep this data).
+    // Bring it up to date; every later migration must keep this data.
     migrate(&mut conn, None).unwrap();
+    assert_eq!(schema(&conn), schema(&db()), "a migrated v1 database must equal a fresh one");
     let jobs = list_jobs(&conn).unwrap();
     assert_eq!(jobs.iter().map(|j| j.number).collect::<Vec<_>>(), vec![14, 11]);
     let kitchen = get_job(&conn, "fixture-job-1").unwrap();
@@ -164,6 +168,62 @@ fn version_1_fixture_matches_the_migrated_schema_and_its_data_reads_back() {
     assert_eq!(vanity.notes.as_deref(), Some("Recovered"));
     assert_eq!(vanity.cabinets[0].shelf_count, 1);
     assert_eq!(vanity.revision, 4);
+}
+
+#[test]
+fn migration_2_adds_cabinet_runs_to_a_version_1_database_with_jobs_in_it() {
+    let mut conn = Connection::open_in_memory().unwrap();
+    conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+    conn.execute_batch(include_str!("fixtures/schema_v1.sql")).unwrap();
+    let report = migrate(&mut conn, None).unwrap();
+    assert_eq!((report.from_version, report.to_version), (1, 2));
+    assert_eq!(schema_version(&conn).unwrap(), 2);
+
+    // Existing cabinets have no run; everything else reads back as it was.
+    let kitchen = get_job(&conn, "fixture-job-1").unwrap();
+    assert!(kitchen.cabinets.iter().all(|c| c.run.is_none()));
+    assert_eq!(kitchen.cabinets[0].room.as_deref(), Some("Kitchen"));
+    assert_eq!(kitchen.cabinets[1].quantity, 2);
+
+    // Job rules snapshots stay version 1, untouched: the app upgrades them when it reads them.
+    assert_eq!(kitchen.rules_version, 1);
+    assert!(kitchen.rules.get("method").is_none());
+    assert_eq!(kitchen.rules["panelThickness"], json!(48));
+
+    // The shop's v1 defaults gain the default method (base listed) for new jobs, keeping their own values.
+    let shop = current_rules(&conn).unwrap();
+    assert_eq!(shop["panelThickness"], json!(46));
+    assert_eq!(shop["method"]["id"], json!("A"));
+    assert_eq!(shop["method"]["listBase"], json!(true));
+    assert_eq!(get_shop_settings(&conn).unwrap()[RULES_SETTING], shop);
+    let fresh = new_job(&mut conn, "After the upgrade");
+    assert_eq!((fresh.rules_version, &fresh.rules), (RULES_VERSION, &shop));
+
+    // A run can be saved and read back; a blank one is stored as none.
+    let mut cabinets = kitchen.cabinets.clone();
+    cabinets[0].run = Some("Sink wall".into());
+    cabinets[1].run = Some("   ".into());
+    save_job(&mut conn, &snapshot(&kitchen, cabinets)).unwrap();
+    let saved = get_job(&conn, "fixture-job-1").unwrap();
+    assert_eq!(saved.cabinets[0].run.as_deref(), Some("Sink wall"));
+    assert_eq!(saved.cabinets[1].run, None);
+
+    // The crash-recovery journal from v1 (no run in its payload) still recovers.
+    assert_eq!(recover_pending_edits(&mut conn).unwrap().len(), 1);
+    assert_eq!(get_job(&conn, "fixture-job-2").unwrap().cabinets[0].run, None);
+}
+
+#[test]
+fn a_version_1_job_file_still_imports_and_keeps_its_snapshot() {
+    let mut conn = db();
+    let job = new_job(&mut conn, "Kitchen remodel");
+    let mut old = exported(&job);
+    old.id = "from-an-older-pc".into();
+    old.number = 40;
+    old.rules_version = 1;
+    old.rules = json!({ "panelThickness": 48, "toeKickHeight": 256 });
+    let imported = import_job(&mut conn, &old, ImportMode::New).unwrap();
+    assert_eq!((imported.rules_version, &imported.rules), (1, &old.rules));
 }
 
 // --- Jobs and cabinets -------------------------------------------------------
@@ -213,6 +273,7 @@ fn round_trips_every_field() {
             finished_ends: FinishedEnds::Left,
             quantity: 3,
             room: Some("Kitchen".into()),
+            run: Some("Sink wall".into()),
         },
         Cabinet {
             id: "c2".into(),
@@ -225,6 +286,7 @@ fn round_trips_every_field() {
             finished_ends: FinishedEnds::Both,
             quantity: 1,
             room: None,
+            run: None,
         },
         Cabinet { finished_ends: FinishedEnds::Right, ..cabinet("c3", "B2") },
         Cabinet { width: 0, quantity: 0, ..cabinet("c4", "") }, // in progress: allowed

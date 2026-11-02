@@ -1,20 +1,35 @@
-import { DEFAULT_RULES } from '@kerfuffle/engine';
-import type { ConstructionRules } from '@kerfuffle/engine';
+import { DEFAULT_METHOD, DEFAULT_RULES, upgradeVersion1Rules } from '@kerfuffle/engine';
+import type { ConstructionRules, MethodSettings } from '@kerfuffle/engine';
 import { StorageError } from './errors';
 
 /** Version of the ConstructionRules JSON stored with each job (`RULES_VERSION` in Rust). */
-export const RULES_VERSION = 1;
+export const RULES_VERSION = 2;
 
-type RuleKey = keyof ConstructionRules;
+type RuleKey = Exclude<keyof ConstructionRules, 'method'>;
+type MethodKey = keyof MethodSettings;
 
-const BOOLEAN_FIELDS: readonly RuleKey[] = ['legacyWallBackDeductsBaseAllowances', 'legacyWallLaminateDeductsBaseAllowances'];
-const ENUM_FIELDS: Partial<Record<RuleKey, readonly string[]>> = { shelfThickComparison: ['gt', 'gte'] };
-const RULE_KEYS = Object.keys(DEFAULT_RULES) as RuleKey[];
+const BOOLEAN_FIELDS: readonly string[] = ['legacyWallBackDeductsBaseAllowances', 'legacyWallLaminateDeductsBaseAllowances', 'listBase'];
+const ENUM_FIELDS: Readonly<Record<string, readonly string[]>> = {
+  shelfThickComparison: ['gt', 'gte'],
+  id: ['A', 'B'],
+  backType: ['applied', 'dado', 'rabbet'],
+  baseTop: ['full', 'stretchers'],
+  baseType: ['ladder', 'legs'],
+};
+/** Lengths that may be null ("same as the panels"). */
+const NULLABLE_FIELDS: readonly string[] = ['backThickness'];
+
+const RULE_KEYS = (Object.keys(DEFAULT_RULES) as (keyof ConstructionRules)[]).filter((k): k is RuleKey => k !== 'method');
+const METHOD_KEYS = Object.keys(DEFAULT_METHOD) as MethodKey[];
 
 /**
- * Read a stored rules snapshot. Version 1 is the current shape. When a rule field
- * is added, bump RULES_VERSION and upgrade older snapshots here with the value
- * that reproduces their old behavior, never the current shop default.
+ * Read a stored rules snapshot. When a rule field is added, bump RULES_VERSION
+ * and upgrade older snapshots here with the value that reproduces their old
+ * behavior, never the current shop default.
+ *
+ * - Version 1 had no construction method. It is upgraded to method A1 with the
+ *   base left off (`listBase: false`), which gives exactly the parts it always did.
+ * - Version 2 adds the `method` block.
  */
 export function parseRules(raw: unknown, version: number): ConstructionRules {
   if (version > RULES_VERSION) {
@@ -23,23 +38,42 @@ export function parseRules(raw: unknown, version: number): ConstructionRules {
       'This job was saved by a newer version of KERFuffle. Update KERFuffle to open it.',
     );
   }
-  if (version !== RULES_VERSION || typeof raw !== 'object' || raw === null) {
+  if (!Number.isSafeInteger(version) || version < 1 || typeof raw !== 'object' || raw === null) {
     throw corrupt(`rules version ${version}`);
   }
   const source = raw as Record<string, unknown>;
-  const rules: Record<string, unknown> = {};
-  for (const key of RULE_KEYS) {
+  const rules = readFields(source, RULE_KEYS, 'rule') as Omit<ConstructionRules, 'method'>;
+  if (version === 1) return upgradeVersion1Rules(rules);
+  if (typeof source.method !== 'object' || source.method === null) throw corrupt('rule method is missing');
+  const method = readFields(source.method as Record<string, unknown>, METHOD_KEYS, 'method setting') as unknown as MethodSettings;
+  return { ...rules, method };
+}
+
+/**
+ * Read the shop's default rules. The shop setting has no version of its own:
+ * one saved before construction methods has no `method` block, and new jobs
+ * made from it get the default method, base listed.
+ */
+export function parseShopRules(raw: unknown): ConstructionRules {
+  const hasMethod = typeof raw === 'object' && raw !== null && 'method' in raw;
+  if (hasMethod) return parseRules(raw, RULES_VERSION);
+  return { ...parseRules(raw, 1), method: { ...DEFAULT_METHOD } };
+}
+
+function readFields(source: Record<string, unknown>, keys: readonly string[], what: string): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of keys) {
     const value = source[key];
     const allowed = ENUM_FIELDS[key];
     const ok = BOOLEAN_FIELDS.includes(key)
       ? typeof value === 'boolean'
       : allowed
         ? typeof value === 'string' && allowed.includes(value)
-        : Number.isSafeInteger(value);
-    if (!ok) throw corrupt(`rule ${key} is ${JSON.stringify(value)}`);
-    rules[key] = value;
+        : Number.isSafeInteger(value) || (value === null && NULLABLE_FIELDS.includes(key));
+    if (!ok) throw corrupt(`${what} ${key} is ${JSON.stringify(value)}`);
+    out[key] = value;
   }
-  return rules as unknown as ConstructionRules;
+  return out;
 }
 
 function corrupt(detail: string): StorageError {

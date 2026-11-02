@@ -1,6 +1,8 @@
-import { PART_ORDER, calculateParts } from './calculate';
-import type { CabinetSpec, ConstructionRules, Part, PartCategory, PartRole, ValidationIssue } from './types';
-import type { Ticks } from './units';
+import { calculateParts, listedJobParts } from './calculate';
+import type { JobIssue, ListedCabinet } from './methods';
+import { roleRank } from './parts';
+import type { CabinetSpec, ConstructionRules, Part, PartCategory, PartFeature, PartRole, ValidationIssue } from './types';
+import { formatDimension, type Ticks } from './units';
 import { hasErrors } from './validate';
 
 /**
@@ -55,9 +57,9 @@ export interface CutListRef {
 }
 
 export interface CutListLine {
-  /** Identity of the cut: category, length, width and thickness. */
+  /** Identity of the cut: category, length, width, thickness and features. */
   key: string;
-  /** P1…, L1…: stable across sorting, modes and the fronts switch. */
+  /** P1…, S1… (solid stock), L1…: stable across sorting, modes and the fronts switch. */
   mark: string;
   category: PartCategory;
   /** Distinct part names in part order, e.g. ["Bottom", "Top"]. */
@@ -75,13 +77,17 @@ export interface CutListLine {
   /** Every part on the line is optional (a Front reference size). */
   optional: boolean;
   grain: Grain;
+  /** Cutouts on every piece of the line (method B's kick notch). Absent when none. */
+  features?: PartFeature[];
+  /** The features in words, for the line: "notched 4 × 3". Absent when none. */
+  note?: string;
 }
 
 export interface CutListGroup {
-  /** "panel:48" (3/4″) or "laminate". */
+  /** "panel:48" (3/4″), "lumber:48", or "laminate". */
   id: string;
   category: PartCategory;
-  /** Panel thickness; null for laminate. */
+  /** Panel or lumber thickness; null for laminate. */
   thickness: Ticks | null;
   lines: CutListLine[];
   pieces: number;
@@ -91,7 +97,19 @@ export interface CutListSection {
   /** Position in the job's cabinet list (labels can repeat). */
   index: number;
   cabinet: CabinetSpec;
-  /** One line per part, in part order, carrying the job-wide marks. */
+  /**
+   * One line per part, in part order, carrying the job-wide marks. A base
+   * cabinet's own platform (method A1, no run) is listed here too.
+   */
+  lines: CutListLine[];
+  pieces: number;
+}
+
+/** By-cabinet mode: the parts a run of cabinets shares. */
+export interface CutListRunSection {
+  run: string;
+  /** "Run: Sink wall", as on the parts' refs. */
+  ref: string;
   lines: CutListLine[];
   pieces: number;
 }
@@ -106,6 +124,8 @@ export interface CutListTotals {
   /** Boxes to build: the quantities of the listed cabinets added up. */
   boxes: number;
   panelPieces: number;
+  /** Solid-stock pieces; present only when there are some. */
+  lumberPieces?: number;
   laminatePieces: number;
   /** Merged lines. */
   distinctCuts: number;
@@ -117,19 +137,40 @@ export interface CutList {
   groups: CutListGroup[];
   /** By-cabinet mode: one section per listed cabinet. Empty in merged mode. */
   sections: CutListSection[];
+  /** By-cabinet mode: one section per run with shared parts, after the cabinets. Empty in merged mode. */
+  runSections: CutListRunSection[];
   /** Every merged line, in mark order. Filled in both modes. */
   lines: CutListLine[];
   /** Cabinets left out because they have validation errors. */
   blocked: BlockedCabinet[];
+  /** Problems with runs and platforms (method A1). An error leaves that base off. */
+  jobIssues: JobIssue[];
   totals: CutListTotals;
 }
 
-function cutKey(part: Pick<Part, 'category' | 'length' | 'width' | 'thickness'>): string {
-  return `${part.category}|${part.thickness ?? '-'}|${part.length}|${part.width}`;
+function featuresKey(features: readonly PartFeature[] | undefined): string {
+  if (!features || features.length === 0) return '';
+  return features
+    .map((f) => `${f.kind}:${f.corner}:${f.length}x${f.width}`)
+    .sort()
+    .join(',');
 }
 
-const ROLE_RANK: ReadonlyMap<PartRole, number> = new Map(PART_ORDER.map((role, i) => [role, i]));
-const CATEGORY_RANK: Readonly<Record<PartCategory, number>> = { panel: 0, laminate: 1 };
+/** Parts with different features are different cuts, so they never merge. */
+function cutKey(part: Pick<Part, 'category' | 'length' | 'width' | 'thickness' | 'features'>): string {
+  const base = `${part.category}|${part.thickness ?? '-'}|${part.length}|${part.width}`;
+  const features = featuresKey(part.features);
+  return features === '' ? base : `${base}|${features}`;
+}
+
+/** "notched 4 × 3": length × width of each cutout. */
+export function featureNote(features: readonly PartFeature[]): string {
+  const show = (value: Ticks) => formatDimension(value, { inchMark: false }).text;
+  return features.map((f) => `notched ${show(f.length)} × ${show(f.width)}`).join(', ');
+}
+
+const CATEGORY_RANK: Readonly<Record<PartCategory, number>> = { panel: 0, lumber: 1, laminate: 2 };
+const MARK_PREFIX: Readonly<Record<PartCategory, string>> = { panel: 'P', lumber: 'S', laminate: 'L' };
 
 /** Canonical order, which assigns marks: category, thickness, length desc, width desc. */
 function canonical(a: CutListLine, b: CutListLine): number {
@@ -167,6 +208,7 @@ function merge(parts: readonly Part[]): CutListLine[] {
           thickness: part.thickness,
           quantity: 0,
           refs: [],
+          ...(part.features && part.features.length > 0 ? { features: part.features, note: featureNote(part.features) } : {}),
         },
         grains: new Set(),
         nameRank: new Map(),
@@ -178,7 +220,7 @@ function merge(parts: readonly Part[]): CutListLine[] {
     line.quantity += part.quantity;
     if (!line.roles.includes(part.role)) line.roles.push(part.role);
     if (!line.names.includes(part.name)) line.names.push(part.name);
-    const rank = ROLE_RANK.get(part.role) ?? 0;
+    const rank = roleRank(part.role);
     acc.nameRank.set(part.name, Math.min(rank, acc.nameRank.get(part.name) ?? rank));
     const ref = line.refs.find((r) => r.cabinetId === part.cabinetId);
     if (ref) ref.quantity += part.quantity;
@@ -190,7 +232,7 @@ function merge(parts: readonly Part[]): CutListLine[] {
   return [...byKey.values()].map(({ line, grains, nameRank, optional }) => {
     // Names follow part order (Bottom before Top), not the order cabinets met them.
     const names = [...line.names].sort((a, b) => (nameRank.get(a) ?? 0) - (nameRank.get(b) ?? 0));
-    const roles = [...line.roles].sort((a, b) => (ROLE_RANK.get(a) ?? 0) - (ROLE_RANK.get(b) ?? 0));
+    const roles = [...line.roles].sort((a, b) => roleRank(a) - roleRank(b));
     const grain: Grain = grains.size === 1 ? [...grains][0]! : 'mixed';
     return { ...line, names, roles, name: names.join(' / '), mark: '', grain, optional };
   });
@@ -242,12 +284,18 @@ export function buildCutList(
     else listed.push({ index, cabinet, parts: result.parts });
   });
 
-  const allParts = listed.flatMap((c) => c.parts);
+  // Parts the cabinets share (a run's ladder base) come after the cabinets' own.
+  const shared = listedJobParts(
+    listed.map(({ index, cabinet }): ListedCabinet => ({ index, cabinet })),
+    rules,
+  );
+
+  const allParts = [...listed.flatMap((c) => c.parts), ...shared.parts.map((p) => p.part)];
   const marks = new Map<string, string>();
-  const counters: Record<PartCategory, number> = { panel: 0, laminate: 0 };
+  const counters: Record<PartCategory, number> = { panel: 0, lumber: 0, laminate: 0 };
   for (const line of merge(allParts).sort(canonical)) {
     counters[line.category] += 1;
-    marks.set(line.key, `${line.category === 'panel' ? 'P' : 'L'}${counters[line.category]}`);
+    marks.set(line.key, `${MARK_PREFIX[line.category]}${counters[line.category]}`);
   }
   const withMark = (line: CutListLine): CutListLine => ({ ...line, mark: marks.get(line.key) ?? '' });
 
@@ -256,16 +304,19 @@ export function buildCutList(
 
   const groups: CutListGroup[] = [];
   const sections: CutListSection[] = [];
+  const runSections: CutListRunSection[] = [];
   if (options.mode === 'merged') {
-    const thicknesses = [...new Set(lines.filter((l) => l.category === 'panel').map((l) => l.thickness ?? 0))].sort(
-      (a, b) => a - b,
-    );
-    for (const thickness of thicknesses) {
-      const groupLines = sortLines(
-        lines.filter((l) => l.category === 'panel' && l.thickness === thickness),
-        options.sort,
+    for (const category of ['panel', 'lumber'] as const) {
+      const thicknesses = [...new Set(lines.filter((l) => l.category === category).map((l) => l.thickness ?? 0))].sort(
+        (a, b) => a - b,
       );
-      groups.push({ id: `panel:${thickness}`, category: 'panel', thickness: thickness as Ticks, lines: groupLines, pieces: pieces(groupLines) });
+      for (const thickness of thicknesses) {
+        const groupLines = sortLines(
+          lines.filter((l) => l.category === category && l.thickness === thickness),
+          options.sort,
+        );
+        groups.push({ id: `${category}:${thickness}`, category, thickness: thickness as Ticks, lines: groupLines, pieces: pieces(groupLines) });
+      }
     }
     const laminate = sortLines(
       lines.filter((l) => l.category === 'laminate'),
@@ -275,26 +326,39 @@ export function buildCutList(
       groups.push({ id: 'laminate', category: 'laminate', thickness: null, lines: laminate, pieces: pieces(laminate) });
     }
   } else {
+    // Each part keeps its own line (Left and Right side stay separate here).
+    const toLines = (parts: readonly Part[]) => parts.filter(keep).map((part) => withMark(merge([part])[0]!));
     for (const { index, cabinet, parts } of listed) {
-      // Each part keeps its own line (Left and Right side stay separate here).
-      const sectionLines = parts
-        .filter(keep)
-        .map((part) => withMark(merge([part])[0]!));
+      const own = shared.parts.filter((p) => p.cabinetIndex === index).map((p) => p.part);
+      const sectionLines = toLines([...parts, ...own]);
       sections.push({ index, cabinet, lines: sectionLines, pieces: pieces(sectionLines) });
+    }
+    const byRun = new Map<string, Part[]>();
+    for (const { part, cabinetIndex } of shared.parts) {
+      if (cabinetIndex !== null || part.run === undefined) continue;
+      byRun.set(part.run, [...(byRun.get(part.run) ?? []), part]);
+    }
+    for (const [run, parts] of byRun) {
+      const sectionLines = toLines(parts);
+      runSections.push({ run, ref: parts[0]!.cabinetId, lines: sectionLines, pieces: pieces(sectionLines) });
     }
   }
 
   const panelPieces = pieces(lines.filter((l) => l.category === 'panel'));
+  const lumberPieces = pieces(lines.filter((l) => l.category === 'lumber'));
   const laminatePieces = pieces(lines.filter((l) => l.category === 'laminate'));
   return {
     options: { ...options, sort: { ...options.sort } },
     groups,
     sections,
+    runSections,
     lines,
     blocked,
+    jobIssues: shared.issues,
     totals: {
       boxes: listed.reduce((sum, c) => sum + c.cabinet.quantity, 0),
       panelPieces,
+      ...(lumberPieces > 0 ? { lumberPieces } : {}),
       laminatePieces,
       distinctCuts: lines.length,
     },

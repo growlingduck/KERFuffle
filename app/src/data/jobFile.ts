@@ -98,6 +98,7 @@ export async function writeJobFile(job: JobRecord, header: JobFileHeader): Promi
       finishedEnds: c.finishedEnds,
       quantity: c.quantity,
       room: c.room,
+      ...(c.run ? { run: c.run } : {}),
     })),
     rules: job.rules,
     rulesVersion: job.rulesVersion,
@@ -130,6 +131,11 @@ function text(source: Record<string, unknown>, key: string, where: string): stri
   const value = source[key];
   if (typeof value !== 'string') throw new Refused(`${where} has no ${key}`);
   return value;
+}
+
+/** Older files have no run; a cabinet without one leaves the field out. */
+function withRun(run: string | null): { run?: string } {
+  return run === null || run.trim() === '' ? {} : { run };
 }
 
 function optionalText(source: Record<string, unknown>, key: string, where: string): string | null {
@@ -170,6 +176,7 @@ function readCabinet(raw: unknown, index: number): CabinetRecord {
     finishedEnds: oneOf(raw, 'finishedEnds', ['none', 'left', 'right', 'both'] as const, where),
     quantity: whole(raw, 'quantity', where, 0, MAX_QUANTITY),
     room: optionalText(raw, 'room', where),
+    ...withRun(optionalText(raw, 'run', where)),
   };
 }
 

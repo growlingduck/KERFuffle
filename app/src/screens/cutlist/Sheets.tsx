@@ -80,7 +80,7 @@ function sheetGroups(data: SheetData): SheetGroup[] {
   if (list.options.mode === 'merged') {
     return list.groups.map((g) => ({ id: g.id, kind: 'merged', title: groupTitle(g, rules), pieces: g.pieces, lines: g.lines }));
   }
-  return list.sections.map((s) => {
+  const cabinets = list.sections.map((s): SheetGroup => {
     const c = s.cabinet;
     const size = `${displayInches(c.width)} W × ${displayInches(c.height)} H × ${displayInches(c.depth)} D`;
     return {
@@ -94,6 +94,17 @@ function sheetGroups(data: SheetData): SheetGroup[] {
       cabinet: c.id,
     };
   });
+  // Parts a run shares (its ladder base) follow the cabinets, under the run's name.
+  const runs = list.runSections.map((s): SheetGroup => ({
+    id: `run:${s.run}`,
+    kind: 'cabinet',
+    title: s.ref,
+    sub: 'Shared base',
+    pieces: s.pieces,
+    lines: s.lines,
+    cabinet: s.ref,
+  }));
+  return [...cabinets, ...runs];
 }
 
 const ZONES = ['A', 'B', 'C', 'D'];

@@ -24,6 +24,11 @@ export interface CabinetRecord {
   quantity: number;
   /** Optional grouping by room or area; not in the UI yet. */
   room: string | null;
+  /**
+   * The run of base cabinets this one stands in, e.g. "Sink wall" (method A1
+   * shares one ladder base per run). Separate from `room`. Missing or null: none.
+   */
+  run?: string | null;
 }
 
 export interface JobRecord {

@@ -1,4 +1,4 @@
-import { DEFAULT_RULES, inches } from '@kerfuffle/engine';
+import { DEFAULT_RULES, inches, upgradeVersion1Rules } from '@kerfuffle/engine';
 import { setStorageClient } from '../src/data/client';
 import { createMemoryClient } from '../src/data/memoryClient';
 import type { MemoryStorageClient } from '../src/data/memoryClient';
@@ -29,7 +29,8 @@ export function testJob(overrides: Partial<JobRecord> = {}): JobRecord {
     customer: '[Customer name]',
     notes: null,
     status: 'draft',
-    rules: { ...DEFAULT_RULES },
+    // A job saved before construction methods, as the app reads it now.
+    rules: upgradeVersion1Rules(DEFAULT_RULES),
     rulesVersion: 1,
     createdAt: '2026-10-30T09:00:00.000Z',
     updatedAt: '2026-10-31T09:41:00.000Z',

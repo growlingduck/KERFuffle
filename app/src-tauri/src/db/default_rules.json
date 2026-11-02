@@ -10,5 +10,24 @@
   "shelfSetback": 8,
   "laminateOversizePerEdge": 64,
   "legacyWallBackDeductsBaseAllowances": false,
-  "legacyWallLaminateDeductsBaseAllowances": false
+  "legacyWallLaminateDeductsBaseAllowances": false,
+  "method": {
+    "id": "A",
+    "backType": "applied",
+    "backThickness": null,
+    "backGrooveDepth": 16,
+    "backDadoInset": 48,
+    "nailerWidth": 256,
+    "baseTop": "full",
+    "stretcherWidth": 256,
+    "kickDepth": 192,
+    "baseType": "ladder",
+    "sleeperSpacingMax": 1536,
+    "platformLengthMax": 6144,
+    "kickSkinThickness": 16,
+    "legsPerBox": 4,
+    "legsPerWideBox": 6,
+    "legWidthThreshold": 2304,
+    "listBase": true
+  }
 }

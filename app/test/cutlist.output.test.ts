@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildCutList, DEFAULT_RULES, inches, parseDimension } from '@kerfuffle/engine';
+import { buildCutList, DEFAULT_RULES, inches, parseDimension, upgradeVersion1Rules } from '@kerfuffle/engine';
 import type { CabinetSpec, CutListOptions, Ticks } from '@kerfuffle/engine';
 import { describe, expect, it } from 'vitest';
 import { BOM, CSV_COLUMNS, cutListCsv, decimalInches } from '../src/cutlist/csv';
@@ -21,6 +21,8 @@ function loadJob(file: string): CabinetSpec[] {
 
 const MERGED: CutListOptions = { mode: 'merged', includeFronts: true, sort: { key: 'length', dir: 'desc' } };
 const SAMPLE = loadJob('sample-job.json');
+/** A job saved before construction methods (rules version 1): method A1, base left off. */
+const V1_RULES = upgradeVersion1Rules(DEFAULT_RULES);
 const META = { jobName: 'Kitchen remodel', jobNumber: 'J-0014', date: '2026-10-31', revision: 3 };
 
 /** Minimal CSV reader for the tests (quoted fields, doubled quotes). */
@@ -53,7 +55,7 @@ function parseCsv(text: string): string[][] {
 }
 
 describe('CSV export', () => {
-  const csv = cutListCsv(buildCutList(SAMPLE, DEFAULT_RULES, MERGED), META);
+  const csv = cutListCsv(buildCutList(SAMPLE, V1_RULES, MERGED), META);
   const rows = parseCsv(csv.slice(1));
 
   it('starts with a BOM and uses CRLF line ends', () => {
@@ -89,8 +91,38 @@ describe('CSV export', () => {
     expect(back?.[8]).toBe('0.71875');
   });
 
+  it('lists a run’s shared base after the cabinets, under the run, and a lone cabinet’s base with it', () => {
+    const job = [
+      { ...SAMPLE[0]!, run: 'Sink wall' },
+      { ...SAMPLE[1]!, run: 'Sink wall' },
+      SAMPLE[2]!,
+    ];
+    const merged = parseCsv(cutListCsv(buildCutList(job, DEFAULT_RULES, MERGED), META).slice(1));
+    const skins = merged.filter((r) => r[1] === 'Kick skin');
+    expect(skins.map((r) => [r[3], r[5], r[9], r[10]])).toEqual([
+      ['72″', '1/4″', '1', 'Run: Sink wall'],
+      ['18″', '1/4″', '2', 'B3×2'],
+    ]);
+    const byCab = parseCsv(cutListCsv(buildCutList(job, DEFAULT_RULES, { ...MERGED, mode: 'by-cabinet' }), META).slice(1));
+    expect(byCab.slice(-4).map((r) => [r[1], r[10]])).toEqual([
+      ['Base rail, front', 'Run: Sink wall'],
+      ['Base rail, back', 'Run: Sink wall'],
+      ['Base sleeper', 'Run: Sink wall'],
+      ['Kick skin', 'Run: Sink wall'],
+    ]);
+    expect(byCab.filter((r) => r[10] === 'B3').map((r) => r[1])).toContain('Kick skin');
+  });
+
+  it('notes the toe-kick notch on the line (method B)', () => {
+    const rules = { ...DEFAULT_RULES, method: { ...DEFAULT_RULES.method, id: 'B' as const } };
+    const out = parseCsv(cutListCsv(buildCutList(SAMPLE.slice(0, 1), rules, MERGED), META).slice(1));
+    expect(out.map((r) => r[1])).toContain('Left side / Right side (notched 4 × 3)');
+    // The finished-end laminate (group heading says "Laminate") carries the same notch.
+    expect(out.map((r) => r[1])).toContain('Left side (notched 4 × 3)');
+  });
+
   it('writes by-cabinet rows with the cabinet they belong to', () => {
-    const byCab = parseCsv(cutListCsv(buildCutList(SAMPLE, DEFAULT_RULES, { ...MERGED, mode: 'by-cabinet' }), META).slice(1));
+    const byCab = parseCsv(cutListCsv(buildCutList(SAMPLE, V1_RULES, { ...MERGED, mode: 'by-cabinet' }), META).slice(1));
     expect(byCab[0]?.[0]).toContain('Listed by cabinet');
     expect(byCab.slice(2, 4)).toEqual([
       ['P3', 'Back', 'panel', '30 1/2″', '30″', '3/4″', '30.5', '30', '0.75', '1', 'B1'],
@@ -102,7 +134,7 @@ describe('CSV export', () => {
 
   it('quotes commas and quotes, and keeps labels from running as formulas', () => {
     const odd = [{ ...SAMPLE[0]!, id: '=HYPERLINK("x")' }, { ...SAMPLE[1]!, id: 'B,2' }];
-    const text = cutListCsv(buildCutList(odd, DEFAULT_RULES, { ...MERGED, mode: 'by-cabinet' }), { ...META, jobName: 'Smith, "big" job' });
+    const text = cutListCsv(buildCutList(odd, V1_RULES, { ...MERGED, mode: 'by-cabinet' }), { ...META, jobName: 'Smith, "big" job' });
     const out = parseCsv(text.slice(1));
     expect(out[0]?.[0]).toContain('Smith, "big" job');
     expect(out[2]?.[10]).toBe('\'=HYPERLINK("x")');
@@ -111,7 +143,7 @@ describe('CSV export', () => {
 
   it('says which cabinets were left out', () => {
     const broken = SAMPLE.map((c) => (c.id === 'B3' ? { ...c, width: inches(1) } : c));
-    expect(cutListCsv(buildCutList(broken, DEFAULT_RULES, MERGED), META)).toContain('Excludes B3: needs a fix');
+    expect(cutListCsv(buildCutList(broken, V1_RULES, MERGED), META)).toContain('Excludes B3: needs a fix');
   });
 });
 
@@ -245,7 +277,7 @@ describe('paginate', () => {
     // Heights as measured on screen: 31 px rows, 63 px heading + column headers,
     // the chip row wrapping to three lines, and a Letter sheet's body.
     for (const mode of ['merged', 'by-cabinet'] as const) {
-      const list = buildCutList(job, DEFAULT_RULES, { ...MERGED, mode });
+      const list = buildCutList(job, V1_RULES, { ...MERGED, mode });
       const groups: MeasuredGroup[] =
         mode === 'merged'
           ? list.groups.map((g) => ({ id: g.id, headHeight: 63, rows: g.lines.map((l) => ({ key: l.key, height: l.refs.length > 6 ? 48 : 31 })) }))

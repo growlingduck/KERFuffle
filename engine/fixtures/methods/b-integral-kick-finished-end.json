@@ -1,0 +1,26 @@
+{
+  "name": "B integral kick: base 30 W x 36 H x 24 D, 1 shelf, left end finished",
+  "status": "unconfirmed",
+  "notes": "Box height 36 - 4 - 1 1/2 = 30 1/2, as in method A: back, bottom, top, front and shelf are unchanged. The sides run to the floor: 36 - 1 1/2 countertop = 34 1/2, notched 4 (kick height) x 3 (kick depth) at the front bottom. The kick board fits between the sides: 30 - 1 1/2 = 28 1/2 x 4. The finished-end laminate is full height, 34 1/2 + 2 = 36 1/2 x 26, with the same 4 x 3 notch. The front laminate covers the box only: 32 1/2 x 32.",
+  "rules": { "preset": "DEFAULT_RULES", "method": { "id": "B" } },
+  "cabinets": [
+    { "id": "B1", "type": "base", "width": "30", "height": "36", "depth": "24", "shelfCount": 1, "finishedEnds": "left", "quantity": 1 }
+  ],
+  "expected": {
+    "cabinetParts": {
+      "B1": [
+        { "role": "back",               "category": "panel",    "name": "Back",                "length": "30 1/2", "width": "30",     "thickness": "3/4", "quantity": 1 },
+        { "role": "bottom",             "category": "panel",    "name": "Bottom",              "length": "28 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "side-left",          "category": "panel",    "name": "Left side",           "length": "34 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1, "features": [{ "kind": "notch", "corner": "start-front", "length": "4", "width": "3" }] },
+        { "role": "side-right",         "category": "panel",    "name": "Right side",          "length": "34 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1, "features": [{ "kind": "notch", "corner": "start-front", "length": "4", "width": "3" }] },
+        { "role": "top",                "category": "panel",    "name": "Top",                 "length": "28 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "kick-board",         "category": "panel",    "name": "Kick board",          "length": "28 1/2", "width": "4",      "thickness": "3/4", "quantity": 1 },
+        { "role": "front",              "category": "panel",    "name": "Front (door/laminate size)", "length": "30 1/2", "width": "30", "thickness": "3/4", "quantity": 1, "optional": true },
+        { "role": "shelf",              "category": "panel",    "name": "Shelf",               "length": "28 1/4", "width": "23 1/8", "thickness": "3/4", "quantity": 1 },
+        { "role": "laminate-side-left", "category": "laminate", "name": "Laminate, left side", "length": "36 1/2", "width": "26",     "thickness": null,  "quantity": 1, "features": [{ "kind": "notch", "corner": "start-front", "length": "4", "width": "3" }] },
+        { "role": "laminate-front",     "category": "laminate", "name": "Laminate, front",     "length": "32 1/2", "width": "32",     "thickness": null,  "quantity": 1 }
+      ]
+    },
+    "jobParts": []
+  }
+}

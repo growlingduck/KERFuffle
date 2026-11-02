@@ -11,8 +11,10 @@ pub const MAX_TICKS: i64 = 9_007_199_254_740_991;
 pub const MAX_SHELVES: i64 = 1_000;
 pub const MAX_QUANTITY: i64 = 100_000;
 
-/// Version of the `ConstructionRules` JSON shape stored with each job.
-pub const RULES_VERSION: i64 = 1;
+/// Version of the `ConstructionRules` JSON shape stored with each job. Version 2
+/// added the construction `method` block; the app upgrades version 1 snapshots
+/// when it reads them (app/src/data/rules.ts), so they are stored unchanged.
+pub const RULES_VERSION: i64 = 2;
 
 macro_rules! text_enum {
     ($name:ident { $($variant:ident => $text:literal),+ $(,)? }) => {
@@ -74,6 +76,9 @@ pub struct Cabinet {
     pub quantity: i64,
     #[serde(default)]
     pub room: Option<String>,
+    /// The run of base cabinets this one stands in (schema version 2). Separate from `room`.
+    #[serde(default)]
+    pub run: Option<String>,
 }
 
 impl Cabinet {

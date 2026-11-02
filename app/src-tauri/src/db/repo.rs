@@ -24,7 +24,7 @@ pub const SHOP_SETTING_KEYS: &[&str] = &[RULES_SETTING, "display", "backups"];
 const JOB_COLUMNS: &str = "id, number, name, customer, notes, status, rules_json, rules_version, \
                            created_at, updated_at, revision";
 const CABINET_COLUMNS: &str =
-    "id, label, type, width, height, depth, shelf_count, finished_ends, quantity, room";
+    "id, label, type, width, height, depth, shelf_count, finished_ends, quantity, room, run";
 
 // ---------------------------------------------------------------------------
 // Reading
@@ -71,6 +71,7 @@ struct CabinetRow {
     finished_ends: String,
     quantity: i64,
     room: Option<String>,
+    run: Option<String>,
 }
 
 fn read_cabinet_row(row: &Row<'_>) -> rusqlite::Result<CabinetRow> {
@@ -85,6 +86,7 @@ fn read_cabinet_row(row: &Row<'_>) -> rusqlite::Result<CabinetRow> {
         finished_ends: row.get(7)?,
         quantity: row.get(8)?,
         room: row.get(9)?,
+        run: row.get(10)?,
     })
 }
 
@@ -101,6 +103,7 @@ impl CabinetRow {
             finished_ends: FinishedEnds::parse(&self.finished_ends)?,
             quantity: self.quantity,
             room: self.room,
+            run: self.run,
         })
     }
 }
@@ -297,13 +300,13 @@ pub(crate) fn write_cabinet(
     }
     conn.execute(
         "INSERT INTO cabinets (id, job_id, position, label, type, width, height, depth,
-                               shelf_count, finished_ends, quantity, room)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+                               shelf_count, finished_ends, quantity, room, run)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
          ON CONFLICT (id) DO UPDATE SET
            position = excluded.position, label = excluded.label, type = excluded.type,
            width = excluded.width, height = excluded.height, depth = excluded.depth,
            shelf_count = excluded.shelf_count, finished_ends = excluded.finished_ends,
-           quantity = excluded.quantity, room = excluded.room",
+           quantity = excluded.quantity, room = excluded.room, run = excluded.run",
         params![
             cabinet.id,
             job_id,
@@ -317,6 +320,7 @@ pub(crate) fn write_cabinet(
             cabinet.finished_ends.as_str(),
             cabinet.quantity,
             optional_text(&cabinet.room),
+            optional_text(&cabinet.run),
         ],
     )?;
     Ok(())
@@ -336,13 +340,27 @@ fn renumber(conn: &Connection, job_id: &str, order: &[String]) -> DbResult<()> {
 // ---------------------------------------------------------------------------
 
 /// The rules a new job snapshots: the shop's saved defaults, or the built-in ones.
+/// Always in the current shape (`RULES_VERSION`), since the job is stamped with it.
 pub fn current_rules(conn: &Connection) -> DbResult<serde_json::Value> {
     let stored: Option<String> = conn
         .query_row("SELECT value_json FROM shop_settings WHERE key = ?1", [RULES_SETTING], |row| {
             row.get(0)
         })
         .optional()?;
-    Ok(serde_json::from_str(stored.as_deref().unwrap_or(DEFAULT_RULES_JSON))?)
+    upgrade_shop_rules(serde_json::from_str(stored.as_deref().unwrap_or(DEFAULT_RULES_JSON))?)
+}
+
+/// Shop defaults saved before construction methods (rules version 1) have no
+/// `method` block. They gain the built-in one, so new jobs made from them get
+/// the default method with the base listed. Jobs keep their own snapshots.
+pub fn upgrade_shop_rules(mut rules: serde_json::Value) -> DbResult<serde_json::Value> {
+    if let Some(object) = rules.as_object_mut() {
+        if !object.contains_key("method") {
+            let defaults: serde_json::Value = serde_json::from_str(DEFAULT_RULES_JSON)?;
+            object.insert("method".into(), defaults["method"].clone());
+        }
+    }
+    Ok(rules)
 }
 
 /// Create an empty draft job that snapshots the current shop rules.
@@ -559,7 +577,9 @@ pub fn get_shop_settings(conn: &Connection) -> DbResult<BTreeMap<String, serde_j
     let rows = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?;
     for row in rows {
         let (key, json) = row?;
-        settings.insert(key, serde_json::from_str(&json)?);
+        let value = serde_json::from_str(&json)?;
+        let value = if key == RULES_SETTING { upgrade_shop_rules(value)? } else { value };
+        settings.insert(key, value);
     }
     if !settings.contains_key(RULES_SETTING) {
         settings.insert(RULES_SETTING.to_string(), serde_json::from_str(DEFAULT_RULES_JSON)?);

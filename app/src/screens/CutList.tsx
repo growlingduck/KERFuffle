@@ -245,7 +245,7 @@ function CutListView({ job }: { job: JobRecord }) {
         </div>
       </div>
 
-      {(list.blocked.length > 0 || dupes.length > 0 || job.cabinets.length === 0) && (
+      {(list.blocked.length > 0 || list.jobIssues.length > 0 || dupes.length > 0 || job.cabinets.length === 0) && (
         <div className={styles.notices}>
           {list.blocked.length > 0 && (
             <p className={styles.notice} role="alert">
@@ -275,6 +275,13 @@ function CutListView({ job }: { job: JobRecord }) {
               More than one cabinet uses the ID {dupes.join(', ')}. Rename one in the workspace so the cut list can tell them apart.
             </p>
           )}
+          {list.jobIssues.map(({ ref, issue }) => (
+            <p key={`${ref}:${issue.field}`} className={cx(styles.notice, styles.noticeWarn)} role="note">
+              <span aria-hidden="true">△ </span>
+              <span className="visually-hidden">{issue.severity === 'error' ? 'Problem: ' : 'Warning: '}</span>
+              {ref}: {issue.message}
+            </p>
+          ))}
           {job.cabinets.length === 0 && (
             <p className={cx(styles.notice, styles.noticeWarn)} role="note">
               This job has no cabinets yet. Add them in the workspace and they’ll appear here.

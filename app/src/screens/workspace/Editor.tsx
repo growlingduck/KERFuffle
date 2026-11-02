@@ -240,8 +240,12 @@ function EndsTiles({ cabinet }: { cabinet: CabinetRecord }) {
   );
 }
 
-type RuleKey = keyof ConstructionRules;
-const RULE_KEYS = Object.keys(DEFAULT_RULES) as RuleKey[];
+/**
+ * The rules this panel shows. The construction method is not among them yet
+ * (prompt 10 adds it), so it is left out of the comparison too.
+ */
+type RuleKey = Exclude<keyof ConstructionRules, 'method'>;
+const RULE_KEYS = (Object.keys(DEFAULT_RULES) as (keyof ConstructionRules)[]).filter((k): k is RuleKey => k !== 'method');
 
 /** The shop defaults, to say whether this job's copy still matches them. */
 function useShopRules(): ConstructionRules | null {

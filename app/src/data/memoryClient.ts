@@ -62,7 +62,11 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
     return found;
   };
   const nextNumber = () => Math.max(0, ...[...jobs.values()].map((j) => j.number)) + 1;
-  const currentRules = () => copy((settings.get(RULES_SETTING) as ConstructionRules | undefined) ?? BUILTIN_DEFAULT_RULES);
+  // Like the Rust repo: shop defaults saved before construction methods gain the default method.
+  const currentRules = (): ConstructionRules => {
+    const stored = copy((settings.get(RULES_SETTING) as ConstructionRules | undefined) ?? BUILTIN_DEFAULT_RULES);
+    return 'method' in stored ? stored : { ...(stored as ConstructionRules), method: copy(BUILTIN_DEFAULT_RULES.method) };
+  };
   const blankToNull = (text: string | null | undefined) => (text == null || text.trim() === '' ? null : text);
   const touch = (record: JobRecord): Saved => {
     record.revision += 1;
@@ -113,7 +117,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
     record.customer = blankToNull(s.customer);
     record.notes = blankToNull(s.notes);
     record.status = s.status;
-    record.cabinets = copy(s.cabinets).map((c) => ({ ...c, room: blankToNull(c.room) }));
+    record.cabinets = copy(s.cabinets).map((c) => ({ ...c, room: blankToNull(c.room), ...(c.run !== undefined ? { run: blankToNull(c.run) } : {}) }));
     pending.delete(s.id);
     return touch(record);
   }
@@ -303,7 +307,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
             status: sample.status,
             rules: copy(rules),
             rulesVersion: RULES_VERSION,
-            cabinets: sample.cabinets.map((c) => ({ ...c, id: crypto.randomUUID(), room: null })),
+            cabinets: sample.cabinets.map((c) => ({ ...c, id: crypto.randomUUID(), room: null, run: null })),
           },
           taken ? nextNumber() : sample.number,
         );

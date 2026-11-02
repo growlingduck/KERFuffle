@@ -14,6 +14,12 @@ one until the checklist passes.
 | 06 | [Cut list and output](06-cut-list-and-output.md) | `buildCutList`, print, PDF, CSV | |
 | 07 | [Settings, backups, transfer](07-settings-backup-transfer.md) | Shop defaults, backups, `.kerfjob` | |
 | 08 | [Windows installer](08-windows-installer.md) | Signed installer, updates, release docs | |
+| 09 | [Construction methods: engine](09-construction-methods-engine.md) | Methods A/B, rules v2, runs, part features | |
+| 10 | [Construction methods: UI](10-construction-methods-ui.md) | New job choice, Settings, runs, drawings | |
+| 11 | [Materials and estimate](11-materials-and-estimate.md) | Catalog, slots, purchase estimate | |
+| 12 | [Sheet optimizer: engine](12-sheet-optimizer-engine.md) | `engine/src/nesting/`, saw profiles, sensitivity | |
+| 13 | [Layouts: screen and print](13-layouts-screen-and-print.md) | Layouts tab, print, saved layouts | |
+| 14 | [DXF export](14-dxf-export.md) | DXF per sheet pattern | |
 
 Prompts 02–07 share [`docs/interaction-design.md`](../docs/interaction-design.md)
 and the prototypes in [`docs/wireframes/`](../docs/wireframes/).

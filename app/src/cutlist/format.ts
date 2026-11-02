@@ -10,16 +10,18 @@ import { displayInches, INCH } from '../lib/dimensions';
 /**
  * The name on a cut-list row. Laminate rows drop "Laminate, " (the group
  * heading says it) and the Front drops "(door/laminate size)" (general note 4
- * says it), so rows stay on one line.
+ * says it), so rows stay on one line. A cutout follows in brackets:
+ * "Left side / Right side (notched 4 × 3)".
  */
-export function lineName(line: Pick<CutListLine, 'category' | 'names'>): string {
+export function lineName(line: Pick<CutListLine, 'category' | 'names' | 'note'>): string {
   const short = (name: string) =>
     name === PART_NAMES.front
       ? 'Front'
       : line.category === 'laminate'
         ? name.replace(/^Laminate, /, '').replace(/^./, (c) => c.toUpperCase())
         : name;
-  return line.names.map(short).join(' / ');
+  const names = line.names.map(short).join(' / ');
+  return line.note ? `${names} (${line.note})` : names;
 }
 
 /** "B1", "B3×2". */
@@ -60,6 +62,7 @@ export function blockedText(blocked: readonly BlockedCabinet[]): string | null {
 
 export function groupTitle(group: CutListGroup, rules: ConstructionRules): string {
   if (group.category === 'panel') return `Panels · ${displayInches(group.thickness ?? rules.panelThickness)} thick`;
+  if (group.category === 'lumber') return `Solid stock · ${displayInches(group.thickness ?? rules.panelThickness)} thick`;
   return `Laminate · ${displayInches(rules.laminateOversizePerEdge)} oversize each edge`;
 }
 

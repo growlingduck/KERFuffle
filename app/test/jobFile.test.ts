@@ -1,4 +1,5 @@
-import { DEFAULT_RULES, inches } from '@kerfuffle/engine';
+import { DEFAULT_RULES, inches, upgradeVersion1Rules } from '@kerfuffle/engine';
+import type { ConstructionRules } from '@kerfuffle/engine';
 import { describe, expect, it } from 'vitest';
 import {
   canonicalJson,
@@ -11,6 +12,7 @@ import {
   writeJobFile,
 } from '../src/data/jobFile';
 import { createMemoryClient } from '../src/data/memoryClient';
+import { RULES_VERSION } from '../src/data/rules';
 import type { JobRecord } from '../src/data/types';
 import { testCabinet, testJob } from './storage';
 
@@ -24,7 +26,7 @@ function richJob(): JobRecord {
     customer: 'Smith',
     notes: 'Island deferred.\nUse “maple” ply — 23/32″.',
     status: 'ready',
-    rules: { ...DEFAULT_RULES, panelThickness: inches(23 / 32), shelfSetback: inches(0) },
+    rules: upgradeVersion1Rules({ ...DEFAULT_RULES, panelThickness: inches(23 / 32), shelfSetback: inches(0) }),
     revision: 7,
     cabinets: [
       testCabinet('c-1', 'B1', { finishedEnds: 'both', room: 'Kitchen' }),
@@ -90,7 +92,7 @@ describe('.kerfjob files', () => {
       ok: false,
       message: NEWER_FILE_MESSAGE,
     });
-    const newerRules = await reseal(text, (doc) => (doc.rulesVersion = 2));
+    const newerRules = await reseal(text, (doc) => (doc.rulesVersion = RULES_VERSION + 1));
     expect(await readJobFile(newerRules)).toEqual({ ok: false, message: NEWER_FILE_MESSAGE });
   });
 
@@ -114,6 +116,32 @@ describe('.kerfjob files', () => {
       expect(reading.ok, expected).toBe(false);
       if (!reading.ok) expect(reading.message, expected).toContain(expected);
     }
+  });
+
+  it('carries each cabinet’s run, and reads older files that have none', async () => {
+    const job = richJob();
+    job.cabinets[0]!.run = 'Sink wall';
+    const text = await writeJobFile(job, HEADER);
+    const cabinets = (JSON.parse(text) as { cabinets: Record<string, unknown>[] }).cabinets;
+    expect(cabinets.map((c) => c.run)).toEqual(['Sink wall', undefined, undefined]);
+    const reading = await readJobFile(text);
+    if (!reading.ok) throw new Error(reading.message);
+    expect(reading.job).toEqual(job);
+  });
+
+  it('upgrades a version 1 file to method A1 with the base left off, and keeps a version 2 file’s method', async () => {
+    const version1: Partial<ConstructionRules> = { ...DEFAULT_RULES };
+    delete version1.method;
+    const old = await reseal(await writeJobFile(richJob(), HEADER), (doc) => (doc.rules = version1));
+    const reading = await readJobFile(old);
+    if (!reading.ok) throw new Error(reading.message);
+    expect(reading.job.rules).toEqual(upgradeVersion1Rules(DEFAULT_RULES));
+
+    const b = testJob({ rulesVersion: RULES_VERSION, rules: { ...DEFAULT_RULES, method: { ...DEFAULT_RULES.method, id: 'B' } } });
+    const newer = await readJobFile(await writeJobFile(b, HEADER));
+    if (!newer.ok) throw new Error(newer.message);
+    expect(newer.job.rules.method.id).toBe('B');
+    expect(newer.job.rulesVersion).toBe(2);
   });
 
   it('lets cabinets the engine flags through, and lists them', async () => {

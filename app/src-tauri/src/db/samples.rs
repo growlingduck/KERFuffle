@@ -80,6 +80,7 @@ pub fn load_sample_jobs(conn: &mut Connection) -> DbResult<Vec<Job>> {
                 finished_ends: c.finished_ends,
                 quantity: c.quantity,
                 room: None,
+                run: None,
             };
             write_cabinet(&tx, &id, position as i64, &cabinet)?;
         }

@@ -1,0 +1,43 @@
+{
+  "name": "Inset 1/4 back in a dado, base top as stretchers (method A1)",
+  "status": "unconfirmed",
+  "notes": "Back 1/4 thick in a 1/4 deep dado set 3/4 in from the back edge. With an inset back, sides, top and bottom run the full depth (24 base, 12 wall). The back fits between the members plus a groove each side: base 30 1/2 - 1 1/2 + 1/2 = 29 1/2 long, 28 1/2 + 1/2 = 29 wide; wall 30 - 1 1/2 + 1/2 = 29 long, 29 wide. Shelves stop 1/8 short of the back's face, which is 3/4 + 1/4 = 1 in from the back edge: base 24 - 1 - 1/8 = 22 7/8, wall 12 - 1 - 1/8 = 10 7/8. The base top is two stretchers 28 1/2 x 4; the wall keeps its top. Both get a 28 1/2 x 4 nailer under the top. B1 has no run, so it gets its own 30 in ladder base: 29 1/4 / 24 = 1.2, 2 gaps, 3 sleepers.",
+  "rules": { "preset": "DEFAULT_RULES", "method": { "backType": "dado", "backThickness": "1/4", "baseTop": "stretchers" } },
+  "cabinets": [
+    { "id": "B1", "type": "base", "width": "30", "height": "36", "depth": "24", "shelfCount": 1, "finishedEnds": "none", "quantity": 1 },
+    { "id": "W1", "type": "wall", "width": "30", "height": "30", "depth": "12", "shelfCount": 2, "finishedEnds": "none", "quantity": 1 }
+  ],
+  "expected": {
+    "cabinetParts": {
+      "B1": [
+        { "role": "back",            "category": "panel",    "name": "Back",            "length": "29 1/2", "width": "29",     "thickness": "1/4", "quantity": 1 },
+        { "role": "bottom",          "category": "panel",    "name": "Bottom",          "length": "28 1/2", "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "side-left",       "category": "panel",    "name": "Left side",       "length": "30 1/2", "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "side-right",      "category": "panel",    "name": "Right side",      "length": "30 1/2", "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "stretcher-front", "category": "panel",    "name": "Front stretcher", "length": "28 1/2", "width": "4",      "thickness": "3/4", "quantity": 1 },
+        { "role": "stretcher-back",  "category": "panel",    "name": "Back stretcher",  "length": "28 1/2", "width": "4",      "thickness": "3/4", "quantity": 1 },
+        { "role": "nailer",          "category": "panel",    "name": "Nailer",          "length": "28 1/2", "width": "4",      "thickness": "3/4", "quantity": 1 },
+        { "role": "front",           "category": "panel",    "name": "Front (door/laminate size)", "length": "30 1/2", "width": "30", "thickness": "3/4", "quantity": 1, "optional": true },
+        { "role": "shelf",           "category": "panel",    "name": "Shelf",           "length": "28 1/4", "width": "22 7/8", "thickness": "3/4", "quantity": 1 },
+        { "role": "laminate-front",  "category": "laminate", "name": "Laminate, front", "length": "32 1/2", "width": "32",     "thickness": null,  "quantity": 1 }
+      ],
+      "W1": [
+        { "role": "back",            "category": "panel",    "name": "Back",            "length": "29",     "width": "29",     "thickness": "1/4", "quantity": 1 },
+        { "role": "bottom",          "category": "panel",    "name": "Bottom",          "length": "28 1/2", "width": "12",     "thickness": "3/4", "quantity": 1 },
+        { "role": "side-left",       "category": "panel",    "name": "Left side",       "length": "30",     "width": "12",     "thickness": "3/4", "quantity": 1 },
+        { "role": "side-right",      "category": "panel",    "name": "Right side",      "length": "30",     "width": "12",     "thickness": "3/4", "quantity": 1 },
+        { "role": "top",             "category": "panel",    "name": "Top",             "length": "28 1/2", "width": "12",     "thickness": "3/4", "quantity": 1 },
+        { "role": "nailer",          "category": "panel",    "name": "Nailer",          "length": "28 1/2", "width": "4",      "thickness": "3/4", "quantity": 1 },
+        { "role": "front",           "category": "panel",    "name": "Front (door/laminate size)", "length": "30", "width": "30", "thickness": "3/4", "quantity": 1, "optional": true },
+        { "role": "shelf",           "category": "panel",    "name": "Shelf",           "length": "28 1/4", "width": "10 7/8", "thickness": "3/4", "quantity": 2 },
+        { "role": "laminate-front",  "category": "laminate", "name": "Laminate, front", "length": "32",     "width": "32",     "thickness": null,  "quantity": 1 }
+      ]
+    },
+    "jobParts": [
+      { "ref": "B1", "role": "base-rail-front", "category": "panel", "name": "Base rail, front", "length": "30",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "B1", "role": "base-rail-back",  "category": "panel", "name": "Base rail, back",  "length": "30",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "B1", "role": "base-sleeper",    "category": "panel", "name": "Base sleeper",     "length": "19 1/2", "width": "4", "thickness": "3/4", "quantity": 3 },
+      { "ref": "B1", "role": "kick-skin",       "category": "panel", "name": "Kick skin",        "length": "30",     "width": "4", "thickness": "1/4", "quantity": 1 }
+    ]
+  }
+}

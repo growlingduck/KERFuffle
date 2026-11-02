@@ -83,6 +83,9 @@ export function cutListCsv(list: CutList, meta: CsvMeta): string {
   const rows =
     list.options.mode === 'merged'
       ? list.groups.flatMap((g) => g.lines.map((line) => row(line, refsText(line.refs))))
-      : list.sections.flatMap((s) => s.lines.map((line) => row(line, s.cabinet.id)));
+      : [
+          ...list.sections.flatMap((s) => s.lines.map((line) => row(line, s.cabinet.id))),
+          ...list.runSections.flatMap((s) => s.lines.map((line) => row(line, s.ref))),
+        ];
   return BOM + [field(about), CSV_COLUMNS.map(field).join(','), ...rows].join('\r\n') + '\r\n';
 }

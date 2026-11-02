@@ -1,0 +1,28 @@
+{
+  "name": "A1 ladder base: a 126 in run split in two, plus a cabinet with no run",
+  "status": "unconfirmed",
+  "notes": "Run 'Back wall' = 36 + 36 + 30 + 24 = 126, over the 96 maximum, so 2 sections. An equal split would join at 63; the nearest cabinet seam that keeps both sections within 96 is 72 (after B2), so the sections are 72 and 54. Sleepers: 72 - 3/4 = 71 1/4, / 24 = 2.97, 3 gaps, 4 sleepers; 54 - 3/4 = 53 1/4, / 24 = 2.2, 3 gaps, 4 sleepers; 8 in all, each 24 - 3 - 1 1/2 = 19 1/2. B5 (15 wide, quantity 2) has no run, so each box gets its own 15 in platform: 14 1/4 / 24 = 0.6, 1 gap, 2 sleepers each.",
+  "rules": { "preset": "DEFAULT_RULES" },
+  "cabinets": [
+    { "id": "B1", "type": "base", "width": "36", "height": "36", "depth": "24", "shelfCount": 1, "finishedEnds": "left", "quantity": 1, "run": "Back wall" },
+    { "id": "B2", "type": "base", "width": "36", "height": "36", "depth": "24", "shelfCount": 1, "finishedEnds": "none", "quantity": 1, "run": "Back wall" },
+    { "id": "B3", "type": "base", "width": "30", "height": "36", "depth": "24", "shelfCount": 1, "finishedEnds": "none", "quantity": 1, "run": "Back wall" },
+    { "id": "B4", "type": "base", "width": "24", "height": "36", "depth": "24", "shelfCount": 1, "finishedEnds": "right", "quantity": 1, "run": "Back wall" },
+    { "id": "B5", "type": "base", "width": "15", "height": "36", "depth": "24", "shelfCount": 0, "finishedEnds": "none", "quantity": 2 }
+  ],
+  "expected": {
+    "jobParts": [
+      { "ref": "Run: Back wall", "run": "Back wall", "role": "base-rail-front", "category": "panel", "name": "Base rail, front", "length": "72",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "Run: Back wall", "run": "Back wall", "role": "base-rail-front", "category": "panel", "name": "Base rail, front", "length": "54",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "Run: Back wall", "run": "Back wall", "role": "base-rail-back",  "category": "panel", "name": "Base rail, back",  "length": "72",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "Run: Back wall", "run": "Back wall", "role": "base-rail-back",  "category": "panel", "name": "Base rail, back",  "length": "54",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "Run: Back wall", "run": "Back wall", "role": "base-sleeper",    "category": "panel", "name": "Base sleeper",     "length": "19 1/2", "width": "4", "thickness": "3/4", "quantity": 8 },
+      { "ref": "Run: Back wall", "run": "Back wall", "role": "kick-skin",       "category": "panel", "name": "Kick skin",        "length": "72",     "width": "4", "thickness": "1/4", "quantity": 1 },
+      { "ref": "Run: Back wall", "run": "Back wall", "role": "kick-skin",       "category": "panel", "name": "Kick skin",        "length": "54",     "width": "4", "thickness": "1/4", "quantity": 1 },
+      { "ref": "B5", "role": "base-rail-front", "category": "panel", "name": "Base rail, front", "length": "15",     "width": "4", "thickness": "3/4", "quantity": 2 },
+      { "ref": "B5", "role": "base-rail-back",  "category": "panel", "name": "Base rail, back",  "length": "15",     "width": "4", "thickness": "3/4", "quantity": 2 },
+      { "ref": "B5", "role": "base-sleeper",    "category": "panel", "name": "Base sleeper",     "length": "19 1/2", "width": "4", "thickness": "3/4", "quantity": 4 },
+      { "ref": "B5", "role": "kick-skin",       "category": "panel", "name": "Kick skin",        "length": "15",     "width": "4", "thickness": "1/4", "quantity": 2 }
+    ]
+  }
+}

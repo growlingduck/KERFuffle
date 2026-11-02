@@ -1,4 +1,4 @@
-import { DEFAULT_RULES, inches } from '@kerfuffle/engine';
+import { DEFAULT_RULES, inches, upgradeVersion1Rules } from '@kerfuffle/engine';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,7 +35,7 @@ const OTHER_PC_JOB = testJob({
   name: 'Mudroom lockers',
   customer: 'Jones',
   status: 'ready',
-  rules: { ...DEFAULT_RULES, panelThickness: inches(23 / 32) },
+  rules: upgradeVersion1Rules({ ...DEFAULT_RULES, panelThickness: inches(23 / 32) }),
   cabinets: [testCabinet('m1', 'B1'), testCabinet('m2', 'B2')],
 });
 
