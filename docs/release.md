@@ -16,7 +16,7 @@ guide is [install.md](install.md).
 | Update signing | Tauri updater key pair | Separate from code signing. The public key is in `tauri.conf.json` → `plugins.updater.pubkey`; the private key never enters the repo. |
 | Update host | GitHub Releases on `growlingduck/KERFuffle` (public) | Apps read `https://github.com/growlingduck/KERFuffle/releases/latest/download/latest.json`. Only a *published*, non-prerelease release counts as "latest". Drafts are invisible to the apps. |
 | Release build | `scripts/release.mjs` | Builds, signs, checks both signatures, writes `release/v<version>/`. |
-| CI | `.github/workflows/ci.yml` | Every push: lint, tests, unsigned installer (in the run's Artifacts). A `v*` tag: signed build, then a **draft** release. |
+| CI | `.github/workflows/ci.yml.txt` | **Parked** (the `.txt` stops it running); see [ci.md](ci.md). When on: every push gets lint, tests and an unsigned installer (in the run's Artifacts). A `v*` tag gets a signed build, then a **draft** release. |
 
 How the app updates (code in `app/src-tauri/src/updates.rs`):
 
