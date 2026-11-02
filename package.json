@@ -13,7 +13,10 @@
     "test": "npm test --workspaces",
     "lint": "eslint .",
     "version:sync": "node scripts/version.mjs",
-    "release": "node scripts/release.mjs"
+    "version:set": "node scripts/version.mjs",
+    "version:check": "node scripts/version.mjs --check",
+    "release": "node scripts/release.mjs",
+    "release:unsigned": "node scripts/release.mjs --unsigned"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

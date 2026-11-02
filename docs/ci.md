@@ -6,8 +6,8 @@ covered in [release.md](release.md).
 
 ## Status: parked
 
-The workflow lives at `.github/workflows/ci.yml.txt`. GitHub only runs files
-ending in `.yml` or `.yaml` in that folder, so with the `.txt` extension it is
+The workflow lives at `.github/workflows_parked/ci.yml.txt`. GitHub only runs files
+ending in `.yml` or `.yaml` in `.github/workflows/`, so in this folder, with a `.txt` extension, it is
 kept in the repo but **never runs**. Nothing breaks while it's parked; every
 step it performs can be run by hand (see [Without CI](#without-ci)).
 
@@ -67,7 +67,7 @@ the free minutes on private repos.
 ## Turning it on
 
 ```powershell
-git mv .github/workflows/ci.yml.txt .github/workflows/ci.yml
+git mv .github/workflows_parked/ci.yml.txt .github/workflows/ci.yml
 git commit -m "Turn on CI"
 git push
 ```
@@ -75,8 +75,8 @@ git push
 Pushing a file under `.github/workflows/` needs a token with the `workflow`
 scope. If the push is rejected, update the token in Sourcetree.
 
-The run appears under the repo's **Actions** tab. To park it again, rename it
-back to `.txt`.
+The run appears under the repo's **Actions** tab. To park it again, move it
+back to `.github/workflows_parked/ci.yml.txt`.
 
 ## Without CI
 
