@@ -382,7 +382,7 @@ These are built in from the start:
    non-guillotine nesting. Only saw mode is built now, but nothing assumes kerf
    is the only spacing rule.
 
-**DXF export (prompt 14):** one DXF per sheet, in real units, with named layers:
+**DXF export (prompt 19):** one DXF per sheet, in real units, with named layers:
 
 | Layer | Contents |
 |---|---|
@@ -410,7 +410,7 @@ checks, toolpath preview), and free-form nesting.
 | 11 | [Materials and estimate](../prompts/11-materials-and-estimate.md) | Catalog + form + on hand, slots, group by material, area-based estimate, edge banding, hardware |
 | 12 | [Sheet optimizer: engine](../prompts/12-sheet-optimizer-engine.md) | `nesting/`, saw profiles, three modes, cut tree, sensitivity, worker |
 | 13 | [Layouts: screen and print](../prompts/13-layouts-screen-and-print.md) | Layouts tab, printout, saved layouts, estimate switches to layout counts |
-| 14 | [DXF export](../prompts/14-dxf-export.md) | DXF per sheet from the saved layout |
+| 19 | [DXF export](../prompts/19-dxf-export.md) | DXF per sheet from the saved layout |
 
 **Database:** prompts 09–13 each add a forward migration as needed. All of it
 must be carried by backups and `.kerfjob` transfer, and an older app must refuse

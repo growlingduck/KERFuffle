@@ -133,6 +133,56 @@ pub struct Job {
     /// None: made before materials; the app fills in the shop defaults.
     #[serde(default)]
     pub materials: Option<serde_json::Value>,
+    /// The job's copy of its saw profile (schema version 4). None: made before
+    /// saw profiles; the app uses the shop's default profile.
+    #[serde(default)]
+    pub saw_profile: Option<serde_json::Value>,
+    /// Sheet layouts kept with the job, one per material (schema version 5).
+    /// Empty: none kept; the app lays the job out as needed.
+    #[serde(default)]
+    pub layouts: Vec<SavedLayout>,
+}
+
+/// A sheet layout kept with a job (`layouts` table). The app writes and reads
+/// `layout`; the database checks only that it is there and whose it is.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedLayout {
+    pub material_id: String,
+    /// The app's hash of the material's pieces, sheet size and seed.
+    pub input_hash: String,
+    /// The optimizer's ALGORITHM_VERSION that made it.
+    pub algorithm_version: i64,
+    /// cost, grain or time.
+    pub mode: String,
+    /// The saw profile it was cut for.
+    pub profile: serde_json::Value,
+    /// The material's layout, as the optimizer gave it.
+    pub layout: serde_json::Value,
+    pub created_at: String,
+}
+
+/// Saved layouts: one per material, each complete and for its own material.
+pub fn check_layouts(layouts: &[SavedLayout]) -> DbResult<()> {
+    let mut seen = std::collections::HashSet::new();
+    for layout in layouts {
+        let for_material = layout.layout.get("material").and_then(|m| m.get("id")).and_then(serde_json::Value::as_str);
+        let ok = !layout.material_id.trim().is_empty()
+            && !layout.input_hash.is_empty()
+            && layout.algorithm_version >= 0
+            && matches!(layout.mode.as_str(), "cost" | "grain" | "time")
+            && !layout.created_at.is_empty()
+            && for_material == Some(layout.material_id.as_str())
+            && layout.layout.get("patterns").is_some_and(serde_json::Value::is_array);
+        if !ok {
+            return Err(DbError::invalid("A sheet layout is incomplete."));
+        }
+        check_saw_profile(&layout.profile)?;
+        if !seen.insert(layout.material_id.as_str()) {
+            return Err(DbError::invalid("A material has two sheet layouts."));
+        }
+    }
+    Ok(())
 }
 
 text_enum!(MethodId {
@@ -170,6 +220,9 @@ pub struct NewJob {
     /// The materials the app chose from the shop defaults, with their copies.
     #[serde(default)]
     pub materials: Option<serde_json::Value>,
+    /// A copy of the shop's default saw profile.
+    #[serde(default)]
+    pub saw_profile: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -200,6 +253,25 @@ pub struct JobSnapshot {
     /// materials keeps none until one is chosen).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub materials: Option<serde_json::Value>,
+    /// The job's saw profile copy. Absent: unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saw_profile: Option<serde_json::Value>,
+}
+
+/// A saw profile copy: an id and a name, and its sizes whole, non-negative ticks.
+pub fn check_saw_profile(profile: &serde_json::Value) -> DbResult<()> {
+    let text = |key: &str| profile.get(key).and_then(serde_json::Value::as_str).is_some_and(|t| !t.trim().is_empty());
+    let size = |key: &str| profile.get(key).and_then(serde_json::Value::as_i64).is_some_and(|n| n >= 0);
+    let ok = profile.is_object()
+        && text("id")
+        && text("name")
+        && ["kerf", "edgeTrim", "minPiece", "keepLength", "keepWidth", "extraSheets"].iter().all(|k| size(k))
+        && matches!(profile.get("firstCut").and_then(serde_json::Value::as_str), Some("length" | "width" | "either"));
+    if ok {
+        Ok(())
+    } else {
+        Err(DbError::invalid("The job's saw profile is incomplete."))
+    }
 }
 
 /// Job materials are an object of slots, each a material copy with an id.
@@ -219,6 +291,9 @@ impl JobSnapshot {
     pub fn check(&self) -> DbResult<()> {
         if let Some(materials) = &self.materials {
             check_job_materials(materials)?;
+        }
+        if let Some(profile) = &self.saw_profile {
+            check_saw_profile(profile)?;
         }
         if let Some(rules) = &self.rules {
             if !rules.is_object() || !rules.get("method").is_some_and(serde_json::Value::is_object) {

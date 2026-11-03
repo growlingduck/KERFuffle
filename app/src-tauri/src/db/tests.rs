@@ -24,7 +24,7 @@ fn cabinet(id: &str, label: &str) -> Cabinet {
 }
 
 fn new_job(conn: &mut Connection, name: &str) -> Job {
-    create_job(conn, &NewJob { name: name.into(), customer: None, notes: None, construction: None, materials: None }).unwrap()
+    create_job(conn, &NewJob { name: name.into(), customer: None, notes: None, construction: None, materials: None, saw_profile: None }).unwrap()
 }
 
 fn snapshot(job: &Job, cabinets: Vec<Cabinet>) -> JobSnapshot {
@@ -37,6 +37,7 @@ fn snapshot(job: &Job, cabinets: Vec<Cabinet>) -> JobSnapshot {
         cabinets,
         rules: None,
         materials: None,
+        saw_profile: None,
     }
 }
 
@@ -260,7 +261,7 @@ fn round_trips_every_field() {
     let mut conn = db();
     let job = create_job(
         &mut conn,
-        &NewJob { name: "Kitchen".into(), customer: Some("Pat".into()), notes: Some("Uppers?".into()), construction: None, materials: None },
+        &NewJob { name: "Kitchen".into(), customer: Some("Pat".into()), notes: Some("Uppers?".into()), construction: None, materials: None, saw_profile: None },
     )
     .unwrap();
     let cabinets = vec![
@@ -302,6 +303,7 @@ fn round_trips_every_field() {
         cabinets: cabinets.clone(),
         rules: None,
         materials: None,
+        saw_profile: None,
     };
     let saved = save_job(&mut conn, &snap).unwrap();
     assert_eq!(saved.revision, 1);
@@ -437,6 +439,7 @@ fn missing_jobs_report_not_found() {
         cabinets: vec![],
         rules: None,
         materials: None,
+        saw_profile: None,
     };
     assert_eq!(save_job(&mut conn, &ghost).unwrap_err().kind(), "notFound");
     assert_eq!(write_pending_edit(&conn, &ghost, 0).unwrap_err().kind(), "notFound");
@@ -462,7 +465,7 @@ fn duplicate_is_a_fully_independent_copy() {
     let mut conn = db();
     let source = create_job(
         &mut conn,
-        &NewJob { name: "Kitchen".into(), customer: Some("Pat".into()), notes: Some("n".into()), construction: None, materials: None },
+        &NewJob { name: "Kitchen".into(), customer: Some("Pat".into()), notes: Some("n".into()), construction: None, materials: None, saw_profile: None },
     )
     .unwrap();
     let mut snap = snapshot(&source, vec![cabinet("a", "B1"), cabinet("b", "W1")]);
@@ -660,6 +663,8 @@ fn exported(job: &Job) -> ImportJob {
         revision: job.revision,
         cabinets: job.cabinets.clone(),
         materials: job.materials.clone(),
+        saw_profile: job.saw_profile.clone(),
+        layouts: job.layouts.clone(),
     }
 }
 
@@ -923,7 +928,7 @@ fn migration_3_adds_materials_to_a_version_2_database_with_jobs_in_it() {
     assert_eq!(schema_version(&conn).unwrap(), 2);
 
     let report = migrate(&mut conn, None).unwrap();
-    assert_eq!((report.from_version, report.to_version), (2, 3));
+    assert_eq!((report.from_version, report.to_version), (2, LATEST_VERSION));
     assert_eq!(schema(&conn), schema(&db()), "a migrated database must equal a fresh one");
     assert_eq!(list_materials(&conn).unwrap().len(), 12);
     // Existing jobs have no materials: the app gives them the shop defaults when they open.
@@ -975,7 +980,7 @@ fn a_material_a_job_uses_cant_be_deleted() {
     let mut conn = db();
     let job = create_job(
         &mut conn,
-        &NewJob { name: "Kitchen".into(), customer: None, notes: None, construction: None, materials: Some(job_materials("std-birch-3-4")) },
+        &NewJob { name: "Kitchen".into(), customer: None, notes: None, construction: None, materials: Some(job_materials("std-birch-3-4")), saw_profile: None },
     )
     .unwrap();
     assert_eq!(job.materials, Some(job_materials("std-birch-3-4")));
@@ -1030,4 +1035,169 @@ fn job_materials_save_duplicate_and_import_with_the_job() {
     assert_eq!(imported.materials, saved.materials);
     let older = ImportJob { materials: None, ..exported(&saved) };
     assert_eq!(import_job(&mut conn, &older, ImportMode::Copy).unwrap().materials, None);
+}
+
+fn saw_profile(kerf: i64) -> serde_json::Value {
+    json!({
+        "id": "table-saw", "name": "Table saw", "kerf": kerf, "edgeTrim": 16, "minPiece": 128,
+        "keepLength": 768, "keepWidth": 768, "firstCut": "length", "extraSheets": 1
+    })
+}
+
+#[test]
+fn migration_4_adds_saw_profiles_to_a_version_3_database_with_jobs_in_it() {
+    let mut conn = Connection::open_in_memory().unwrap();
+    conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+    conn.execute_batch(include_str!("fixtures/schema_v1.sql")).unwrap();
+    conn.execute_batch(include_str!("migrations/0002_cabinet_runs.sql")).unwrap();
+    conn.execute_batch(include_str!("migrations/0003_materials.sql")).unwrap();
+    conn.execute("UPDATE meta SET value = '3' WHERE key = 'schema_version'", []).unwrap();
+
+    let report = migrate(&mut conn, None).unwrap();
+    assert_eq!((report.from_version, report.to_version), (3, LATEST_VERSION));
+    assert_eq!(schema(&conn), schema(&db()), "a migrated database must equal a fresh one");
+    // Existing jobs have no saw profile: the app uses the shop's default.
+    assert_eq!(get_job(&conn, "fixture-job-1").unwrap().saw_profile, None);
+}
+
+#[test]
+fn a_jobs_saw_profile_saves_duplicates_and_imports_with_the_job() {
+    let mut conn = db();
+    let job = create_job(&mut conn, &NewJob { name: "Kitchen".into(), saw_profile: Some(saw_profile(8)), ..Default::default() }).unwrap();
+    assert_eq!(job.saw_profile, Some(saw_profile(8)));
+
+    // A snapshot without one leaves it as it is.
+    save_job(&mut conn, &snapshot(&job, vec![])).unwrap();
+    assert_eq!(get_job(&conn, &job.id).unwrap().saw_profile, Some(saw_profile(8)));
+    let mut snap = snapshot(&job, vec![]);
+    snap.saw_profile = Some(saw_profile(6));
+    save_job(&mut conn, &snap).unwrap();
+    let saved = get_job(&conn, &job.id).unwrap();
+    assert_eq!(saved.saw_profile, Some(saw_profile(6)));
+    assert_eq!(duplicate_job(&mut conn, &job.id).unwrap().saw_profile, Some(saw_profile(6)));
+
+    for bad in [json!({ "id": "x", "name": "No kerf" }), json!({ "kerf": 8 }), {
+        let mut p = saw_profile(8);
+        p["firstCut"] = json!("sideways");
+        p
+    }] {
+        let mut snap = snapshot(&saved, vec![]);
+        snap.saw_profile = Some(bad.clone());
+        assert!(matches!(save_job(&mut conn, &snap), Err(DbError::Invalid(_))), "{bad}");
+        let new = NewJob { name: "Bad".into(), saw_profile: Some(bad), ..Default::default() };
+        assert!(matches!(create_job(&mut conn, &new), Err(DbError::Invalid(_))));
+    }
+
+    let imported = import_job(&mut conn, &exported(&saved), ImportMode::Copy).unwrap();
+    assert_eq!(imported.saw_profile, saved.saw_profile);
+    let older = ImportJob { saw_profile: None, ..exported(&saved) };
+    assert_eq!(import_job(&mut conn, &older, ImportMode::Copy).unwrap().saw_profile, None);
+
+    // The shop's profiles are a shop setting.
+    set_shop_setting(&conn, "saw_profiles", &json!({ "profiles": [saw_profile(8)], "defaultId": "table-saw" })).unwrap();
+    assert_eq!(get_shop_settings(&conn).unwrap()["saw_profiles"]["defaultId"], json!("table-saw"));
+}
+
+// --- Saved layouts (schema version 5) ----------------------------------------
+
+fn saved_layout(material: &str, hash: &str, version: i64) -> SavedLayout {
+    SavedLayout {
+        material_id: material.into(),
+        input_hash: hash.into(),
+        algorithm_version: version,
+        mode: "cost".into(),
+        profile: saw_profile(8),
+        layout: json!({ "material": { "id": material }, "patterns": [{ "id": 1, "count": 2 }], "stats": { "sheets": 2 } }),
+        created_at: "2026-11-02T10:00:00.000Z".into(),
+    }
+}
+
+#[test]
+fn migration_5_adds_saved_layouts_to_a_version_4_database_with_jobs_in_it() {
+    let mut conn = Connection::open_in_memory().unwrap();
+    conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+    conn.execute_batch(include_str!("fixtures/schema_v1.sql")).unwrap();
+    conn.execute_batch(include_str!("migrations/0002_cabinet_runs.sql")).unwrap();
+    conn.execute_batch(include_str!("migrations/0003_materials.sql")).unwrap();
+    conn.execute_batch(include_str!("migrations/0004_saw_profiles.sql")).unwrap();
+    conn.execute("UPDATE meta SET value = '4' WHERE key = 'schema_version'", []).unwrap();
+
+    let report = migrate(&mut conn, None).unwrap();
+    assert_eq!((report.from_version, report.to_version), (4, 5));
+    assert_eq!(schema(&conn), schema(&db()), "a migrated database must equal a fresh one");
+    // Existing jobs have no saved layouts: they're laid out as needed.
+    assert_eq!(get_job(&conn, "fixture-job-1").unwrap().layouts, vec![]);
+}
+
+#[test]
+fn saved_layouts_are_kept_with_the_job_without_a_new_revision() {
+    let mut conn = db();
+    let job = new_job(&mut conn, "Kitchen");
+    let layouts = vec![saved_layout("birch-ply-34", "abc", 1), saved_layout("melamine-34", "def", 1)];
+    save_job_layouts(&mut conn, &job.id, &layouts).unwrap();
+    let saved = get_job(&conn, &job.id).unwrap();
+    assert_eq!(saved.layouts, layouts);
+    assert_eq!((saved.revision, saved.updated_at.clone()), (job.revision, job.updated_at.clone()), "saving a layout isn't an edit");
+
+    // Saving again replaces them all; a save of the job leaves them alone.
+    save_job_layouts(&mut conn, &job.id, &layouts[..1]).unwrap();
+    save_job(&mut conn, &snapshot(&saved, vec![cabinet("a", "B1")])).unwrap();
+    assert_eq!(get_job(&conn, &job.id).unwrap().layouts, layouts[..1].to_vec());
+
+    // A duplicate is a draft: it lays itself out again.
+    assert_eq!(duplicate_job(&mut conn, &job.id).unwrap().layouts, vec![]);
+
+    let bad = [
+        vec![SavedLayout { mode: "fastest".into(), ..saved_layout("m", "h", 1) }],
+        vec![SavedLayout { material_id: " ".into(), ..saved_layout("m", "h", 1) }],
+        vec![SavedLayout { algorithm_version: -1, ..saved_layout("m", "h", 1) }],
+        vec![SavedLayout { profile: json!({ "kerf": 8 }), ..saved_layout("m", "h", 1) }],
+        vec![SavedLayout { layout: json!({ "material": { "id": "other" }, "patterns": [] }), ..saved_layout("m", "h", 1) }],
+        vec![SavedLayout { layout: json!({ "material": { "id": "m" } }), ..saved_layout("m", "h", 1) }],
+        vec![saved_layout("m", "h", 1), saved_layout("m", "i", 1)],
+    ];
+    for layouts in bad {
+        assert!(matches!(save_job_layouts(&mut conn, &job.id, &layouts), Err(DbError::Invalid(_))), "{layouts:?}");
+    }
+    assert_eq!(get_job(&conn, &job.id).unwrap().layouts, vec![saved_layout("birch-ply-34", "abc", 1)], "a refused save changes nothing");
+    assert!(matches!(save_job_layouts(&mut conn, "nope", &[]), Err(DbError::JobNotFound)));
+
+    // They go with the job.
+    delete_job(&conn, &job.id).unwrap();
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM layouts"), 0);
+}
+
+#[test]
+fn a_ready_jobs_layout_is_still_there_after_a_restart() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join(DB_FILE_NAME);
+    let (mut conn, _) = open(&path, None).unwrap();
+    let job = new_job(&mut conn, "Kitchen");
+    let mut snap = snapshot(&job, vec![cabinet("a", "B1")]);
+    snap.status = JobStatus::Ready;
+    save_job(&mut conn, &snap).unwrap();
+    // Made by an older optimizer: kept as it was, never worked out again here.
+    save_job_layouts(&mut conn, &job.id, &[saved_layout("birch-ply-34", "abc", 0)]).unwrap();
+    drop(conn);
+
+    let (conn, _) = open(&path, None).unwrap();
+    let reopened = get_job(&conn, &job.id).unwrap();
+    assert_eq!(reopened.status, JobStatus::Ready);
+    assert_eq!(reopened.layouts, vec![saved_layout("birch-ply-34", "abc", 0)]);
+}
+
+#[test]
+fn saved_layouts_import_with_the_job() {
+    let mut conn = db();
+    let job = new_job(&mut conn, "Kitchen");
+    save_job_layouts(&mut conn, &job.id, &[saved_layout("birch-ply-34", "abc", 1)]).unwrap();
+    let saved = get_job(&conn, &job.id).unwrap();
+
+    let copy = import_job(&mut conn, &exported(&saved), ImportMode::Copy).unwrap();
+    assert_eq!(copy.layouts, saved.layouts);
+    let replaced = import_job(&mut conn, &ImportJob { layouts: vec![], ..exported(&saved) }, ImportMode::Replace).unwrap();
+    assert_eq!(replaced.layouts, vec![], "a replaced job takes the file's layouts, none here");
+
+    let bad = ImportJob { layouts: vec![SavedLayout { mode: "fastest".into(), ..saved_layout("m", "h", 1) }], ..exported(&saved) };
+    assert_eq!(import_job(&mut conn, &bad, ImportMode::Copy).unwrap_err().kind(), "invalid");
 }

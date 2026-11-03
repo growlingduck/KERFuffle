@@ -16,6 +16,8 @@ export default defineConfig({
     strictPort: true,
     watch: { ignored: ['**/src-tauri/**'] },
   },
+  // The layout worker imports the engine as a module (src/layout/layout.worker.ts).
+  worker: { format: 'es' },
   build: {
     // WebView2 on Windows is evergreen Chromium.
     target: 'chrome120',

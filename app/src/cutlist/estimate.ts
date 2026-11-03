@@ -24,6 +24,15 @@ export function basisText(estimate: Pick<Estimate, 'options'>): string {
   return `area + ${estimate.options.wastePercent}% waste`;
 }
 
+/** How the estimate's sheets were counted, for its heading: "from layout", "≈ area + 15% waste", or both. */
+export function sheetsBasisText(estimate: Pick<Estimate, 'options' | 'lines'>): string {
+  const sheets = estimate.lines.filter((l) => l.unit === 'sheet' && l.material !== null);
+  const layout = sheets.filter((l) => l.basis === 'layout').length;
+  if (layout > 0 && layout === sheets.length) return 'sheets from layout';
+  if (layout > 0) return `sheets from layout, or ≈ ${basisText(estimate)} where there is none`;
+  return `sheets ≈ ${basisText(estimate)}`;
+}
+
 /** A count with its unit: "7 sheets", "70 ft", "2 rolls", "18 each". */
 export function countText(line: Pick<EstimateLine, 'unit'>, n: number): string {
   switch (line.unit) {
@@ -40,7 +49,7 @@ export function countText(line: Pick<EstimateLine, 'unit'>, n: number): string {
   }
 }
 
-/** The Needed cell: "≈ 7 sheets" (area counts are marked as estimates), "70 ft", "18". */
+/** The Needed cell: "7 sheets" from a layout, "≈ 7 sheets" from area (marked as an estimate), "70 ft", "18". */
 export function neededText(line: EstimateLine): string {
   if (line.needed === null) return '—';
   const count = countText(line, line.needed);
@@ -50,6 +59,7 @@ export function neededText(line: EstimateLine): string {
 /** The line under Needed that says how it was counted. */
 export function neededDetail(line: EstimateLine, estimate: Pick<Estimate, 'options'>): string | null {
   if (line.material === null) return 'Choose a material';
+  if (line.basis === 'layout') return 'from layout';
   if (line.basis === 'area') {
     if (line.needed === null) return 'The sheet is too small once trimmed';
     return `${Math.round(line.partArea ?? 0).toLocaleString('en-US')} sq in · ${basisText(estimate)}`;
@@ -94,8 +104,17 @@ export function totalText(estimate: Estimate): string {
 /** Numbered notes printed on the estimate. */
 export function estimateNotes(estimate: Estimate, list: CutList): string[] {
   const trim = displayInches(estimate.options.edgeTrim);
+  const sheets = estimate.lines.filter((l) => l.unit === 'sheet' && l.material !== null);
+  const layout = sheets.filter((l) => l.basis === 'layout').length;
+  const area = `part area ÷ the sheet less ${trim} trim each edge, plus ${estimate.options.wastePercent}% waste, rounded up`;
+  const sheetNote =
+    layout > 0 && layout === sheets.length
+      ? 'Sheet counts are from the sheet layouts: exact for those layouts.'
+      : layout > 0
+        ? `Sheet counts marked “from layout” are exact for the sheet layout. The rest (≈) are estimates from area: ${area}.`
+        : `Sheet counts are estimates from area: ${area}. A sheet layout can need more or fewer.`;
   return [
-    `Sheet counts are estimates from area: part area ÷ the sheet less ${trim} trim each edge, plus ${estimate.options.wastePercent}% waste, rounded up. A sheet layout can need more or fewer.`,
+    sheetNote,
     'Edge banding covers the exposed front edges of sides, top or front stretcher, bottom and shelves, rounded up to the foot.',
     'Hardware is the construction method’s own (leveling legs and kick clips). Hinges, slides, pulls, screws and glue are not included.',
     `Material cost to buy only: no markup, labor or tax. Prices are the job’s copies. Parts as on the cut list: ${optionsText(list.options).split(' · ')[1]}.`,
@@ -126,7 +145,7 @@ export const ESTIMATE_CSV_COLUMNS = [
 ] as const;
 
 const KIND_WORDS = { sheet: 'sheet goods', laminate: 'laminate', banding: 'edge banding', hardware: 'hardware' } as const;
-const BASIS_WORDS = { area: 'area (approximate)', length: 'edge length', count: 'count' } as const;
+const BASIS_WORDS = { layout: 'sheet layout', area: 'area (approximate)', length: 'edge length', count: 'count' } as const;
 const money = (cents: number | null) => (cents === null ? '' : (cents / 100).toFixed(2));
 const count = (n: number | null) => (n === null ? '' : String(n));
 
@@ -143,7 +162,7 @@ export function estimateCsv(estimate: Estimate, list: CutList, meta: EstimateCsv
     `Rev. ${meta.revision}`,
     `printed ${meta.date}`,
     meta.pricesAsOf ? `prices as of ${meta.pricesAsOf}` : null,
-    `sheets ≈ ${basisText(estimate)}`,
+    sheetsBasisText(estimate),
     blockedText(list.blocked),
   ]
     .filter(Boolean)

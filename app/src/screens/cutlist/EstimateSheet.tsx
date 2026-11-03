@@ -4,13 +4,13 @@ import type { ConstructionRules, CutList, Estimate } from '@kerfuffle/engine';
 import { STATUS_INFO } from '../../components/Stamp';
 import { TitleBlock } from '../../components/TitleBlock';
 import {
-  basisText,
   costText,
   estimateNotes,
   neededDetail,
   neededText,
   onHandText,
   priceText,
+  sheetsBasisText,
   slotsText,
   toBuyText,
   totalText,
@@ -70,7 +70,7 @@ export function EstimateSheet({ estimate, list, rules, job, printed, pricesAsOf,
               <div className={styles.groupHead}>
                 <div className={styles.groupTitle}>
                   <h2>Materials to buy</h2>
-                  <span className={cx('mono', styles.groupSub)}>sheets ≈ {basisText(estimate)}</span>
+                  <span className={cx('mono', styles.groupSub)}>{sheetsBasisText(estimate)}</span>
                 </div>
                 <span className={cx('mono', styles.groupCount)}>{estimate.lines.length} lines</span>
               </div>

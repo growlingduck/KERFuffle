@@ -1,4 +1,15 @@
-import type { CabinetType, ConstructionChoice, ConstructionRules, FinishedEnds, JobSlot, Material, Ticks } from '@kerfuffle/engine';
+import type {
+  CabinetType,
+  ConstructionChoice,
+  ConstructionRules,
+  FinishedEnds,
+  JobSlot,
+  LayoutMode,
+  Material,
+  MaterialLayout,
+  SawProfile,
+  Ticks,
+} from '@kerfuffle/engine';
 
 /**
  * Records exchanged with the job database. They mirror the Rust types in
@@ -54,6 +65,37 @@ export interface JobRecord {
    * a material is chosen for it.
    */
   materials?: JobMaterialsRecord | null;
+  /**
+   * The job's copy of its saw profile (data/sawProfiles.ts). Null (or
+   * missing): made before saw profiles; the job uses the shop's default
+   * profile until one is chosen for it.
+   */
+  sawProfile?: SawProfile | null;
+  /**
+   * Sheet layouts kept with the job (data/layouts.ts), one per material: saved
+   * when the job is marked Ready to cut, or a layout is printed or saved as
+   * PDF. Missing or empty: none kept; the layouts are worked out as needed.
+   */
+  layouts?: SavedLayoutRecord[];
+}
+
+/**
+ * A sheet layout kept with a job (`layouts` table, schema version 5). It keeps
+ * everything it was made from, so the app can show it as it was and say what
+ * has changed since.
+ */
+export interface SavedLayoutRecord {
+  materialId: string;
+  /** `materialInputKeys` of the job when it was saved: the pieces, the sheet and the seed. */
+  inputHash: string;
+  /** The optimizer's ALGORITHM_VERSION that made it. */
+  algorithmVersion: number;
+  mode: LayoutMode;
+  /** The saw profile it was cut for. */
+  profile: SawProfile;
+  /** The material's layout, as the optimizer gave it. */
+  layout: MaterialLayout;
+  createdAt: string;
 }
 
 /** One material in the shop's catalog (`Material` in app/src-tauri/src/db/models.rs). */
@@ -89,7 +131,7 @@ export type ServerOwnedField = 'id' | 'number' | 'rules' | 'rulesVersion' | 'cre
  * only when the construction was changed, which the database allows only
  * while the job is a draft.
  */
-export type JobSnapshot = Omit<JobRecord, ServerOwnedField | 'id'> & { id: string; rules?: ConstructionRules };
+export type JobSnapshot = Omit<JobRecord, ServerOwnedField | 'id' | 'layouts'> & { id: string; rules?: ConstructionRules };
 
 export interface NewJob {
   name: string;
@@ -99,6 +141,8 @@ export interface NewJob {
   construction?: ConstructionChoice;
   /** The shop's default materials, copied for the job. */
   materials?: JobMaterialsRecord;
+  /** The shop's default saw profile, copied for the job. */
+  sawProfile?: SawProfile;
 }
 
 export interface JobFields {
@@ -181,8 +225,10 @@ export const RULES_SETTING = 'construction_rules';
 export const DISPLAY_SETTING = 'display';
 /** Waste, edge trim and the default material per slot (data/materials.ts). */
 export const ESTIMATE_SETTING = 'estimate';
+/** The shop's saw profiles and the default for new jobs (data/sawProfiles.ts). */
+export const SAW_PROFILES_SETTING = 'saw_profiles';
 /** `backups` is reserved; backup settings live in their own file (see BackupSettings). */
-export type ShopSettingKey = typeof RULES_SETTING | typeof DISPLAY_SETTING | typeof ESTIMATE_SETTING | 'backups';
+export type ShopSettingKey = typeof RULES_SETTING | typeof DISPLAY_SETTING | typeof ESTIMATE_SETTING | typeof SAW_PROFILES_SETTING | 'backups';
 
 /** Denominator sizes are rounded to on screen and paper. Storage is always exact (1/64″). */
 export type RoundTo = 8 | 16 | 32;
@@ -221,6 +267,7 @@ export function toSnapshot(job: JobRecord, withRules = false): JobSnapshot {
     cabinets: job.cabinets,
     // Null tells the database to leave them as they are.
     materials: job.materials ?? null,
+    sawProfile: job.sawProfile ?? null,
     ...(withRules ? { rules: job.rules } : {}),
   };
 }

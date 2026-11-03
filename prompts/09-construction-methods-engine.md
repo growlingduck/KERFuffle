@@ -86,7 +86,7 @@ Defaults: method A, A1, applied 3/4″ back, full top, kick depth 3″, stretche
 Add an optional `features` list to `Part`. The only one needed now is the
 toe-kick notch on method B sides: `{ kind: 'notch', corner, length, width }` in
 part coordinates. Document the coordinate system (origin, which edge is the
-front). DXF (prompt 14) and the drawing (prompt 10) read it. The cut list shows
+front). DXF (prompt 19) and the drawing (prompt 10) read it. The cut list shows
 a short note ("notched 4 × 3") on the line, and parts with different features
 must not merge.
 

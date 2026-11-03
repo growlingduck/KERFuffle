@@ -7,6 +7,7 @@ import defaultRulesJson from '../../src-tauri/src/db/default_rules.json';
 import sampleJobsJson from '../../src-tauri/src/db/sample_jobs.json';
 import type { StorageClient } from './client';
 import { StorageError } from './errors';
+import { parseSavedLayouts } from './layouts';
 import { normalizeRecord, STANDARD_MATERIALS } from './materials';
 import { parseRules, RULES_VERSION } from './rules';
 import type {
@@ -22,7 +23,8 @@ import type {
   RecoveredJob,
   Saved,
 } from './types';
-import { ESTIMATE_SETTING, JOB_STATUSES, RULES_SETTING } from './types';
+import { parseSawProfile } from './sawProfiles';
+import { ESTIMATE_SETTING, JOB_STATUSES, RULES_SETTING, SAW_PROFILES_SETTING } from './types';
 
 /**
  * An in-memory job database with the same rules as the Rust one: used by
@@ -119,6 +121,19 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
     if (!ok) throw invalid('The job’s materials are incomplete.');
   }
 
+  function checkSawProfile(p: unknown) {
+    if (p == null) return;
+    if (!parseSawProfile(p)) throw invalid('The job’s saw profile is incomplete.');
+  }
+
+  function checkLayouts(layouts: unknown) {
+    try {
+      parseSavedLayouts(layouts);
+    } catch {
+      throw invalid('The job’s sheet layouts are incomplete.');
+    }
+  }
+
   function checkMaterial(m: MaterialRecord) {
     if (m.id.trim() === '') throw invalid('A material is missing its id.');
     if (m.name.trim() === '') throw invalid('A material needs a name.');
@@ -141,6 +156,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
   function checkSnapshot(s: JobSnapshot) {
     if (!JOB_STATUSES.includes(s.status)) throw invalid('That job status is unknown.');
     checkMaterials(s.materials);
+    checkSawProfile(s.sawProfile);
     const seen = new Set<string>();
     for (const c of s.cabinets) {
       checkCabinet(c);
@@ -173,6 +189,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
     }
     // Like the Rust repo: no materials in the snapshot leaves the job's as they are.
     if (s.materials != null) record.materials = copy(s.materials);
+    if (s.sawProfile != null) record.sawProfile = copy(s.sawProfile);
     record.name = s.name;
     record.customer = blankToNull(s.customer);
     record.notes = blankToNull(s.notes);
@@ -250,6 +267,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
       const name = input.name.trim();
       if (name === '') throw invalid('A job needs a name.');
       checkMaterials(input.materials);
+      checkSawProfile(input.sawProfile);
       const record = insert({
         name,
         customer: blankToNull(input.customer),
@@ -259,6 +277,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
         rulesVersion: RULES_VERSION,
         cabinets: [],
         materials: input.materials ? copy(input.materials) : null,
+        sawProfile: input.sawProfile ? copy(input.sawProfile) : null,
       });
       return copy(record);
     },
@@ -273,6 +292,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
         rulesVersion: source.rulesVersion,
         cabinets: source.cabinets.map((c) => ({ ...copy(c), id: crypto.randomUUID() })),
         materials: source.materials ? copy(source.materials) : null,
+        sawProfile: source.sawProfile ? copy(source.sawProfile) : null,
       });
       return copy(record);
     },
@@ -352,11 +372,16 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
       return { rules: currentRules(), other };
     },
     async setShopSetting(key, value) {
-      if (![RULES_SETTING, 'display', 'backups', ESTIMATE_SETTING].includes(key)) throw invalid(`"${key}" is not a shop setting.`);
+      if (![RULES_SETTING, 'display', 'backups', ESTIMATE_SETTING, SAW_PROFILES_SETTING].includes(key)) throw invalid(`"${key}" is not a shop setting.`);
       if (key === RULES_SETTING && (typeof value !== 'object' || value === null || Array.isArray(value))) {
         throw invalid('Construction rules must be a set of named values.');
       }
       settings.set(key, copy(value));
+    },
+    async saveJobLayouts(jobId, layouts) {
+      checkLayouts(layouts);
+      // Like the Rust repo: not an edit, so the revision stays.
+      job(jobId).layouts = copy([...layouts]);
     },
     async devLoadSampleJobs() {
       const rules = currentRules();
@@ -385,7 +410,8 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
       if (incoming.rulesVersion < 1 || incoming.rulesVersion > RULES_VERSION) {
         throw invalid('This job was made by a newer KERFuffle. Update this PC first.');
       }
-      checkSnapshot({ ...incoming, cabinets: incoming.cabinets, materials: incoming.materials ?? null });
+      checkSnapshot({ ...incoming, cabinets: incoming.cabinets, materials: incoming.materials ?? null, sawProfile: incoming.sawProfile ?? null });
+      checkLayouts(incoming.layouts);
       const existing = jobs.get(incoming.id);
       if (mode === 'new' && existing) throw invalid('This job is already on this PC. Import it as a copy, or replace the existing one.');
       if (mode === 'replace' && !existing) throw new StorageError('notFound', 'That job no longer exists. It may have been deleted.');
@@ -416,6 +442,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
         notes: blankToNull(incoming.notes),
         cabinets: incoming.cabinets.map((c) => ({ ...copy(c), id: freshCabinetIds ? crypto.randomUUID() : c.id })),
         materials: incoming.materials ? copy(incoming.materials) : null,
+        sawProfile: incoming.sawProfile ? copy(incoming.sawProfile) : null,
         ...(mode === 'copy' ? { createdAt: at, updatedAt: at, revision: 0 } : {}),
       };
       jobs.set(id, record);

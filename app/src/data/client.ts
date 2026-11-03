@@ -1,7 +1,9 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import type { BaseType, ConstructionChoice, MethodId } from '@kerfuffle/engine';
 import { StorageError, toStorageError } from './errors';
+import { parseSavedLayouts } from './layouts';
 import { parseJobMaterials } from './materials';
+import { parseJobSawProfile } from './sawProfiles';
 import { createMemoryClient } from './memoryClient';
 import { parseRules, parseShopRules } from './rules';
 import type {
@@ -20,6 +22,7 @@ import type {
   RecoveredJob,
   RestoreResult,
   Saved,
+  SavedLayoutRecord,
   ShopSettingKey,
   ShopSettings,
 } from './types';
@@ -56,6 +59,12 @@ export interface StorageClient {
   /** Development builds only. */
   devLoadSampleJobs(): Promise<JobRecord[]>;
 
+  /**
+   * Keep these sheet layouts with the job, in place of the ones it has. Not
+   * an edit: the job's revision stays as it is.
+   */
+  saveJobLayouts(jobId: string, layouts: readonly SavedLayoutRecord[]): Promise<void>;
+
   /** The materials catalog, archived ones too, in catalog order. */
   listMaterials(): Promise<MaterialRecord[]>;
   /** Add (last in the list) or replace one material. Jobs keep their own copies, so none change. */
@@ -80,16 +89,33 @@ export interface StorageClient {
   setBackupSettings(settings: BackupSettings): Promise<BackupOverview>;
 }
 
-type WireJob = Omit<JobRecord, 'rules' | 'materials'> & { rules: unknown; materials?: unknown };
+type WireJob = Omit<JobRecord, 'rules' | 'materials' | 'sawProfile' | 'layouts'> & {
+  rules: unknown;
+  materials?: unknown;
+  sawProfile?: unknown;
+  layouts?: unknown;
+};
 
 function fromWire(job: WireJob): JobRecord {
   let materials: JobRecord['materials'];
+  let sawProfile: JobRecord['sawProfile'];
   try {
     materials = parseJobMaterials(job.materials);
   } catch (error) {
     throw new StorageError('corrupt', 'This job’s materials couldn’t be read. Restore a backup from Settings.', String(error));
   }
-  return { ...job, rules: parseRules(job.rules, job.rulesVersion), materials };
+  try {
+    sawProfile = parseJobSawProfile(job.sawProfile);
+  } catch (error) {
+    throw new StorageError('corrupt', 'This job’s saw profile couldn’t be read. Restore a backup from Settings.', String(error));
+  }
+  let layouts: SavedLayoutRecord[];
+  try {
+    layouts = parseSavedLayouts(job.layouts);
+  } catch (error) {
+    throw new StorageError('corrupt', 'This job’s saved sheet layouts couldn’t be read. Restore a backup from Settings.', String(error));
+  }
+  return { ...job, rules: parseRules(job.rules, job.rulesVersion), materials, sawProfile, layouts };
 }
 
 /** The construction choice as the database takes it (`ConstructionChoice` in models.rs). */
@@ -118,6 +144,7 @@ export const tauriClient: StorageClient = {
           notes: job.notes ?? null,
           construction: constructionWire(job.construction),
           materials: job.materials ?? null,
+          sawProfile: job.sawProfile ?? null,
         },
       }),
     ),
@@ -137,6 +164,7 @@ export const tauriClient: StorageClient = {
   },
   setShopSetting: (key, value) => call('set_shop_setting', { key, value }),
   devLoadSampleJobs: async () => (await call<WireJob[]>('dev_load_sample_jobs')).map(fromWire),
+  saveJobLayouts: (jobId, layouts) => call('save_job_layouts', { jobId, layouts }),
   listMaterials: () => call('list_materials'),
   saveMaterial: (material) => call('save_material', { material }),
   deleteMaterial: (id) => call('delete_material', { id }),

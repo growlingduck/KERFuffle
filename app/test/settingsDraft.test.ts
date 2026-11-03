@@ -1,6 +1,7 @@
 import { DEFAULT_RULES, inches } from '@kerfuffle/engine';
 import { describe, expect, it } from 'vitest';
 import { BUILT_IN_ESTIMATE } from '../src/data/materials';
+import { BUILT_IN_SAW } from '../src/data/sawProfiles';
 import type { DraftAction, SettingsDraft, SettingsValues } from '../src/screens/settings/draft';
 import {
   canSave,
@@ -14,7 +15,7 @@ import {
   ruleIssues,
 } from '../src/screens/settings/draft';
 
-const SAVED: SettingsValues = { rules: { ...DEFAULT_RULES }, roundTo: 16, backups: { folder: null, keep: 14 }, estimate: BUILT_IN_ESTIMATE };
+const SAVED: SettingsValues = { rules: { ...DEFAULT_RULES }, roundTo: 16, backups: { folder: null, keep: 14 }, estimate: BUILT_IN_ESTIMATE, saw: BUILT_IN_SAW };
 
 function run(...actions: DraftAction[]): SettingsDraft {
   return actions.reduce(draftReducer, createDraft(SAVED));

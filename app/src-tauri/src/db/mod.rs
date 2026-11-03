@@ -27,7 +27,7 @@ pub use materials::{delete_material, list_materials, save_material};
 pub use migrations::{migrate, schema_version, MigrationReport, LATEST_VERSION};
 pub use models::*;
 pub use repo::*;
-pub use samples::load_sample_jobs;
+pub use samples::{add_example_job, load_sample_jobs};
 pub use transfer::{import_job, ImportJob, ImportMode};
 
 pub const DB_FILE_NAME: &str = "kerfuffle.db";

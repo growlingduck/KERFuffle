@@ -8,8 +8,8 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Deserialize;
 
 use super::error::{DbError, DbResult};
-use super::models::{check_job_materials, Cabinet, Job, JobStatus, RULES_VERSION};
-use super::repo::{fresh_id, get_job, insert_job, next_job_number, now, write_cabinet, JobInsert};
+use super::models::{check_job_materials, check_layouts, check_saw_profile, Cabinet, Job, JobStatus, SavedLayout, RULES_VERSION};
+use super::repo::{fresh_id, get_job, insert_job, next_job_number, now, write_cabinet, write_layouts, JobInsert};
 
 /// A job as exported: every field, including the ones the database normally owns.
 #[derive(Debug, Clone, Deserialize)]
@@ -30,6 +30,12 @@ pub struct ImportJob {
     /// Files from before materials have none.
     #[serde(default)]
     pub materials: Option<serde_json::Value>,
+    /// Files from before saw profiles have none.
+    #[serde(default)]
+    pub saw_profile: Option<serde_json::Value>,
+    /// The sheet layouts kept with the job. Files from before saved layouts have none.
+    #[serde(default)]
+    pub layouts: Vec<SavedLayout>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -68,6 +74,10 @@ impl ImportJob {
         if let Some(materials) = &self.materials {
             check_job_materials(materials)?;
         }
+        if let Some(profile) = &self.saw_profile {
+            check_saw_profile(profile)?;
+        }
+        check_layouts(&self.layouts)?;
         let mut seen = HashSet::new();
         for cabinet in &self.cabinets {
             cabinet.check()?;
@@ -139,6 +149,7 @@ pub fn import_job(conn: &mut Connection, job: &ImportJob, mode: ImportMode) -> D
     let name = if copy { format!("{} (copy)", job.name.trim()) } else { job.name.trim().to_string() };
     let rules = job.rules.to_string();
     let materials = job.materials.as_ref().map(serde_json::Value::to_string);
+    let saw_profile = job.saw_profile.as_ref().map(serde_json::Value::to_string);
     insert_job(
         &tx,
         &JobInsert {
@@ -152,6 +163,7 @@ pub fn import_job(conn: &mut Connection, job: &ImportJob, mode: ImportMode) -> D
             rules_version: job.rules_version,
             now: &stamp,
             materials_json: materials.as_deref(),
+            saw_profile_json: saw_profile.as_deref(),
         },
     )?;
     if !copy {
@@ -167,6 +179,7 @@ pub fn import_job(conn: &mut Connection, job: &ImportJob, mode: ImportMode) -> D
         let cabinet = if fresh_cabinet_ids { Cabinet { id: fresh_id(), ..cabinet.clone() } } else { cabinet.clone() };
         write_cabinet(&tx, &id, position as i64, &cabinet)?;
     }
+    write_layouts(&tx, &id, &job.layouts)?;
     tx.commit()?;
     get_job(conn, &id)
 }

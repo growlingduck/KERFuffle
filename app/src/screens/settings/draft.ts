@@ -20,12 +20,15 @@ import type {
   JobSlot,
   Part,
   PartRole,
+  SawProfile,
   ShelfThickComparison,
   Ticks,
   ValidationIssue,
 } from '@kerfuffle/engine';
 import { BUILT_IN_ESTIMATE, MAX_WASTE_PERCENT } from '../../data/materials';
 import type { EstimateSettings } from '../../data/materials';
+import { sawProfileIssues } from '../../data/sawProfiles';
+import type { SawLengthField, SawSettings } from '../../data/sawProfiles';
 import type { BackupSettings, RoundTo } from '../../data/types';
 import { displayInches } from '../../lib/dimensions';
 
@@ -108,7 +111,10 @@ export type MethodChoiceKey = 'backType' | 'baseTop';
 
 /** A method setting as a draft field (unreadable text, Reset): "method.kickDepth". */
 export type MethodDraftField = `method.${MethodLengthKey}`;
-export type DraftField = RuleField | MethodDraftField | 'estimate.edgeTrim';
+/** A saw profile's size as a draft field: "saw.table-saw.kerf". */
+export type SawDraftField = `saw.${string}.${SawLengthField}`;
+export const sawField = (id: string, field: SawLengthField): SawDraftField => `saw.${id}.${field}`;
+export type DraftField = RuleField | MethodDraftField | 'estimate.edgeTrim' | SawDraftField;
 
 export interface MethodRow {
   key: MethodRowKey;
@@ -242,6 +248,8 @@ export interface SettingsValues {
   backups: BackupSettings;
   /** Waste, edge trim and the default material per slot (Settings → Materials). */
   estimate: EstimateSettings;
+  /** The shop's saw profiles and the default for new jobs (Settings → Saw profiles). */
+  saw: SawSettings;
 }
 
 export interface SettingsDraft {
@@ -271,6 +279,12 @@ export type DraftAction =
   | { type: 'wastePercent'; value: number }
   | { type: 'edgeTrim'; value: Ticks | null }
   | { type: 'slotDefault'; slot: JobSlot; materialId: string | null }
+  | { type: 'sawField'; id: string; patch: Partial<Pick<SawProfile, 'name' | 'firstCut' | 'extraSheets'>> }
+  | { type: 'sawLength'; id: string; field: SawLengthField; value: Ticks | null }
+  /** Add a profile (new or a duplicate), after `after` or last. */
+  | { type: 'sawAdd'; profile: SawProfile; after?: string }
+  | { type: 'sawRemove'; id: string }
+  | { type: 'sawDefault'; id: string }
   | { type: 'discard' }
   /** Some or all of `current` is now stored. */
   | { type: 'saved'; part: Partial<SettingsValues> };
@@ -286,6 +300,11 @@ const withRule = (values: SettingsValues, patch: Partial<ConstructionRules>): Se
 
 const withMethod = (values: SettingsValues, patch: Partial<MethodSettings>): SettingsValues =>
   withRule(values, { method: { ...values.rules.method, ...patch } });
+
+const withProfile = (values: SettingsValues, id: string, patch: Partial<SawProfile>): SettingsValues => ({
+  ...values,
+  saw: { ...values.saw, profiles: values.saw.profiles.map((p) => (p.id === id ? { ...p, ...patch } : p)) },
+});
 
 function without(set: ReadonlySet<DraftField>, field: DraftField): ReadonlySet<DraftField> {
   if (!set.has(field)) return set;
@@ -375,6 +394,35 @@ export function draftReducer(draft: SettingsDraft, action: DraftAction): Setting
       else defaults[action.slot] = action.materialId;
       return { ...draft, current: { ...draft.current, estimate: { ...draft.current.estimate, defaults } } };
     }
+    case 'sawField':
+      return { ...draft, current: withProfile(draft.current, action.id, action.patch) };
+    case 'sawLength': {
+      const key = sawField(action.id, action.field);
+      if (action.value === null) {
+        if (draft.unparsed.has(key)) return draft;
+        return { ...draft, unparsed: new Set(draft.unparsed).add(key) };
+      }
+      const unparsed = without(draft.unparsed, key);
+      const profile = draft.current.saw.profiles.find((p) => p.id === action.id);
+      if (!profile || (profile[action.field] === action.value && unparsed === draft.unparsed)) return draft;
+      return { ...draft, unparsed, current: withProfile(draft.current, action.id, { [action.field]: action.value }) };
+    }
+    case 'sawAdd': {
+      const profiles = [...draft.current.saw.profiles];
+      const at = action.after === undefined ? -1 : profiles.findIndex((p) => p.id === action.after);
+      profiles.splice(at < 0 ? profiles.length : at + 1, 0, action.profile);
+      return { ...draft, current: { ...draft.current, saw: { ...draft.current.saw, profiles } } };
+    }
+    case 'sawRemove': {
+      // The last profile, and the default, stay.
+      const { saw } = draft.current;
+      if (saw.profiles.length <= 1 || saw.defaultId === action.id) return draft;
+      const unparsed = new Set([...draft.unparsed].filter((f) => !f.startsWith(`saw.${action.id}.`)));
+      return { ...draft, unparsed, current: { ...draft.current, saw: { ...saw, profiles: saw.profiles.filter((p) => p.id !== action.id) } } };
+    }
+    case 'sawDefault':
+      if (!draft.current.saw.profiles.some((p) => p.id === action.id)) return draft;
+      return { ...draft, current: { ...draft.current, saw: { ...draft.current.saw, defaultId: action.id } } };
     case 'discard':
       return { ...draft, current: draft.saved, unparsed: new Set(), generation: draft.generation + 1 };
     case 'saved': {
@@ -404,6 +452,7 @@ export function changedSettings(draft: SettingsDraft): string[] {
   for (const slot of DEFAULT_SLOTS) {
     if ((saved.estimate.defaults[slot] ?? null) !== (current.estimate.defaults[slot] ?? null)) changed.push(`default.${slot}`);
   }
+  if (sawChanged(draft) || [...draft.unparsed].some((f) => f.startsWith('saw.'))) changed.push('sawProfiles');
   if (saved.backups.keep !== current.backups.keep) changed.push('keep');
   if ((saved.backups.folder ?? null) !== (current.backups.folder ?? null)) changed.push('folder');
   return changed;
@@ -422,6 +471,18 @@ export const estimateChanged = (draft: SettingsDraft): boolean =>
   draft.saved.estimate.wastePercent !== draft.current.estimate.wastePercent ||
   draft.saved.estimate.edgeTrim !== draft.current.estimate.edgeTrim ||
   DEFAULT_SLOTS.some((slot) => (draft.saved.estimate.defaults[slot] ?? null) !== (draft.current.estimate.defaults[slot] ?? null));
+
+export const sawChanged = (draft: SettingsDraft): boolean => JSON.stringify(draft.saved.saw) !== JSON.stringify(draft.current.saw);
+
+/** Each profile's problems, by profile id. Only profiles with problems are listed. */
+export function sawIssues(draft: SettingsDraft): Record<string, ReturnType<typeof sawProfileIssues>> {
+  const out: Record<string, ReturnType<typeof sawProfileIssues>> = {};
+  for (const p of draft.current.saw.profiles) {
+    const issues = sawProfileIssues(p);
+    if (Object.keys(issues).length > 0) out[p.id] = issues;
+  }
+  return out;
+}
 
 export const backupsChanged = (draft: SettingsDraft): boolean =>
   draft.saved.backups.keep !== draft.current.backups.keep || (draft.saved.backups.folder ?? null) !== (draft.current.backups.folder ?? null);
@@ -500,7 +561,13 @@ export function keepIsValid(keep: number): boolean {
 
 /** Save is allowed only with changes, every field readable, and no engine errors. */
 export function canSave(draft: SettingsDraft, issues: FieldIssues = ruleIssues(draft)): boolean {
-  return isDirty(draft) && draft.unparsed.size === 0 && !hasRuleErrors(issues) && keepIsValid(draft.current.backups.keep);
+  return (
+    isDirty(draft) &&
+    draft.unparsed.size === 0 &&
+    !hasRuleErrors(issues) &&
+    keepIsValid(draft.current.backups.keep) &&
+    Object.keys(sawIssues(draft)).length === 0
+  );
 }
 
 // ---------------------------------------------------------------------------

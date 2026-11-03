@@ -53,6 +53,7 @@ pub fn run() {
             commands::recover_pending_edits,
             commands::get_shop_settings,
             commands::set_shop_setting,
+            commands::save_job_layouts,
             commands::dev_load_sample_jobs,
             commands::list_materials,
             commands::save_material,

@@ -27,10 +27,13 @@ const MIGRATIONS: &[Migration] = &[
         sql: include_str!("0003_materials.sql"),
         then: Some(seed_standard_materials),
     },
+    Migration { version: 4, name: "saw profiles", sql: include_str!("0004_saw_profiles.sql"), then: None },
+    Migration { version: 5, name: "saved layouts", sql: include_str!("0005_layouts.sql"), then: None },
+    Migration { version: 6, name: "defaults checked", sql: include_str!("0006_defaults_checked.sql"), then: None },
 ];
 
 /// Must equal the last entry in `MIGRATIONS` (checked by a test).
-pub const LATEST_VERSION: i64 = 3;
+pub const LATEST_VERSION: i64 = 6;
 
 /// The standard materials (plan §3.1), added once when the catalog is created.
 /// They have no prices: prices vary too much by supplier to guess.

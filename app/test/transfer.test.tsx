@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../src/App';
 import type * as ExportModule from '../src/platform/export';
 import type * as FilesModule from '../src/platform/files';
-import { canonicalJson, CHANGED_FILE_MESSAGE, NEWER_FILE_MESSAGE, sha256Hex, writeJobFile } from '../src/data/jobFile';
+import { canonicalJson, CHANGED_FILE_MESSAGE, JOB_FILE_VERSION, NEWER_FILE_MESSAGE, sha256Hex, writeJobFile } from '../src/data/jobFile';
 import type { MemoryStorageClient } from '../src/data/memoryClient';
 import { jobSession } from '../src/data/storage';
 import type { JobRecord } from '../src/data/types';
@@ -157,7 +157,7 @@ describe('Import job', () => {
 
     const doc = JSON.parse(text) as Record<string, unknown>;
     delete doc.checksum;
-    const newer = { ...doc, formatVersion: 3 };
+    const newer = { ...doc, formatVersion: JOB_FILE_VERSION + 1 };
     await importFile(user, JSON.stringify({ ...newer, checksum: await sha256Hex(canonicalJson(newer)) }));
     expect(toastText()).toContain(NEWER_FILE_MESSAGE);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

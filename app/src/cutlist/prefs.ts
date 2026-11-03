@@ -9,7 +9,8 @@ import { useCallback, useSyncExternalStore } from 'react';
 const PREFIX = 'kerfuffle.cutlist.includeFronts.';
 const listeners = new Set<() => void>();
 
-function read(jobId: string): boolean {
+/** Defaults to on. */
+export function readIncludeFronts(jobId: string): boolean {
   try {
     return window.localStorage.getItem(PREFIX + jobId) !== 'false';
   } catch {
@@ -35,7 +36,7 @@ function subscribe(listener: () => void): () => void {
 
 /** Defaults to on. */
 export function useIncludeFronts(jobId: string): [boolean, (include: boolean) => void] {
-  const include = useSyncExternalStore(subscribe, () => read(jobId), () => true);
+  const include = useSyncExternalStore(subscribe, () => readIncludeFronts(jobId), () => true);
   const set = useCallback((value: boolean) => setIncludeFronts(jobId, value), [jobId]);
   return [include, set];
 }

@@ -85,3 +85,5 @@ export type {
   Grain,
   SortDirection,
 } from './cutlist';
+
+export * from './nesting';

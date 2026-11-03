@@ -1,9 +1,10 @@
-import { DEFAULT_RULES, inches, upgradeVersion1Rules } from '@kerfuffle/engine';
+import { DEFAULT_RULES, DEFAULT_SAW_PROFILES, inches, upgradeVersion1Rules } from '@kerfuffle/engine';
 import type { ConstructionRules } from '@kerfuffle/engine';
 import { describe, expect, it } from 'vitest';
 import {
   canonicalJson,
   CHANGED_FILE_MESSAGE,
+  JOB_FILE_VERSION,
   jobFileName,
   NEWER_FILE_MESSAGE,
   NOT_A_JOB_FILE_MESSAGE,
@@ -66,7 +67,7 @@ describe('.kerfjob files', () => {
     const job = richJob();
     const text = await writeJobFile(job, HEADER);
     const doc = JSON.parse(text) as Record<string, unknown>;
-    expect(doc).toMatchObject({ format: 'kerfuffle-job', formatVersion: 2, appVersion: '0.1.0', exportedAt: HEADER.exportedAt, rulesVersion: 1 });
+    expect(doc).toMatchObject({ format: 'kerfuffle-job', formatVersion: JOB_FILE_VERSION, appVersion: '0.1.0', exportedAt: HEADER.exportedAt, rulesVersion: 1 });
     expect(doc.checksum).toMatch(/^[0-9a-f]{64}$/);
     expect((doc.cabinets as { width: number }[])[0]!.width).toBe(inches(30)); // integer ticks
 
@@ -101,11 +102,11 @@ describe('.kerfjob files', () => {
 
   it('refuses a file from a newer KERFuffle', async () => {
     const text = await writeJobFile(richJob(), HEADER);
-    const newerFormat = await reseal(text, (doc) => (doc.formatVersion = 3));
+    const newerFormat = await reseal(text, (doc) => (doc.formatVersion = JOB_FILE_VERSION + 1));
     expect(await readJobFile(newerFormat)).toEqual({ ok: false, message: NEWER_FILE_MESSAGE });
     expect(NEWER_FILE_MESSAGE).toBe('This job was made by a newer KERFuffle. Update this PC first.');
     // Even when the newer format checks itself some other way.
-    expect(await readJobFile(JSON.stringify({ ...JSON.parse(text), formatVersion: 3, checksum: 'other' }))).toEqual({
+    expect(await readJobFile(JSON.stringify({ ...JSON.parse(text), formatVersion: JOB_FILE_VERSION + 1, checksum: 'other' }))).toEqual({
       ok: false,
       message: NEWER_FILE_MESSAGE,
     });
@@ -181,6 +182,28 @@ describe('.kerfjob files', () => {
     const broken = await reseal(text, (doc) => ((doc.materials as { slots: Record<string, unknown> }).slots.box = { name: 'no id' }));
     const refused = await readJobFile(broken);
     expect(refused.ok).toBe(false);
+  });
+
+  it('carries the job’s saw profile copy, and reads version 2 files that have none', async () => {
+    expect(JOB_FILE_VERSION).toBeGreaterThanOrEqual(3);
+    const job = richJob();
+    job.sawProfile = { ...DEFAULT_SAW_PROFILES[1]!, kerf: inches(5 / 32), name: 'Panel saw, thin blade' };
+    const text = await writeJobFile(job, HEADER);
+    expect((JSON.parse(text) as { sawProfile: unknown }).sawProfile).toEqual(job.sawProfile);
+    const reading = await readJobFile(text);
+    if (!reading.ok) throw new Error(reading.message);
+    expect(reading.job).toEqual(job);
+    const pcB = createMemoryClient();
+    await pcB.importJob(reading.job, 'new');
+    expect((await pcB.getJob('job-a')).sawProfile).toEqual(job.sawProfile);
+
+    const broken = await reseal(text, (doc) => ((doc.sawProfile as Record<string, unknown>).kerf = -1));
+    expect(await readJobFile(broken)).toEqual({ ok: false, message: 'This job file can’t be imported: its saw profile is unreadable.' });
+
+    const v2 = await reseal(await writeJobFile(richJob(), HEADER), (doc) => (doc.formatVersion = 2));
+    const older = await readJobFile(v2);
+    if (!older.ok) throw new Error(older.message);
+    expect(older.job.sawProfile).toBeNull();
   });
 
   it('imports a version 1 file from before materials, which then uses the shop defaults', async () => {

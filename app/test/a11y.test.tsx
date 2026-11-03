@@ -1,6 +1,6 @@
 import { DEFAULT_RULES, inches } from '@kerfuffle/engine';
 import type { ConstructionRules } from '@kerfuffle/engine';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import axe from 'axe-core';
 import type { Result } from 'axe-core';
@@ -28,6 +28,18 @@ describe('accessibility (axe)', { timeout: 20_000 }, () => {
 
   it('the component gallery has no serious or critical violations', async () => {
     const { container } = render(<Gallery />);
+    const violations = await seriousViolations(container);
+    expect(violations, describeViolations(violations)).toEqual([]);
+  });
+
+  it('the cut list’s Layouts tab, laid out, with a piece pinned, has no serious or critical violations', async () => {
+    window.location.hash = '#/jobs/j-0014/cut-list';
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+    await act(async () => {});
+    await user.click(screen.getByRole('button', { name: 'Layouts' }));
+    await waitFor(() => expect(document.querySelector('[data-layout-status]')?.textContent).not.toMatch(/Laying out|Searching/), { timeout: 15_000 });
+    await user.click(within(document.querySelector<HTMLElement>('[data-pattern-id]')!).getAllByRole('button')[0]!);
     const violations = await seriousViolations(container);
     expect(violations, describeViolations(violations)).toEqual([]);
   });

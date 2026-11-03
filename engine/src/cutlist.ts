@@ -88,6 +88,8 @@ export interface CutListLine {
   material: Material | null;
   /** Edge banding for every piece on the line together: exposed front edges, per the method. */
   banding: Ticks;
+  /** Some part on the line shows in the finished job, per the method (fronts, laminate, kick faces). */
+  visible: boolean;
 }
 
 export interface CutListGroup {
@@ -179,6 +181,7 @@ interface Listed {
   material: Material | null;
   /** Banding on one piece. */
   banding: Ticks;
+  visible: boolean;
 }
 
 /**
@@ -243,6 +246,7 @@ function merge(parts: readonly Listed[]): CutListLine[] {
           slots: [],
           material: listed.material,
           banding: ticks(0),
+          visible: false,
         },
         grains: new Set(),
         nameRank: new Map(),
@@ -253,6 +257,7 @@ function merge(parts: readonly Listed[]): CutListLine[] {
     const { line } = acc;
     line.quantity += part.quantity;
     line.banding = ticks(line.banding + listed.banding * part.quantity);
+    line.visible ||= listed.visible;
     if (!line.slots.includes(listed.slot)) line.slots.push(listed.slot);
     if (!line.roles.includes(part.role)) line.roles.push(part.role);
     if (!line.names.includes(part.name)) line.names.push(part.name);
@@ -333,7 +338,13 @@ export function buildCutList(
   const method = methodOf(rules);
   const annotate = (part: Part): Listed => {
     const slot = partSlot(part, rules);
-    return { part, slot, material: materials[slot] ?? null, banding: method.banding?.(part) ?? ticks(0) };
+    return {
+      part,
+      slot,
+      material: materials[slot] ?? null,
+      banding: method.banding?.(part) ?? ticks(0),
+      visible: method.visible.has(part.role),
+    };
   };
 
   const allParts = [...listed.flatMap((c) => c.parts), ...shared.parts.map((p) => p.part)].map(annotate);

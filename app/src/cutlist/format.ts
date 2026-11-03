@@ -97,7 +97,7 @@ export function isoDate(date: Date): string {
 }
 
 /** "Kitchen remodel – cut list.pdf", safe as a Windows file name. */
-export function exportFileName(jobName: string, extension: 'pdf' | 'csv', what: 'cut list' | 'estimate' = 'cut list'): string {
+export function exportFileName(jobName: string, extension: 'pdf' | 'csv', what: 'cut list' | 'estimate' | 'sheet layouts' = 'cut list'): string {
   const safe = jobName
     // Characters Windows forbids in names, and control characters.
     .replace(/[<>:"/\\|?*]/g, '-')

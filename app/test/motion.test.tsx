@@ -54,4 +54,12 @@ describe('reduced motion', () => {
     expect(base).toMatch(/:root\[data-motion='reduce'\] \*[\s\S]*?animation-duration: 1ms !important[\s\S]*?transition-duration: 0ms !important/);
     expect(base).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
   });
+
+  it('the Layouts tab uses only the motion tokens, so reduced motion stills it; its drawings never animate', () => {
+    const layouts = readFileSync(join(process.cwd(), 'src', 'screens', 'cutlist', 'Layouts.module.css'), 'utf8');
+    const transitions = [...layouts.matchAll(/transition[^;]*;/g)].map((t) => t[0]);
+    expect(transitions.length).toBeGreaterThan(0);
+    for (const t of transitions) expect(t).not.toMatch(/\d+m?s\b/);
+    expect(layouts).not.toMatch(/animation\s*:/);
+  });
 });

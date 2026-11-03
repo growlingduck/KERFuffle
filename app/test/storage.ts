@@ -4,6 +4,8 @@ import { createMemoryClient } from '../src/data/memoryClient';
 import type { MemoryStorageClient } from '../src/data/memoryClient';
 import { jobSession, refreshJobList } from '../src/data/storage';
 import { loadMaterials } from '../src/state/materials';
+import { loadSawProfiles } from '../src/state/sawProfiles';
+import { setLayoutWorkers } from '../src/layout/runner';
 import type { CabinetRecord, JobRecord } from '../src/data/types';
 
 export function testCabinet(id: string, label: string, overrides: Partial<CabinetRecord> = {}): CabinetRecord {
@@ -39,18 +41,27 @@ export function testJob(overrides: Partial<JobRecord> = {}): JobRecord {
     cabinets: [testCabinet('c-b1', 'B1')],
     // Made before materials: it uses the shop defaults until one is chosen.
     materials: null,
+    sawProfile: null,
     ...overrides,
   };
+}
+
+/** Layout workers that never answer: the estimate stays area-based, the Layouts tab says "Laying out…" (tests). */
+export function quietLayouts(): void {
+  setLayoutWorkers(() => ({ onmessage: null, onerror: null, postMessage: () => {}, terminate: () => {} }));
 }
 
 /** A fresh in-memory database holding the Kitchen remodel job (id j-0014), loaded into the app. */
 export async function useTestDatabase(jobs: JobRecord[] = [testJob()]): Promise<MemoryStorageClient> {
   await jobSession.close();
+  // Fresh layout runners, with the worker's code run in this thread.
+  setLayoutWorkers(null);
   const client = createMemoryClient();
   client.seed(jobs);
   setStorageClient(client);
   await refreshJobList();
-  // A fresh catalog (the standard materials) for every test.
+  // A fresh catalog (the standard materials) and saw profiles (the built-in ones) for every test.
   await loadMaterials();
+  await loadSawProfiles();
   return client;
 }

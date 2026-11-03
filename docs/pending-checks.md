@@ -1,6 +1,6 @@
 # Pending checks
 
-Things built so far (prompts 01–11) that still need you to look at them, try
+Things built so far (prompts 01–13) that still need you to look at them, try
 them, or make a call. Tick them off or delete lines as you go. Last updated
 2026-11-02.
 
@@ -309,3 +309,97 @@ Choices made. Keep or change?
 - [ ] **`.kerfjob` files are now format 2** (they carry the materials). An
       older KERFuffle refuses them with "made by a newer KERFuffle"; update
       both PCs together. Format 1 files still import.
+
+## 10. Sheet optimizer and saw profiles (prompt 12)
+
+The engine lays the job out on sheets; the screen that shows it is prompt 13,
+so for now you can only see the saw profiles. How the optimizer works, what
+each measure means and the benchmark numbers: `docs/sheet-optimizer.md`.
+Settings → Saw profiles and the cut list's Saw profile picker were checked in
+headless Edge in the browser preview only, not in the desktop window.
+
+- [ ] **Check both kerfs against the real blades.** Table saw and Panel saw
+      both start at 1/8″ kerf and 1/4″ trim (plan §2.2).
+- [ ] **Try it in the desktop app:** Settings → Saw profiles (edit, duplicate,
+      Use for new jobs, Remove, Save defaults), then a job's Cut list → Saw
+      profile: choose one, Undo, and reopen the job.
+- [ ] **The stress fixture has pieces too big for a trimmed 48 × 96 sheet:**
+      backs and fronts 48″ wide (and their laminate) don't fit in 47 1/2″.
+      They're listed with the reason, not dropped. A real job like that needs
+      bigger stock, or less trim on that material.
+
+Choices made. Keep or change?
+
+- [ ] **Fence settings are counted per cutting stage.** All strips of one
+      width are ripped before the fence moves; a width that comes up again at
+      the trim stage counts again. With grained stock, counting each width once
+      would give every layout the same number. Crosscut stops are counted the
+      same way.
+- [ ] **Grain mode turns nothing,** even on stock without grain (melamine,
+      MDF), and places visible pieces (fronts, laminate, kick faces) first.
+      Cost mode turns pieces only on stock without grain.
+- [ ] **Time mode, over its allowance,** cuts the emptiest few strip sheets
+      best-fit to get back within it; if it still can't, it shows the Cost
+      layout. On the stress fixture's 3/4″ birch it uses 45 sheets (Cost: 44)
+      with 23 fence settings (Cost: 31).
+- [ ] **Yield is against the full sheet,** not the trimmed area, since that's
+      what's paid for.
+- [ ] **Edge trim includes the trim cut's kerf** (so 4 × 11 3/4″ fits across
+      48″, as in the plan's example), and the trim cuts aren't counted as cuts.
+- [ ] **The smallest safe piece flags, it doesn't refuse.** Narrower pieces
+      are laid out and listed so they're cut with care.
+- [ ] **Sensitivity tries pieces up to 1/4″ smaller** (allowances up to 1/8″,
+      as planned), so the plan's 12 3/4″ wall example is found: it suggests
+      the sides 7/32″ narrower (11 25/32″, exactly 4 across), the smallest
+      change that saves the sheet.
+- [ ] **A light last sheet** is one under 50% used.
+- [ ] **The estimate's own edge trim** (Settings → Materials) stays separate
+      from the saw profiles' until prompt 13 switches the estimate to layout
+      counts.
+- [ ] **`.kerfjob` files are now format 3** (they carry the saw profile).
+      An older KERFuffle refuses them with "made by a newer KERFuffle";
+      update both PCs together. Format 1 and 2 files still import.
+- [ ] **The database is now schema 4** (a saw profile copy on each job). The
+      shop's profiles are a shop setting. An older app refuses the newer
+      database with its usual message.
+
+## 11. Layouts tab, printout and saved layouts (prompt 13)
+
+Cut list → Show: **Layouts**. Checked in headless Edge in the browser preview
+(sample job and stress fixture, screen, print and PDF), not in the desktop
+window.
+
+- [ ] **Try it in the desktop app:** open a job's Layouts tab, switch Cost ·
+      Grain · Time, pick a material and a saw, point at pieces, then Print
+      layouts… and Save PDF. Print one on the shop printer in black and white.
+- [ ] **Mark a job Ready to cut, restart the app, reopen it:** the Layouts tab
+      says "Kept with the job …". Change a cabinet: the banner says "Cut list
+      changed since this layout was saved"; Recalculate, then Undo.
+- [ ] **Check the printed drawing size.** It's about 4.4″ wide beside the cut
+      sequence, so a 96″ sheet is roughly 1:22. Narrow strips (under ~3″) get
+      no mark; their pieces are still in the cut sequence.
+
+Choices made. Keep or change?
+
+- [ ] **A draft keeps a layout too, when it's printed or saved as PDF.** It's
+      shown again only while the job is unchanged; after any change the draft
+      lays itself out again, with no banner.
+- [ ] **Ready to cut, Completed and Archived all keep their layouts.** Undoing
+      Ready back to Draft keeps the saved layout but stops holding the screen
+      to it.
+- [ ] **Changing the mode or saw on a Ready job** doesn't replace the kept
+      layout: the banner names what changed ("Layout mode changed …") and the
+      stats strip shows the other numbers until Recalculate.
+- [ ] **Recalculate replaces every material's kept layout** with the one for
+      the job as it is now; Undo puts all of them back.
+- [ ] **Print layouts prints every material**, not just the one on screen,
+      material by material. Two patterns share a page when both cut sequences
+      are 12 steps or fewer.
+- [ ] **The estimate counts from the layout** once it's finished (saved, or
+      worked out for the current mode); until then it's "≈" from area. On the
+      sample job, 3/4″ birch drops from ≈ 7 to 6 sheets.
+- [ ] **The layout follows "Include fronts"** like the cut list, so the
+      estimate and the layout count the same pieces.
+- [ ] **A duplicated job doesn't copy the kept layouts** (it's a draft).
+- [ ] **`.kerfjob` files are now format 4** (they carry kept layouts). The
+      database is schema 5 (`layouts` table). Update both PCs together.

@@ -19,7 +19,12 @@ one until the checklist passes.
 | 11 | [Materials and estimate](11-materials-and-estimate.md) | Catalog, slots, purchase estimate | |
 | 12 | [Sheet optimizer: engine](12-sheet-optimizer-engine.md) | `engine/src/nesting/`, saw profiles, sensitivity | |
 | 13 | [Layouts: screen and print](13-layouts-screen-and-print.md) | Layouts tab, print, saved layouts | |
-| 14 | [DXF export](14-dxf-export.md) | DXF per sheet pattern | |
+| 14 | [First run](14-first-run.md) | Shop-defaults check, example job in release builds | |
+| 15 | [Starting a job](15-starting-a-job.md) | Shorter New job dialog, first cabinet ready to type | |
+| 16 | [Explaining shop terms](16-explaining-shop-terms.md) | Glossary, info tips, tracing hint, size-entry help | |
+| 17 | [Next steps](17-next-steps.md) | Cut list button, actionable empty states, Ready-to-cut lock hint | |
+| 18 | [Help and quick start](18-help-and-quick-start.md) | Help section, printable quick start, small clarity fixes | |
+| 19 | [DXF export](19-dxf-export.md) | DXF per sheet pattern | |
 
 Prompts 02–07 share [`docs/interaction-design.md`](../docs/interaction-design.md)
 and the prototypes in [`docs/wireframes/`](../docs/wireframes/).

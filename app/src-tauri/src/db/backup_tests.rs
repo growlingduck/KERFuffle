@@ -14,7 +14,7 @@ fn file_db(dir: &Path) -> (PathBuf, Connection) {
 }
 
 fn add_job(conn: &mut Connection, name: &str) {
-    create_job(conn, &NewJob { name: name.into(), customer: None, notes: None, construction: None, materials: None }).unwrap();
+    create_job(conn, &NewJob { name: name.into(), customer: None, notes: None, construction: None, materials: None, saw_profile: None }).unwrap();
 }
 
 fn job_names(conn: &Connection) -> Vec<String> {
@@ -336,4 +336,32 @@ fn restore_works_when_the_database_could_not_be_opened_and_keeps_the_unreadable_
     assert_eq!(restored.safety, None);
     assert_eq!(job_names(slot.as_ref().unwrap()), ["Kitchen remodel"]);
     assert!(files_in(dir.path()).iter().any(|f| f.starts_with("kerfuffle.db.unreadable-")));
+}
+
+#[test]
+fn a_backup_carries_the_saved_layouts() {
+    let dir = tempfile::tempdir().unwrap();
+    let (db_path, mut conn) = file_db(dir.path());
+    let policy = policy(dir.path());
+    add_job(&mut conn, "Kitchen remodel");
+    let id = list_jobs(&conn).unwrap()[0].id.clone();
+    let layout = crate::db::SavedLayout {
+        material_id: "birch-ply-34".into(),
+        input_hash: "abc".into(),
+        algorithm_version: 1,
+        mode: "time".into(),
+        profile: serde_json::json!({
+            "id": "table-saw", "name": "Table saw", "kerf": 8, "edgeTrim": 16, "minPiece": 128,
+            "keepLength": 768, "keepWidth": 768, "firstCut": "length", "extraSheets": 1
+        }),
+        layout: serde_json::json!({ "material": { "id": "birch-ply-34" }, "patterns": [] }),
+        created_at: "2026-11-02T10:00:00.000Z".into(),
+    };
+    crate::db::save_job_layouts(&mut conn, &id, std::slice::from_ref(&layout)).unwrap();
+    let then = create_named(&conn, &policy.dir, "20261020-080000", |_| {}).unwrap();
+    crate::db::save_job_layouts(&mut conn, &id, &[]).unwrap();
+
+    let mut slot = Ok(conn);
+    restore(&mut slot, &db_path, &policy, &then.file_name).unwrap();
+    assert_eq!(crate::db::get_job(slot.as_ref().unwrap(), &id).unwrap().layouts, vec![layout]);
 }

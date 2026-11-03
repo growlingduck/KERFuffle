@@ -4,7 +4,7 @@ import { inches, TICKS_PER_INCH, type Ticks } from './units';
 
 /**
  * The shop's purchase estimate: what the job's materials cost to buy. Sheets
- * are counted from area (prompt 13 replaces that with counts from the layout),
+ * are counted from the sheet layout where there is one, otherwise from area;
  * edge banding by the foot, and the method's hardware by the piece. Never
  * hinges, slides, pulls, screws or glue. No markup, labor or tax.
  * docs/plan-methods-optimizer-costing.md §3.3–3.4.
@@ -17,6 +17,11 @@ export interface EstimateOptions {
   wastePercent: number;
   /** Trimmed off each edge of every sheet before parts are counted against it. */
   edgeTrim: Ticks;
+  /**
+   * Sheets from a layout, by material id. A material listed here is counted
+   * from its layout ("7 sheets"); the rest from area ("≈ 7 sheets").
+   */
+  layoutSheets?: Readonly<Record<string, number>>;
 }
 
 export const DEFAULT_ESTIMATE_OPTIONS: Readonly<EstimateOptions> = Object.freeze({
@@ -24,8 +29,8 @@ export const DEFAULT_ESTIMATE_OPTIONS: Readonly<EstimateOptions> = Object.freeze
   edgeTrim: inches(1 / 4),
 });
 
-/** How a line was counted: sheets from area, banding from length, hardware by count. */
-export type EstimateBasis = 'area' | 'length' | 'count';
+/** How a line was counted: sheets from a layout or from area, banding from length, hardware by count. */
+export type EstimateBasis = 'layout' | 'area' | 'length' | 'count';
 
 export interface EstimateLine {
   /** The material id, or "slot:box" for a slot with no material chosen. */
@@ -128,8 +133,9 @@ export function estimate(cutList: CutList, materials: JobMaterials, options: Est
   const unpriced = lines.filter((l) => l.material !== null && l.material.price === null).length;
   const unassigned = lines.filter((l) => l.material === null).flatMap((l) => l.slots);
   const complete = lines.every((l) => l.cost !== null);
+  const { layoutSheets, ...rest } = options;
   return {
-    options: { ...options },
+    options: layoutSheets ? { ...rest, layoutSheets: { ...layoutSheets } } : rest,
     lines,
     total: { cost: complete ? lines.reduce((sum, l) => sum + (l.cost ?? 0), 0) : null, unpriced, unassigned },
   };
@@ -163,6 +169,10 @@ function countLine(key: string, tally: Tally, options: EstimateOptions): Estimat
         return a > Math.max(long, short) || b > Math.min(long, short);
       })
       .map((l) => l.mark);
+    const fromLayout = options.layoutSheets?.[material.id];
+    if (fromLayout !== undefined) {
+      return finish({ ...base, basis: 'layout', unit: 'sheet', needed: fromLayout, partArea, usableArea: usable / SQ, oversize });
+    }
     // Integer arithmetic: exact for whole-percent waste.
     const needed = usable <= 0 ? null : tally.amount === 0 ? 0 : Math.ceil((tally.amount * (100 + options.wastePercent)) / (usable * 100));
     return finish({ ...base, basis: 'area', unit: 'sheet', needed, partArea, usableArea: usable / SQ, oversize });

@@ -1,21 +1,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildCutList, constructionName, estimate as estimateJob, JOB_SLOTS, SLOT_INFO } from '@kerfuffle/engine';
-import type { CutListMode, CutListOptions, CutListSortKey, Estimate, JobSlot } from '@kerfuffle/engine';
+import { buildCutList, constructionName, estimate as estimateJob, JOB_SLOTS, LAYOUT_MODES, materialInputKeys, SLOT_INFO } from '@kerfuffle/engine';
+import type { CutListMode, CutListOptions, CutListSortKey, Estimate, JobSlot, LayoutMode, LayoutStats, Sensitivity } from '@kerfuffle/engine';
 import { Button, ButtonLink } from '../components/Button';
 import { CheckIcon, ChevronLeftIcon, ImportIcon, PrintIcon } from '../components/icons';
 import { Segmented } from '../components/Segmented';
 import { Switch } from '../components/Switch';
 import { cutListCsv } from '../cutlist/csv';
 import { estimateCsv } from '../cutlist/estimate';
+import { MODE_HELP, MODE_NAMES } from '../cutlist/layoutText';
 import { exportFileName, isoDate, PAGE_SIZES } from '../cutlist/format';
 import { useIncludeFronts } from '../cutlist/prefs';
 import { takePrintRequest } from '../cutlist/printRequest';
 import { cabinetSpec } from '../data/jobSession';
 import { changedMaterialCount, effectiveJobMaterials, engineMaterials, priceChanges, pricesAsOf, withCurrentPrices, withSlotMaterial } from '../data/materials';
+import { layoutChanges, layoutsFixed, savedLayout } from '../data/layouts';
+import { jobSawProfile } from '../data/sawProfiles';
 import { jobSession } from '../data/storage';
 import type { JobMaterialsRecord, JobRecord } from '../data/types';
 import { formatJobNumber } from '../data/types';
 import { useShortcut, useShortcutScope } from '../keyboard/shortcuts';
+import { layoutInputOf } from '../layout/jobInput';
+import type { LayoutParts } from '../layout/jobInput';
+import { keepJobLayout, keepLayouts } from '../layout/keep';
+import { useLayoutMode } from '../layout/prefs';
+import { useJobLayout } from '../layout/useJobLayout';
+import { useModeLayouts } from '../layout/useModeLayouts';
 import { cx, useDelayedFlag } from '../lib/interaction';
 import { canShowInFolder, printSheets, saveCsv, savePdf, showInFolder, toExportError } from '../platform/export';
 import type { SavedFile } from '../platform/export';
@@ -23,13 +32,20 @@ import { navigate, routeHref } from '../routes';
 import { useStore } from '../state/createStore';
 import { useJob } from '../state/jobs';
 import { useMaterials } from '../state/materials';
+import { useSawProfiles } from '../state/sawProfiles';
 import { showToast } from '../state/toast';
+import { toStorageError } from '../data/errors';
 import { duplicateLabels } from '../workspace/cabinets';
 import { selectCabinet } from '../workspace/ui';
 import { MissingJob } from './MissingJob';
 import styles from './cutlist/CutList.module.css';
 import { EstimateSheet } from './cutlist/EstimateSheet';
+import { LayoutPages } from './cutlist/LayoutPages';
+import { LayoutsView } from './cutlist/LayoutsView';
+import type { ShownLayout } from './cutlist/LayoutsView';
+import ls from './cutlist/Layouts.module.css';
 import { MaterialsPanel } from './cutlist/MaterialsPanel';
+import { SawProfilePanel } from './cutlist/SawProfilePanel';
 import { PartSketch } from './cutlist/PartSketch';
 import type { SketchSource } from './cutlist/PartSketch';
 import { Sheets } from './cutlist/Sheets';
@@ -38,7 +54,7 @@ import ws from './workspace/Workspace.module.css';
 
 type ExportKind = 'csv' | 'pdf';
 /** The sheets on screen, which Print, Save PDF and Export CSV act on. */
-type View = 'cutlist' | 'estimate';
+type View = 'cutlist' | 'estimate' | 'layouts';
 
 interface EstimateData {
   estimate: Estimate;
@@ -70,7 +86,10 @@ function ExportButton({ kind, phase, onRun }: { kind: ExportKind; phase: ExportP
   );
 }
 
-function useExports(job: JobRecord, sheetData: SheetData, estimateData: EstimateData, view: View) {
+/** What Save PDF names the file, by view. */
+const PDF_WHAT = { cutlist: 'cut list', estimate: 'estimate', layouts: 'sheet layouts' } as const;
+
+function useExports(job: JobRecord, sheetData: SheetData, estimateData: EstimateData, view: View, afterLayoutsPdf: () => Promise<void>) {
   const [phase, setPhase] = useState<Record<ExportKind, ExportPhase>>({ csv: 'idle', pdf: 'idle' });
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
@@ -99,9 +118,9 @@ function useExports(job: JobRecord, sheetData: SheetData, estimateData: Estimate
   };
 
   // Read the latest data when run, so Try again saves what's on screen now.
-  const latest = useRef({ job, sheetData, estimateData, view });
+  const latest = useRef({ job, sheetData, estimateData, view, afterLayoutsPdf });
   useEffect(() => {
-    latest.current = { job, sheetData, estimateData, view };
+    latest.current = { job, sheetData, estimateData, view, afterLayoutsPdf };
   });
 
   const exportCsv = async (): Promise<void> => {
@@ -131,9 +150,11 @@ function useExports(job: JobRecord, sheetData: SheetData, estimateData: Estimate
   const exportPdf = async (): Promise<void> => {
     if (busy.current.pdf) return;
     busy.current.pdf = true;
-    const { job: j, sheetData: d, view: v } = latest.current;
+    const { job: j, sheetData: d, view: v, afterLayoutsPdf: keep } = latest.current;
     try {
-      const result = await savePdf(exportFileName(j.name, 'pdf', v === 'estimate' ? 'estimate' : 'cut list'), d.page, () => set('pdf', 'busy'));
+      const result = await savePdf(exportFileName(j.name, 'pdf', PDF_WHAT[v]), d.page, () => set('pdf', 'busy'));
+      // Layouts saved as PDF are kept with the job, so the sheets cut match the paper.
+      if (v === 'layouts' && result.kind !== 'cancelled') await keep();
       if (result.kind === 'saved') saved('pdf', result.file);
       else set('pdf', 'idle');
       if (result.kind === 'printDialog') showToast('To save a PDF, pick “Microsoft Print to PDF” as the printer.');
@@ -176,7 +197,62 @@ function CutListView({ job }: { job: JobRecord }) {
     () => buildCutList(specs, job.rules, { mode, includeFronts, sort }, materials),
     [specs, job.rules, mode, includeFronts, sort, materials],
   );
-  const estimate = useMemo(() => estimateJob(list, materials, estimateSettings), [list, materials, estimateSettings]);
+  // A job made before saw profiles uses the shop default until one is chosen.
+  const { settings: sawSettings } = useSawProfiles();
+  const sawProfile = jobSawProfile(job, sawSettings);
+
+  // ---- Sheet layouts (plan §2.6–2.7) ----
+  const [layoutMode, setLayoutMode] = useLayoutMode(job.id);
+  const fixed = layoutsFixed(job.status);
+  // Reopening a job that keeps its layouts shows them in the mode they were made in.
+  useEffect(() => {
+    const kept = job.layouts?.[0];
+    if (fixed && kept && kept.mode !== layoutMode) setLayoutMode(kept.mode);
+    // Once, when the job opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.id]);
+  const layoutParts = useMemo<LayoutParts>(
+    () => ({ cabinets: specs, rules: job.rules, materials, profile: sawProfile, includeFronts }),
+    [specs, job.rules, materials, sawProfile, includeFronts],
+  );
+  const layoutInput = useMemo(() => layoutInputOf(layoutParts, layoutMode), [layoutParts, layoutMode]);
+  const inputKeys = useMemo<Record<string, string>>(() => {
+    try {
+      return materialInputKeys(layoutInput);
+    } catch {
+      return {};
+    }
+  }, [layoutInput]);
+  const live = useJobLayout(layoutInput);
+  const otherModes = useModeLayouts(layoutInput);
+  const shownLayouts = useMemo<ShownLayout[]>(() => {
+    const names = new Map(Object.values(materials).map((m) => [m.id, m.name]));
+    // Most pieces first (the box material, as a rule), then in cut-list order.
+    const pieces = new Map<string, number>();
+    for (const g of list.groups) if (g.material) pieces.set(g.material.id, (pieces.get(g.material.id) ?? 0) + g.pieces);
+    const ids = Object.keys(inputKeys).sort((a, b) => (pieces.get(b) ?? 0) - (pieces.get(a) ?? 0));
+    // A job that keeps its layouts still shows one for a material it no longer uses, until recalculated.
+    if (fixed) for (const r of job.layouts ?? []) if (!ids.includes(r.materialId)) ids.push(r.materialId);
+    return ids.map((id): ShownLayout => {
+      const kept = savedLayout(job, id) ?? null;
+      const changed = kept ? layoutChanges(kept, { inputKeys, profile: sawProfile, mode: layoutMode }) : [];
+      const name = names.get(id) ?? kept?.layout.material.name ?? id;
+      if (kept && (fixed || changed.length === 0)) {
+        return { materialId: id, name, layout: kept.layout, source: 'saved', record: kept, changes: changed, final: true, mode: kept.mode, profile: kept.profile };
+      }
+      const now = live.layout?.materials.find((m) => m.material.id === id) ?? null;
+      return { materialId: id, name, layout: now, source: 'live', record: kept, changes: changed, final: live.final, mode: layoutMode, profile: sawProfile };
+    });
+  }, [materials, list.groups, inputKeys, fixed, job, sawProfile, layoutMode, live.layout, live.final]);
+  // The estimate counts sheets from a layout wherever one is finished.
+  const layoutSheets = useMemo(
+    () => Object.fromEntries(shownLayouts.flatMap((s) => (s.layout && s.final ? [[s.materialId, s.layout.stats.sheets] as const] : []))),
+    [shownLayouts],
+  );
+  const estimate = useMemo(
+    () => estimateJob(list, materials, { ...estimateSettings, layoutSheets }),
+    [list, materials, estimateSettings, layoutSheets],
+  );
   const usedSlots = useMemo<JobSlot[]>(() => {
     const used = new Set(estimate.lines.flatMap((l) => l.slots));
     return JOB_SLOTS.filter((slot) => used.has(slot));
@@ -198,6 +274,13 @@ function CutListView({ job }: { job: JobRecord }) {
     const found = id === null ? null : (catalog.find((m) => m.id === id) ?? null);
     if (id !== null && !found) return; // the job's own copy, already chosen
     commitMaterials(withSlotMaterial(record, slot, found, new Date().toISOString()), `${SLOT_INFO[slot].name}: ${found ? found.name : 'no material'}`);
+  };
+  const chooseSawProfile = (profileId: string) => {
+    const found = sawSettings.profiles.find((p) => p.id === profileId);
+    if (!found) return; // the job's own copy, already chosen
+    const before = sawProfile;
+    jobSession.commit((current) => ({ ...current, sawProfile: { ...found } }));
+    showToast(`Saw profile: ${found.name}`, { label: 'Undo', run: () => jobSession.commit((current) => ({ ...current, sawProfile: before })) });
   };
   const updatePrices = () => {
     const count = changedMaterialCount(changes);
@@ -258,8 +341,71 @@ function CutListView({ job }: { job: JobRecord }) {
   const sketchLine = list.lines.find((l) => l.key === sketchKey) ?? (sketchKey ? undefined : list.lines[0]);
   const source: SketchSource = hoverRow && hoverRow !== pinnedRow ? 'pointed' : pinnedRow ? 'pinned' : 'first';
 
-  const { phase, exportCsv, exportPdf } = useExports(job, data, estimateData, view);
-  useShortcut({ id: 'cutlist.print', keys: ['Ctrl+P'], scope: 'cutlist', label: 'Print the cut list or estimate', run: () => void print() });
+  const [layoutMaterial, setLayoutMaterial] = useState<string | null>(null);
+  const shown = shownLayouts.find((s) => s.materialId === layoutMaterial) ?? shownLayouts[0] ?? null;
+  const layoutsReady = shownLayouts.length > 0 && shownLayouts.every((s) => s.layout !== null && s.final);
+  /** Keep the layouts being printed that the job doesn't keep yet. */
+  const keepPrinted = async (): Promise<void> => {
+    const fresh = new Set(shownLayouts.filter((s) => s.source === 'live').map((s) => s.materialId));
+    if (fresh.size === 0 || !live.layout || !live.final) return;
+    try {
+      await keepJobLayout(job, live.layout, layoutInput, fresh);
+    } catch (error) {
+      showToast(`The sheet layouts couldn’t be kept with the job. ${toStorageError(error).message}`);
+    }
+  };
+  const printLayouts = async (): Promise<void> => {
+    if (!layoutsReady) return;
+    await print();
+    await keepPrinted();
+  };
+  const recalculate =
+    live.layout && live.final
+      ? () => {
+          const before = job.layouts ?? [];
+          const done = live.layout!;
+          keepJobLayout(job, done, layoutInput)
+            .then(() =>
+              showToast('Layouts recalculated and kept with the job', {
+                label: 'Undo',
+                run: () => void keepLayouts(job.id, before).catch((e: unknown) => showToast(toStorageError(e).message)),
+              }),
+            )
+            .catch((error: unknown) => showToast(toStorageError(error).message));
+        }
+      : null;
+  const modeStats = useMemo(() => {
+    const stats: Partial<Record<LayoutMode, LayoutStats>> = {};
+    if (!shown) return stats;
+    for (const mode of LAYOUT_MODES) {
+      const source = mode === shown.mode ? shown.layout : mode === layoutMode ? live.layout?.materials.find((m) => m.material.id === shown.materialId) : otherModes[mode]?.materials.find((m) => m.material.id === shown.materialId);
+      if (source) stats[mode] = source.stats;
+    }
+    return stats;
+  }, [shown, layoutMode, live.layout, otherModes]);
+  const notes = useMemo<Sensitivity | null>(() => {
+    if (!shown || !live.sensitivity) return null;
+    const mine = <T extends { materialId: string }>(list: readonly T[]) => list.filter((n) => n.materialId === shown.materialId);
+    const s = live.sensitivity;
+    return { nearMisses: mine(s.nearMisses), fragile: mine(s.fragile), risks: mine(s.risks), lightSheets: mine(s.lightSheets) };
+  }, [shown, live.sensitivity]);
+
+  const { phase, exportCsv, exportPdf } = useExports(job, data, estimateData, view, keepPrinted);
+  const viewRef = useRef(view);
+  useEffect(() => {
+    viewRef.current = view;
+  });
+  const printLayoutsRef = useRef(printLayouts);
+  useEffect(() => {
+    printLayoutsRef.current = printLayouts;
+  });
+  useShortcut({
+    id: 'cutlist.print',
+    keys: ['Ctrl+P'],
+    scope: 'cutlist',
+    label: 'Print the cut list, estimate or layouts',
+    run: () => void (viewRef.current === 'layouts' ? printLayoutsRef.current() : print()),
+  });
 
   const onPaginated = useCallback(() => {
     if (takePrintRequest()) void print();
@@ -289,10 +435,55 @@ function CutListView({ job }: { job: JobRecord }) {
             onChange={setView}
             options={[
               { value: 'cutlist', label: 'Cut list' },
+              { value: 'layouts', label: 'Layouts' },
               { value: 'estimate', label: 'Estimate' },
             ]}
           />
         </div>
+        {view === 'layouts' ? (
+          <>
+            <div className={styles.listLabel}>
+              <span className="cap" aria-hidden="true">
+                Mode
+              </span>
+              <Segmented<LayoutMode>
+                label="Layout mode"
+                value={layoutMode}
+                onChange={setLayoutMode}
+                options={LAYOUT_MODES.map((m) => ({ value: m, label: <span title={MODE_HELP[m]}>{MODE_NAMES[m]}</span> }))}
+              />
+            </div>
+            <label className={ls.toolPick}>
+              <span className="cap">Saw</span>
+              <select className={ls.toolSelect} value={sawProfile.id} onChange={(e) => chooseSawProfile(e.target.value)}>
+                {!sawSettings.profiles.some((p) => p.id === sawProfile.id) && <option value={sawProfile.id}>{sawProfile.name}</option>}
+                {sawSettings.profiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={ls.toolPick}>
+              <span className="cap">Material</span>
+              <select
+                className={ls.toolSelect}
+                value={shown?.materialId ?? ''}
+                disabled={shownLayouts.length === 0}
+                onChange={(e) => setLayoutMaterial(e.target.value)}
+              >
+                {shownLayouts.length === 0 && <option value="">None yet</option>}
+                {shownLayouts.map((s) => (
+                  <option key={s.materialId} value={s.materialId}>
+                    {s.name}
+                    {s.layout && s.final ? ` · ${s.layout.stats.sheets} ${s.layout.stats.sheets === 1 ? 'sheet' : 'sheets'}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        ) : (
+          <>
         <div className={styles.listLabel}>
           <span className="cap" aria-hidden="true">
             List
@@ -310,12 +501,39 @@ function CutListView({ job }: { job: JobRecord }) {
         <Switch checked={includeFronts} onChange={setIncludeFronts}>
           Include fronts <span className={styles.muted}>(door / laminate size)</span>
         </Switch>
+          </>
+        )}
         <div className={styles.toolbarEnd}>
-          <ExportButton kind="csv" phase={phase.csv} onRun={() => void exportCsv()} />
-          <ExportButton kind="pdf" phase={phase.pdf} onRun={() => void exportPdf()} />
-          <Button variant="primary" size="lg" icon={<PrintIcon />} tooltip="Ctrl + P" onClick={() => void print()}>
-            Print…
-          </Button>
+          {view === 'layouts' ? (
+            <>
+              {layoutsReady ? (
+                <ExportButton kind="pdf" phase={phase.pdf} onRun={() => void exportPdf()} />
+              ) : (
+                <Button size="lg" icon={<ImportIcon />} disabled disabledReason={shownLayouts.length === 0 ? 'Nothing to lay out yet' : 'Still laying out…'}>
+                  Save PDF
+                </Button>
+              )}
+              <Button
+                variant="primary"
+                size="lg"
+                icon={<PrintIcon />}
+                tooltip="Ctrl + P"
+                disabled={!layoutsReady}
+                disabledReason={shownLayouts.length === 0 ? 'Nothing to lay out yet' : 'Still laying out…'}
+                onClick={() => void printLayouts()}
+              >
+                Print layouts…
+              </Button>
+            </>
+          ) : (
+            <>
+              <ExportButton kind="csv" phase={phase.csv} onRun={() => void exportCsv()} />
+              <ExportButton kind="pdf" phase={phase.pdf} onRun={() => void exportPdf()} />
+              <Button variant="primary" size="lg" icon={<PrintIcon />} tooltip="Ctrl + P" onClick={() => void print()}>
+                Print…
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -374,10 +592,30 @@ function CutListView({ job }: { job: JobRecord }) {
       <div className={styles.content}>
         {view === 'cutlist' ? (
           <Sheets data={data} ui={ui} onPaginated={onPaginated} />
-        ) : (
+        ) : view === 'estimate' ? (
           <EstimateSheet estimate={estimate} list={list} rules={job.rules} job={data.job} printed={printed} pricesAsOf={asOf} page={data.page} />
+        ) : (
+          <>
+            <div className={ls.screenOnly}>
+              <LayoutsView
+                jobId={job.id}
+                shown={shown}
+                fixed={fixed}
+                modeStats={modeStats}
+                sensitivity={notes}
+                jobUnplaced={live.layout?.unplaced ?? []}
+                error={live.error}
+                hotLine={hoverRow ?? pinnedRow}
+                pinnedLine={pinnedRow}
+                onLine={setHoverRow}
+                onPinLine={(key) => setPinnedRow((p) => (p === key ? null : key))}
+                onRecalculate={recalculate}
+              />
+            </div>
+            {layoutsReady && <LayoutPages job={data.job} layouts={shownLayouts} jobUnplaced={live.layout?.unplaced ?? []} printed={printed} page={data.page} />}
+          </>
         )}
-        <PartSketch line={view === 'cutlist' ? (sketchLine ?? null) : undefined} source={source} totals={list.totals}>
+        <PartSketch line={view === 'estimate' ? undefined : (sketchLine ?? null)} source={source} totals={list.totals}>
           <MaterialsPanel
             record={record}
             usingDefaults={!job.materials}
@@ -389,6 +627,7 @@ function CutListView({ job }: { job: JobRecord }) {
             onChoose={chooseMaterial}
             onUpdatePrices={updatePrices}
           />
+          <SawProfilePanel profile={sawProfile} usingDefault={!job.sawProfile} profiles={sawSettings.profiles} onChoose={chooseSawProfile} />
         </PartSketch>
       </div>
     </div>

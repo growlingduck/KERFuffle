@@ -8,8 +8,8 @@ use rusqlite::{params, Connection, OptionalExtension, Row};
 use super::error::{DbError, DbResult};
 use super::materials::ESTIMATE_SETTING;
 use super::models::{
-    check_job_materials, Cabinet, CabinetOutline, CabinetType, ConstructionChoice, FinishedEnds, Job, JobFields,
-    MethodId, JobListItem, JobSnapshot, JobStatus, NewJob, Saved, RULES_VERSION,
+    check_job_materials, check_layouts, check_saw_profile, Cabinet, CabinetOutline, CabinetType, ConstructionChoice, FinishedEnds, Job, JobFields,
+    MethodId, JobListItem, JobSnapshot, JobStatus, NewJob, Saved, SavedLayout, RULES_VERSION,
 };
 
 /// Shop default rules used until the user saves their own (prompt 07). A test in
@@ -20,10 +20,15 @@ pub const RULES_SETTING: &str = "construction_rules";
 /// Shop settings the app knows about. Anything else is refused. "backups" is
 /// reserved: backup settings live in backup-settings.json (backups.rs), outside
 /// the database, so a restore never moves the backup folder.
-pub const SHOP_SETTING_KEYS: &[&str] = &[RULES_SETTING, "display", "backups", ESTIMATE_SETTING];
+pub const SHOP_SETTING_KEYS: &[&str] =
+    &[RULES_SETTING, "display", "backups", ESTIMATE_SETTING, SAW_PROFILES_SETTING, DEFAULTS_CHECKED_SETTING];
+/// The shop's saw profiles and which one new jobs get (the app reads and checks them).
+pub const SAW_PROFILES_SETTING: &str = "saw_profiles";
+/// True once the shop has checked its construction defaults (migration 6). Absent: not yet.
+pub const DEFAULTS_CHECKED_SETTING: &str = "defaults_checked";
 
 const JOB_COLUMNS: &str = "id, number, name, customer, notes, status, rules_json, rules_version, \
-                           created_at, updated_at, revision, materials_json";
+                           created_at, updated_at, revision, materials_json, saw_profile_json";
 const CABINET_COLUMNS: &str =
     "id, label, type, width, height, depth, shelf_count, finished_ends, quantity, room, run";
 
@@ -44,6 +49,7 @@ struct JobRow {
     updated_at: String,
     revision: i64,
     materials_json: Option<String>,
+    saw_profile_json: Option<String>,
 }
 
 fn read_job_row(row: &Row<'_>) -> rusqlite::Result<JobRow> {
@@ -60,6 +66,7 @@ fn read_job_row(row: &Row<'_>) -> rusqlite::Result<JobRow> {
         updated_at: row.get(9)?,
         revision: row.get(10)?,
         materials_json: row.get(11)?,
+        saw_profile_json: row.get(12)?,
     })
 }
 
@@ -179,7 +186,76 @@ pub fn get_job(conn: &Connection, id: &str) -> DbResult<Job> {
         revision: row.revision,
         cabinets,
         materials: row.materials_json.as_deref().map(serde_json::from_str).transpose()?,
+        saw_profile: row.saw_profile_json.as_deref().map(serde_json::from_str).transpose()?,
+        layouts: load_layouts(conn, id)?,
     })
+}
+
+fn load_layouts(conn: &Connection, job_id: &str) -> DbResult<Vec<SavedLayout>> {
+    let mut stmt = conn.prepare(
+        "SELECT material_id, input_hash, algorithm_version, mode, profile_json, layout_json, created_at
+         FROM layouts WHERE job_id = ?1 ORDER BY created_at, material_id",
+    )?;
+    let rows = stmt.query_map([job_id], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, i64>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, String>(4)?,
+            row.get::<_, String>(5)?,
+            row.get::<_, String>(6)?,
+        ))
+    })?;
+    let mut layouts = Vec::new();
+    for row in rows {
+        let (material_id, input_hash, algorithm_version, mode, profile, layout, created_at) = row?;
+        layouts.push(SavedLayout {
+            material_id,
+            input_hash,
+            algorithm_version,
+            mode,
+            profile: serde_json::from_str(&profile)?,
+            layout: serde_json::from_str(&layout)?,
+            created_at,
+        });
+    }
+    Ok(layouts)
+}
+
+pub(crate) fn write_layouts(conn: &Connection, job_id: &str, layouts: &[SavedLayout]) -> DbResult<()> {
+    conn.execute("DELETE FROM layouts WHERE job_id = ?1", [job_id])?;
+    for l in layouts {
+        conn.execute(
+            "INSERT INTO layouts (job_id, material_id, input_hash, algorithm_version, mode, profile_json, layout_json, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                job_id,
+                l.material_id,
+                l.input_hash,
+                l.algorithm_version,
+                l.mode,
+                l.profile.to_string(),
+                l.layout.to_string(),
+                l.created_at
+            ],
+        )?;
+    }
+    Ok(())
+}
+
+/// Keep these layouts with the job, in place of the ones it has. Saving a
+/// layout isn't an edit: the job's revision and updated time stay as they are.
+pub fn save_job_layouts(conn: &mut Connection, job_id: &str, layouts: &[SavedLayout]) -> DbResult<()> {
+    check_layouts(layouts)?;
+    let tx = conn.transaction()?;
+    let exists: Option<i64> = tx.query_row("SELECT 1 FROM jobs WHERE id = ?1", [job_id], |row| row.get(0)).optional()?;
+    if exists.is_none() {
+        return Err(DbError::JobNotFound);
+    }
+    write_layouts(&tx, job_id, layouts)?;
+    tx.commit()?;
+    Ok(())
 }
 
 fn load_cabinets(conn: &Connection, job_id: &str) -> DbResult<Vec<Cabinet>> {
@@ -266,13 +342,15 @@ pub(crate) struct JobInsert<'a> {
     pub now: &'a str,
     /// The job's materials JSON; None for a job without (made before materials).
     pub materials_json: Option<&'a str>,
+    /// The job's saw profile JSON; None for a job without (made before saw profiles).
+    pub saw_profile_json: Option<&'a str>,
 }
 
 pub(crate) fn insert_job(conn: &Connection, job: &JobInsert<'_>) -> DbResult<()> {
     conn.execute(
         "INSERT INTO jobs (id, number, name, customer, notes, status, rules_json, rules_version,
-                           created_at, updated_at, revision, materials_json)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9, 0, ?10)",
+                           created_at, updated_at, revision, materials_json, saw_profile_json)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9, 0, ?10, ?11)",
         params![
             job.id,
             job.number,
@@ -284,6 +362,7 @@ pub(crate) fn insert_job(conn: &Connection, job: &JobInsert<'_>) -> DbResult<()>
             job.rules_version,
             job.now,
             job.materials_json,
+            job.saw_profile_json,
         ],
     )?;
     Ok(())
@@ -395,7 +474,11 @@ pub fn create_job(conn: &mut Connection, new_job: &NewJob) -> DbResult<Job> {
     if let Some(materials) = &new_job.materials {
         check_job_materials(materials)?;
     }
+    if let Some(profile) = &new_job.saw_profile {
+        check_saw_profile(profile)?;
+    }
     let materials = new_job.materials.as_ref().map(serde_json::Value::to_string);
+    let saw_profile = new_job.saw_profile.as_ref().map(serde_json::Value::to_string);
     let id = fresh_id();
     let tx = conn.transaction()?;
     let mut rules = current_rules(&tx)?;
@@ -418,6 +501,7 @@ pub fn create_job(conn: &mut Connection, new_job: &NewJob) -> DbResult<Job> {
             rules_version: RULES_VERSION,
             now: &now,
             materials_json: materials.as_deref(),
+            saw_profile_json: saw_profile.as_deref(),
         },
     )?;
     tx.commit()?;
@@ -435,6 +519,7 @@ pub fn duplicate_job(conn: &mut Connection, id: &str) -> DbResult<Job> {
     let name = format!("{} (copy)", source.name);
     let rules = source.rules.to_string();
     let materials = source.materials.as_ref().map(serde_json::Value::to_string);
+    let saw_profile = source.saw_profile.as_ref().map(serde_json::Value::to_string);
     insert_job(
         &tx,
         &JobInsert {
@@ -448,6 +533,7 @@ pub fn duplicate_job(conn: &mut Connection, id: &str) -> DbResult<Job> {
             rules_version: source.rules_version,
             now: &now,
             materials_json: materials.as_deref(),
+            saw_profile_json: saw_profile.as_deref(),
         },
     )?;
     for (position, cabinet) in source.cabinets.iter().enumerate() {
@@ -513,6 +599,12 @@ pub(crate) fn save_snapshot(conn: &Connection, snapshot: &JobSnapshot) -> DbResu
         conn.execute(
             "UPDATE jobs SET materials_json = ?2 WHERE id = ?1",
             params![snapshot.id, materials.to_string()],
+        )?;
+    }
+    if let Some(profile) = &snapshot.saw_profile {
+        conn.execute(
+            "UPDATE jobs SET saw_profile_json = ?2 WHERE id = ?1",
+            params![snapshot.id, profile.to_string()],
         )?;
     }
     let changed = conn.execute(
@@ -660,6 +752,9 @@ pub fn set_shop_setting(conn: &Connection, key: &str, value: &serde_json::Value)
     }
     if key == RULES_SETTING && !value.is_object() {
         return Err(DbError::invalid("Construction rules must be a set of named values."));
+    }
+    if key == DEFAULTS_CHECKED_SETTING && !value.is_boolean() {
+        return Err(DbError::invalid("Whether the shop defaults were checked must be true or false."));
     }
     conn.execute(
         "INSERT INTO shop_settings (key, value_json) VALUES (?1, ?2)

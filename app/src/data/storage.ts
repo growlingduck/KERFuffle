@@ -1,16 +1,19 @@
 import { isTauri } from '@tauri-apps/api/core';
+import { installLayoutKeeping, keepLayoutsOnReady } from '../layout/keep';
 import { useStore } from '../state/createStore';
 import { clearJobRecords, rememberJobRecord } from '../state/jobRecords';
 import { jobsStore, summarize } from '../state/jobs';
 import type { JobStatus, JobSummary } from '../state/jobs';
 import { setDisplaySettings } from '../state/display';
 import { loadMaterials, materialsStore } from '../state/materials';
+import { loadSawProfiles, sawProfilesStore } from '../state/sawProfiles';
 import { showToast } from '../state/toast';
 import { getStorageClient } from './client';
 import { installCloseGuard } from './closeGuard';
 import { toStorageError } from './errors';
 import { createJobSession } from './jobSession';
 import { defaultJobMaterials } from './materials';
+import { defaultProfile } from './sawProfiles';
 import type { SaveState } from './jobSession';
 import { recoverPendingEdits } from './recovery';
 import { RULES_VERSION, withConstruction } from './rules';
@@ -25,6 +28,9 @@ export const jobSession = createJobSession({
     jobsStore.dispatch({ type: 'job/upserted', job: summarize(job) });
   },
 });
+
+// A job marked Ready to cut keeps its sheet layout (plan §2.6).
+installLayoutKeeping(jobSession);
 
 export async function refreshJobList(): Promise<void> {
   const jobs = await getStorageClient().listJobs();
@@ -66,7 +72,9 @@ export async function createJob(input: NewJob, copyFromId?: string): Promise<Job
     // A new job copies the shop's default materials, prices and all, as they are now.
     const { catalog, estimate } = materialsStore.getState();
     const materials = input.materials ?? defaultJobMaterials(catalog, estimate, new Date().toISOString());
-    return listed(await client.createJob({ ...input, materials }));
+    // And the shop's default saw profile.
+    const sawProfile = input.sawProfile ?? { ...defaultProfile(sawProfilesStore.getState().settings) };
+    return listed(await client.createJob({ ...input, materials, sawProfile }));
   }
 
   // Duplicate, then rename. Two calls: if the rename fails, the copy is still
@@ -116,6 +124,7 @@ export async function startStorage(): Promise<void> {
     await recoverPendingEdits(client, (message) => showToast(message));
     await loadDisplaySettings();
     await loadMaterials();
+    await loadSawProfiles();
     await refreshJobList();
   } catch (error) {
     showToast(toStorageError(error).message);
@@ -139,9 +148,10 @@ export function changeJobStatus(id: string, status: JobStatus): void {
   }
   getStorageClient()
     .setJobStatus(id, status)
-    .then((saved) => {
+    .then(async (saved) => {
       const job = jobsStore.getState().jobs[id];
       if (job) jobsStore.dispatch({ type: 'job/upserted', job: { ...job, savedAt: saved.updatedAt, revision: saved.revision } });
+      if (previous === 'draft' && status === 'ready') keepLayoutsOnReady(await getStorageClient().getJob(id));
     })
     .catch((error: unknown) => {
       if (previous) jobsStore.dispatch({ type: 'job/statusChanged', id, status: previous });

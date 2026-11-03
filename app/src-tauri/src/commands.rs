@@ -11,7 +11,7 @@ use tauri::State;
 
 use crate::db::{
     self, Cabinet, DbError, DbResult, Job, JobFields, JobListItem, JobSnapshot, JobStatus, Material, NewJob,
-    RecoveredJob, Saved,
+    RecoveredJob, Saved, SavedLayout,
 };
 
 /// The open database, or the reason it couldn't be opened (reported by every command).
@@ -147,6 +147,12 @@ pub async fn set_shop_setting(
     state.with(|conn| db::set_shop_setting(conn, &key, &value))
 }
 
+/// Keep these sheet layouts with the job, in place of the ones it has. Not an edit: no new revision.
+#[tauri::command]
+pub async fn save_job_layouts(state: State<'_, DbState>, job_id: String, layouts: Vec<SavedLayout>) -> Result<(), DbError> {
+    state.with(|conn| db::save_job_layouts(conn, &job_id, &layouts))
+}
+
 /// Development builds only: add the sample jobs (see db/samples.rs).
 #[tauri::command]
 pub async fn dev_load_sample_jobs(state: State<'_, DbState>) -> Result<Vec<Job>, DbError> {
@@ -154,6 +160,12 @@ pub async fn dev_load_sample_jobs(state: State<'_, DbState>) -> Result<Vec<Job>,
         return Err(DbError::invalid("Sample jobs are only available in development builds."));
     }
     state.with(|conn| db::load_sample_jobs(conn))
+}
+
+/// Every build: add the example job (db/samples.rs), with the next job number and the shop's defaults.
+#[tauri::command]
+pub async fn add_example_job(state: State<'_, DbState>) -> Result<Job, DbError> {
+    state.with(|conn| db::add_example_job(conn))
 }
 
 #[tauri::command]

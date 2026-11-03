@@ -1,6 +1,8 @@
 import type { ValidationIssue } from '@kerfuffle/engine';
 import { validateJob } from './jobSession';
+import { parseSavedLayouts } from './layouts';
 import { parseJobMaterials } from './materials';
+import { parseJobSawProfile } from './sawProfiles';
 import { parseRules, RULES_VERSION } from './rules';
 import type { CabinetRecord, JobRecord } from './types';
 import { formatJobNumber, JOB_STATUSES } from './types';
@@ -12,11 +14,21 @@ import { formatJobNumber, JOB_STATUSES } from './types';
  *
  *   { format: "kerfuffle-job", formatVersion: 2, appVersion, exportedAt,
  *     job: { id, number, name, customer, notes, status, createdAt, updatedAt, revision },
- *     cabinets: [...], rules: {...}, rulesVersion, materials?: { slots: {...} }, checksum }
+ *     cabinets: [...], rules: {...}, rulesVersion, materials?: { slots: {...} },
+ *     sawProfile?: {...}, layouts?: [...], checksum }
  *
  * Version 2 added `materials`: the job's material per slot with its copy (name,
  * size, grain, price), present once the job has them. Version 1 files have
  * none and still import; the job then uses the shop's default materials.
+ *
+ * Version 3 added `sawProfile`: the job's copy of its saw profile (kerf,
+ * trim and the rest), present once the job has one. Older files have none and
+ * still import; the job then uses the shop's default profile.
+ *
+ * Version 4 added `layouts`: the sheet layouts kept with the job (saved when
+ * it was marked Ready to cut or a layout was printed), each with what it was
+ * made from: the input hash, the optimizer's version, the mode and the saw
+ * profile. Present once the job has some. Older files have none.
  *
  * Sizes are integer ticks (1/64″). `checksum` is the SHA-256 (lowercase hex) of
  * the canonical JSON of the document without the checksum field: object keys
@@ -31,7 +43,7 @@ import { formatJobNumber, JOB_STATUSES } from './types';
 
 export const JOB_FILE_FORMAT = 'kerfuffle-job';
 /** Bump when the file's shape changes; older readers then refuse newer files. */
-export const JOB_FILE_VERSION = 2;
+export const JOB_FILE_VERSION = 4;
 export const JOB_FILE_EXTENSION = 'kerfjob';
 
 export const NEWER_FILE_MESSAGE = 'This job was made by a newer KERFuffle. Update this PC first.';
@@ -108,6 +120,8 @@ export async function writeJobFile(job: JobRecord, header: JobFileHeader): Promi
     rules: job.rules,
     rulesVersion: job.rulesVersion,
     ...(job.materials ? { materials: job.materials } : {}),
+    ...(job.sawProfile ? { sawProfile: job.sawProfile } : {}),
+    ...(job.layouts && job.layouts.length > 0 ? { layouts: job.layouts } : {}),
   };
   const checksum = await sha256Hex(canonicalJson(body));
   return `${JSON.stringify({ ...body, checksum }, null, 2)}\n`;
@@ -228,6 +242,20 @@ export async function readJobFile(fileText: string): Promise<JobFileReading> {
       throw new Refused(error instanceof Error ? error.message : 'its materials are unreadable');
     }
 
+    let sawProfile: JobRecord['sawProfile'];
+    try {
+      sawProfile = parseJobSawProfile(doc.sawProfile);
+    } catch (error) {
+      throw new Refused(error instanceof Error ? error.message : 'its saw profile is unreadable');
+    }
+
+    let layouts: JobRecord['layouts'];
+    try {
+      layouts = parseSavedLayouts(doc.layouts);
+    } catch (error) {
+      throw new Refused(error instanceof Error ? error.message : 'its sheet layouts are unreadable');
+    }
+
     const j = doc.job;
     const job: JobRecord = {
       id: text(j, 'id', 'the job'),
@@ -243,6 +271,9 @@ export async function readJobFile(fileText: string): Promise<JobFileReading> {
       revision: whole(j, 'revision', 'the job', 0),
       cabinets: doc.cabinets.map(readCabinet),
       materials,
+      sawProfile,
+      // Files without layouts read back exactly as they were written.
+      ...(layouts.length > 0 ? { layouts } : {}),
     };
     if (job.id.trim() === '') throw new Refused('the job has no id');
     if (job.name.trim() === '') throw new Refused('the job has no name');

@@ -12,7 +12,7 @@ import { createJob } from '../src/data/storage';
 import type { CabinetRecord, JobMaterialsRecord, JobRecord, MaterialRecord } from '../src/data/types';
 import { loadMaterials } from '../src/state/materials';
 import { dismissToast, toastStore } from '../src/state/toast';
-import { testCabinet, testJob, useTestDatabase } from './storage';
+import { quietLayouts, testCabinet, testJob, useTestDatabase } from './storage';
 
 /** The five-cabinet sample job (engine/fixtures/cutlist/sample-job.json). */
 const SAMPLE: CabinetRecord[] = [
@@ -223,6 +223,7 @@ describe('cut list: materials and the estimate', () => {
   });
 
   it('says the total is incomplete while materials need a price', async () => {
+    quietLayouts();
     await openCutList('estimate');
     const total = document.querySelector('[data-estimate-total]');
     expect(total).toHaveTextContent('Incomplete: 4 materials need a price');
@@ -230,7 +231,8 @@ describe('cut list: materials and the estimate', () => {
     expect(screen.getAllByText(/area \+ 15% waste/).length).toBeGreaterThan(0);
   });
 
-  it('estimates the sample job as worked out by hand: $812.50', async () => {
+  it('estimates the sample job as worked out by hand from area, before it is laid out: $812.50', async () => {
+    quietLayouts();
     await priceTheDefaults();
     await openCutList('estimate');
     const line = (id: string) => [...document.querySelector(`[data-estimate-line="${id}"]`)!.querySelectorAll('td')].map((td) => td.textContent);
@@ -245,6 +247,17 @@ describe('cut list: materials and the estimate', () => {
     expect(line('std-pvc-banding-15-16')).toEqual(['PVC edge banding 15/16″Edge banding', '70 ft836″ of edges', '—', '70 ft', '$0.25per foot', '$17.50']);
     expect(document.querySelector('[data-estimate-total]')).toHaveTextContent('$812.50');
   });
+
+  it('counts sheets from the layout once the job is laid out, and on hand and to buy as before', async () => {
+    await priceTheDefaults();
+    await openCutList('estimate');
+    const line = (id: string) => [...document.querySelector(`[data-estimate-line="${id}"]`)!.querySelectorAll('td')].map((td) => td.textContent);
+    await waitFor(() => expect(line('std-birch-3-4')[1]).toBe('6 sheetsfrom layout'), { timeout: 15_000 });
+    expect(line('std-birch-3-4')).toEqual(['Birch plywood 3/4″Box, back, shelves', '6 sheetsfrom layout', '2 sheets', '4 sheets', '$68.00per sheet', '$272.00']);
+    // Banding and hardware are counted as before.
+    expect(line('std-pvc-banding-15-16')).toEqual(['PVC edge banding 15/16″Edge banding', '70 ft836″ of edges', '—', '70 ft', '$0.25per foot', '$17.50']);
+    expect(screen.getAllByText(/sheets from layout/).length).toBeGreaterThan(0);
+  }, 20_000);
 
   it('changes a slot’s material from the cut list, regrouping it, with Undo', async () => {
     const { user } = await openCutList();

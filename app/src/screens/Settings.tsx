@@ -14,7 +14,9 @@ import { getStorageClient } from '../data/client';
 import { toStorageError } from '../data/errors';
 import { BUILT_IN_ESTIMATE, estimateSettingValue, parseEstimateSettings } from '../data/materials';
 import type { RoundTo } from '../data/types';
-import { DISPLAY_SETTING, ESTIMATE_SETTING, parseDisplaySettings, ROUND_TO_OPTIONS, RULES_SETTING } from '../data/types';
+import { BUILT_IN_SAW, parseSawSettings, sawSettingValue } from '../data/sawProfiles';
+import { DISPLAY_SETTING, ESTIMATE_SETTING, parseDisplaySettings, ROUND_TO_OPTIONS, RULES_SETTING, SAW_PROFILES_SETTING } from '../data/types';
+import { setSawSettings } from '../state/sawProfiles';
 import { useShortcutScope } from '../keyboard/shortcuts';
 import { displayInches, exactInches } from '../lib/dimensions';
 import { cx } from '../lib/interaction';
@@ -29,6 +31,7 @@ import { showToast } from '../state/toast';
 import styles from './Screen.module.css';
 import { DETAILS, DetailDrawing } from './settings/DetailDrawing';
 import { MaterialsSection } from './settings/MaterialsSection';
+import { SawProfilesSection } from './settings/SawProfilesSection';
 import type {
   DetailKey,
   DraftAction,
@@ -60,15 +63,17 @@ import {
   RULE_GROUPS,
   ruleIssues,
   rulesChanged,
+  sawChanged,
 } from './settings/draft';
 import s from './settings/Settings.module.css';
 
 const SECTIONS = [
   { id: 'construction', num: '01', label: 'Construction' },
   { id: 'materials', num: '02', label: 'Materials' },
-  { id: 'display', num: '03', label: 'Display' },
-  { id: 'backups', num: '04', label: 'Backups' },
-  { id: 'about', num: '05', label: 'About' },
+  { id: 'saws', num: '03', label: 'Saw profiles' },
+  { id: 'display', num: '04', label: 'Display' },
+  { id: 'backups', num: '05', label: 'Backups' },
+  { id: 'about', num: '06', label: 'About' },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 
@@ -91,7 +96,7 @@ export function SettingsScreen() {
 
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [draft, dispatch] = useReducer(draftReducer, undefined, () =>
-    createDraft({ rules: BUILT_IN_RULES, roundTo: 16, backups: { folder: null, keep: 14 }, estimate: BUILT_IN_ESTIMATE }),
+    createDraft({ rules: BUILT_IN_RULES, roundTo: 16, backups: { folder: null, keep: 14 }, estimate: BUILT_IN_ESTIMATE, saw: BUILT_IN_SAW }),
   );
   const [saving, setSaving] = useState(false);
   const [leaving, setLeaving] = useState<{ proceed: () => void } | null>(null);
@@ -108,6 +113,7 @@ export function SettingsScreen() {
           roundTo: parseDisplaySettings(settings.other[DISPLAY_SETTING]).roundTo,
           backups: { folder: overview.folder === overview.defaultFolder ? null : overview.folder, keep: overview.keep },
           estimate: parseEstimateSettings(settings.other[ESTIMATE_SETTING]),
+          saw: parseSawSettings(settings.other[SAW_PROFILES_SETTING]),
         };
         dispatch({ type: 'loaded', values });
         setLoad({ kind: 'ready' });
@@ -160,6 +166,12 @@ export function SettingsScreen() {
         await client.setShopSetting(ESTIMATE_SETTING, estimateSettingValue(current.estimate));
         setEstimateSettings(current.estimate);
         dispatch({ type: 'saved', part: { estimate: current.estimate } });
+      }
+      if (sawChanged(draft)) {
+        const saw = { ...current.saw, profiles: current.saw.profiles.map((p) => ({ ...p, name: p.name.trim() })) };
+        await client.setShopSetting(SAW_PROFILES_SETTING, sawSettingValue(saw));
+        setSawSettings(saw);
+        dispatch({ type: 'saved', part: { saw: current.saw } });
       }
       if (draft.saved.roundTo !== current.roundTo) {
         await client.setShopSetting(DISPLAY_SETTING, { roundTo: current.roundTo });
@@ -366,8 +378,10 @@ function SettingsBody({ draft, dispatch, issues, children }: BodyProps) {
 
         <MaterialsSection draft={draft} dispatch={dispatch} />
 
+        <SawProfilesSection draft={draft} dispatch={dispatch} />
+
         <Sheet id="display" className={s.section} aria-labelledby="set-display">
-          <ViewTitle id="set-display" mark="3" title="Display" sub="HOW SIZES ARE SHOWN" />
+          <ViewTitle id="set-display" mark="4" title="Display" sub="HOW SIZES ARE SHOWN" />
           <div className={s.displayControls} style={{ marginTop: 14 }}>
             <fieldset className={s.choices}>
               <legend className={s.choiceLabel}>Units</legend>
@@ -812,7 +826,7 @@ function BackupsSection({ draft, dispatch }: { draft: SettingsDraft; dispatch: D
 
   return (
     <Sheet id="backups" className={s.section} aria-labelledby="set-backups">
-      <ViewTitle id="set-backups" mark="4" title="Backups" sub="AUTOMATIC, EVERY DAY THE APP IS OPENED" />
+      <ViewTitle id="set-backups" mark="5" title="Backups" sub="AUTOMATIC, EVERY DAY THE APP IS OPENED" />
       <div className={s.backupGrid} style={{ marginTop: 14 }}>
         <div>
           <div className={s.fieldTitle} id="backup-folder-label">
@@ -907,7 +921,7 @@ function AboutSection() {
 
   return (
     <Sheet id="about" className={s.section} aria-labelledby="set-about">
-      <ViewTitle id="set-about" mark="5" title="About" sub="VERSION AND UPDATES" />
+      <ViewTitle id="set-about" mark="6" title="About" sub="VERSION AND UPDATES" />
       <div className={s.backupGrid} style={{ marginTop: 14 }}>
         <div>
           <div className={s.fieldTitle}>KERFuffle</div>
