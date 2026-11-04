@@ -37,6 +37,12 @@ export const KeyboardIcon = (p: IconProps) => (
     <path d="M5 8h1M8 8h1M11 8h1M14 8h1M6 12h8" />
   </Svg>
 );
+export const HelpIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="8" cy="8" r="6.2" />
+    <path d="M6.2 6.3a1.9 1.9 0 013.7.5c0 1.3-1.9 1.6-1.9 2.9M8 11.4v.4" />
+  </Svg>
+);
 export const PlusIcon = (p: IconProps) => (
   <Svg size={14} strokeWidth={2} {...p}>
     <path d="M8 2v12M2 8h12" />

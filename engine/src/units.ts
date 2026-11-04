@@ -65,6 +65,9 @@ export function multiplyTicks(value: Ticks, factor: number): Ticks {
 
 export type ParseResult = { ok: true; value: Ticks } | { ok: false; message: string };
 
+/** Ends every parse error: the forms a size can be typed in. */
+export const DIMENSION_EXAMPLES = 'Type inches, like 23 3/4, 23-3/4 or 23.75.';
+
 const DECIMAL = /^(\d*)\.(\d+)$/;
 const WHOLE = /^(\d+)$/;
 const FRACTION = /^(\d+)\/(\d+)$/;
@@ -76,12 +79,15 @@ const MIXED = /^(\d+)(?:\s+|\s*-\s*)(\d+)\/(\d+)$/;
  * Accepts `23`, `23.75`, `.75`, `23 3/4`, `23-3/4`, `3/4`, and any of those
  * followed by an inch mark (`"`), with surrounding whitespace. Zero is
  * accepted here; whether zero is allowed for a field is a validation concern.
+ *
+ * Every error ends with DIMENSION_EXAMPLES. Text that just isn't a size gets
+ * the examples alone; a more specific problem (a zero denominator) goes first.
  */
 export function parseDimension(input: string): ParseResult {
   let text = input.trim();
   if (text.endsWith('"')) text = text.slice(0, -1).trimEnd();
 
-  if (text === '') return fail('Enter a dimension, for example 23 3/4.');
+  if (text === '') return fail('Enter a size.');
   if (text.startsWith('-')) return fail('Dimensions cannot be negative.');
 
   let match = WHOLE.exec(text);
@@ -115,7 +121,7 @@ export function parseDimension(input: string): ParseResult {
     return fromRational(whole * denominator + top, denominator);
   }
 
-  return fail(`"${input.trim()}" is not a dimension. Use a form like 23, 23.75, 23 3/4, or 3/4.`);
+  return { ok: false, message: DIMENSION_EXAMPLES };
 }
 
 function fromRational(numerator: bigint, denominator: bigint): ParseResult {
@@ -129,7 +135,7 @@ function fromRational(numerator: bigint, denominator: bigint): ParseResult {
 }
 
 function fail(message: string): ParseResult {
-  return { ok: false, message };
+  return { ok: false, message: `${message} ${DIMENSION_EXAMPLES}` };
 }
 
 // ---------------------------------------------------------------------------

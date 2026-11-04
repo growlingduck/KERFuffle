@@ -143,6 +143,8 @@ export interface NewJob {
   materials?: JobMaterialsRecord;
   /** The shop's default saw profile, copied for the job. */
   sawProfile?: SawProfile;
+  /** Saved with the job in one step: an empty job's first cabinet. */
+  cabinets?: CabinetRecord[];
 }
 
 export interface JobFields {
@@ -227,8 +229,16 @@ export const DISPLAY_SETTING = 'display';
 export const ESTIMATE_SETTING = 'estimate';
 /** The shop's saw profiles and the default for new jobs (data/sawProfiles.ts). */
 export const SAW_PROFILES_SETTING = 'saw_profiles';
+/** True once the shop has checked its construction defaults; absent until then (state/shopDefaults.ts). */
+export const DEFAULTS_CHECKED_SETTING = 'defaults_checked';
 /** `backups` is reserved; backup settings live in their own file (see BackupSettings). */
-export type ShopSettingKey = typeof RULES_SETTING | typeof DISPLAY_SETTING | typeof ESTIMATE_SETTING | typeof SAW_PROFILES_SETTING | 'backups';
+export type ShopSettingKey =
+  | typeof RULES_SETTING
+  | typeof DISPLAY_SETTING
+  | typeof ESTIMATE_SETTING
+  | typeof SAW_PROFILES_SETTING
+  | typeof DEFAULTS_CHECKED_SETTING
+  | 'backups';
 
 /** Denominator sizes are rounded to on screen and paper. Storage is always exact (1/64″). */
 export type RoundTo = 8 | 16 | 32;
@@ -237,12 +247,18 @@ export const DEFAULT_ROUND_TO: RoundTo = 16;
 
 export interface DisplaySettings {
   roundTo: RoundTo;
+  /** The workspace's "point at any size or rule" hint was dismissed on this PC. */
+  tracingHintDismissed: boolean;
 }
 
 /** Read the stored display setting; anything unexpected means the default. */
 export function parseDisplaySettings(raw: unknown): DisplaySettings {
-  const roundTo = (raw as { roundTo?: unknown } | null | undefined)?.roundTo;
-  return { roundTo: ROUND_TO_OPTIONS.includes(roundTo as RoundTo) ? (roundTo as RoundTo) : DEFAULT_ROUND_TO };
+  const stored = raw as { roundTo?: unknown; tracingHintDismissed?: unknown } | null | undefined;
+  const roundTo = stored?.roundTo;
+  return {
+    roundTo: ROUND_TO_OPTIONS.includes(roundTo as RoundTo) ? (roundTo as RoundTo) : DEFAULT_ROUND_TO,
+    tracingHintDismissed: stored?.tracingHintDismissed === true,
+  };
 }
 
 export interface ShopSettings {

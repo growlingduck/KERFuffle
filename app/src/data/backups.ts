@@ -4,7 +4,7 @@ import { loadSawProfiles } from '../state/sawProfiles';
 import { showToast } from '../state/toast';
 import { getStorageClient } from './client';
 import { toStorageError } from './errors';
-import { jobSession, loadDisplaySettings, refreshJobList } from './storage';
+import { jobSession, loadShopSettings, refreshJobList } from './storage';
 import type { BackupInfo, BackupOverview, BackupSettings, RestoreResult } from './types';
 
 /**
@@ -63,7 +63,7 @@ export async function restoreBackup(fileName: string): Promise<RestoreResult> {
     return await getStorageClient().restoreBackup(fileName);
   } finally {
     await refreshJobList().catch((error: unknown) => showToast(toStorageError(error).message));
-    await loadDisplaySettings();
+    await loadShopSettings();
     await loadMaterials();
     await loadSawProfiles();
     await refreshBackups();

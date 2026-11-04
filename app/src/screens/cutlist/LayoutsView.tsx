@@ -12,6 +12,7 @@ import { routeHref } from '../../routes';
 import { LayoutDrawing } from './LayoutDrawing';
 import type { PointedPiece } from './LayoutDrawing';
 import styles from './Layouts.module.css';
+import { SymbolMark } from '../../components/InfoTip';
 
 /** The layout the tab shows for one material: the one kept with the job, or the one worked out now. */
 export interface ShownLayout {
@@ -30,8 +31,17 @@ export interface ShownLayout {
   profile: SawProfile;
 }
 
+/** Why there's nothing to lay out: no cabinets, parts with no material, or no cabinet makes parts. */
+export type NothingToLayOut = 'no-cabinets' | 'no-material' | 'no-parts';
+
 export interface LayoutsViewProps {
   jobId: string;
+  /** What's missing while there's nothing to lay out. */
+  nothing: NothingToLayOut;
+  /** The catalog has no materials to choose from. */
+  catalogEmpty: boolean;
+  /** Focus the materials panel. */
+  onChooseMaterials: () => void;
   shown: ShownLayout | null;
   /** Ready to cut or later: the kept layout stays until Recalculate. */
   fixed: boolean;
@@ -49,6 +59,12 @@ export interface LayoutsViewProps {
   /** Lay out again from the job as it is now; null until that layout is ready. */
   onRecalculate: (() => void) | null;
 }
+
+const NOTHING_TEXT: Record<NothingToLayOut, string> = {
+  'no-cabinets': 'Nothing to lay out yet: this job has no cabinets.',
+  'no-material': 'Nothing to lay out yet: no sheet parts have a material chosen.',
+  'no-parts': 'Nothing to lay out yet: every cabinet needs a fix before it makes parts.',
+};
 
 /** The drawings' width on screen. */
 const DRAWING_PX = 760;
@@ -117,10 +133,10 @@ function StatsStrip({ current, stats }: { current: LayoutMode; stats: Partial<Re
 }
 
 const ALLOWANCE_LINKS = {
-  kerf: { href: routeHref({ name: 'settings' }), text: 'Saw profiles in Settings' },
-  edgeTrim: { href: routeHref({ name: 'settings' }), text: 'Saw profiles in Settings' },
-  laminateOversize: { href: routeHref({ name: 'settings' }), text: 'Construction in Settings' },
-  shelfClearance: { href: routeHref({ name: 'settings' }), text: 'Construction in Settings' },
+  kerf: { href: routeHref({ name: 'settings', section: 'saws' }), text: 'Saw profiles in Settings' },
+  edgeTrim: { href: routeHref({ name: 'settings', section: 'saws' }), text: 'Saw profiles in Settings' },
+  laminateOversize: { href: routeHref({ name: 'settings', section: 'construction' }), text: 'Construction in Settings' },
+  shelfClearance: { href: routeHref({ name: 'settings', section: 'construction' }), text: 'Construction in Settings' },
 } as const;
 
 function Notes({ jobId, notes, pending }: { jobId: string; notes: Sensitivity | null; pending: boolean }) {
@@ -168,7 +184,7 @@ function Notes({ jobId, notes, pending }: { jobId: string; notes: Sensitivity | 
  * only: the printout is LayoutPages.
  */
 export function LayoutsView(props: LayoutsViewProps) {
-  const { jobId, shown, fixed, modeStats, sensitivity, jobUnplaced, error, hotLine, pinnedLine, onLine, onPinLine, onRecalculate } = props;
+  const { jobId, nothing, catalogEmpty, onChooseMaterials, shown, fixed, modeStats, sensitivity, jobUnplaced, error, hotLine, pinnedLine, onLine, onPinLine, onRecalculate } = props;
   const [pointed, setPointed] = useState<PointedPiece | null>(null);
   const layout = shown?.layout ?? null;
   const pieceNames = useMemo(() => new Map(layout?.pieces.map((p) => [p.id, p]) ?? []), [layout]);
@@ -179,7 +195,7 @@ export function LayoutsView(props: LayoutsViewProps) {
   };
 
   let status: string;
-  if (!shown) status = 'Nothing to lay out yet: this job has no sheet parts with a material.';
+  if (!shown) status = NOTHING_TEXT[nothing];
   else if (shown.source === 'saved' && shown.record) {
     status = `Kept with the job ${shown.record.createdAt.slice(0, 10)} · ${MODE_NAMES[shown.mode]} mode · ${shown.profile.name}, kerf ${exactInches(shown.profile.kerf)}, trim ${exactInches(shown.profile.edgeTrim)}.`;
   } else if (!layout) status = 'Laying out…';
@@ -194,14 +210,14 @@ export function LayoutsView(props: LayoutsViewProps) {
     <div className={styles.view}>
       {error && (
         <p className={styles.error} role="alert">
-          <span aria-hidden="true">⚠ </span>
+          <SymbolMark symbol="needsFix" />{' '}
           The layout couldn’t be worked out: {error}
         </p>
       )}
       {banner && (
         <div className={styles.banner} role="note" data-layout-banner>
           <p>
-            <span aria-hidden="true">△ </span>
+            <SymbolMark symbol="warning" />{' '}
             <strong>{changesText(shown.changes)}.</strong> The kept layout is shown, and printed, until you recalculate it.
           </p>
           <Button
@@ -218,6 +234,20 @@ export function LayoutsView(props: LayoutsViewProps) {
       <p className={styles.status} role="status" aria-live="polite" data-layout-status>
         {status}
       </p>
+
+      {!shown && (
+        <p className={styles.nothingAction} data-layout-empty={nothing}>
+          {nothing !== 'no-material' ? (
+            <a href={routeHref({ name: 'workspace', jobId })}>Back to the workspace</a>
+          ) : catalogEmpty ? (
+            <a href={routeHref({ name: 'settings', section: 'materials' })}>Add materials in Settings → Materials</a>
+          ) : (
+            <button type="button" className={styles.linkButton} onClick={onChooseMaterials}>
+              Choose materials
+            </button>
+          )}
+        </p>
+      )}
 
       {shown && (
         <section className={styles.panel} aria-labelledby="layout-stats-title">

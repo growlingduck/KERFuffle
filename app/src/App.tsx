@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import styles from './App.module.css';
+import { ButtonLink } from './components/Button';
 import { IconButton } from './components/IconButton';
-import { CheckIcon, ExportIcon, KeyboardIcon, LogoMark, RedoIcon, Spinner, UndoIcon } from './components/icons';
+import { CheckIcon, ExportIcon, HelpIcon, KeyboardIcon, LogoMark, RedoIcon, Spinner, UndoIcon } from './components/icons';
 import { Menu } from './components/Menu';
-import { Stamp, STATUS_INFO } from './components/Stamp';
+import { Stamp } from './components/Stamp';
 import { ToastHost } from './components/Toast';
 import { Tooltip } from './components/Tooltip';
-import { ShortcutsPopover } from './keyboard/ShortcutsPopover';
+import { closeShortcuts, ShortcutsPopover, toggleShortcuts, useShortcutsOpen } from './keyboard/ShortcutsPopover';
+import { useSectionLink } from './screens/settings/sectionLink';
 import { shortcuts, useShortcut } from './keyboard/shortcuts';
 import { changeJobStatus, jobSession, useSaveState } from './data/storage';
 import { exportJob } from './data/transfer';
@@ -19,7 +21,9 @@ import type { Route, ScreenName } from './routes';
 import { JOB_STATUSES, jobsStore, useJob, useLastJobId } from './state/jobs';
 import type { JobSummary } from './state/jobs';
 import { showToast } from './state/toast';
-import { redoWithToast, runCommand, undoWithToast, useRedoLabel, useUndoLabel } from './workspace/history';
+import { markedText, statusLockHint } from './workspace/construction';
+import { redoWithToast, runCommand, undoIfLatest, undoWithToast, useRedoLabel, useUndoLabel } from './workspace/history';
+import { SymbolMark } from './components/InfoTip';
 
 const TABS: readonly { screen: ScreenName; label: string; key: string }[] = [
   { screen: 'jobs', label: 'Jobs', key: '1' },
@@ -34,18 +38,8 @@ function currentScreen(route: Route): ScreenName | null {
 
 const savedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' });
 
-/** Job · Customer · Status · Saved · Undo/Redo/Shortcuts. Only on job screens. */
-function JobCells({
-  job,
-  onShortcuts,
-  shortcutsOpen,
-  shortcutsRef,
-}: {
-  job: JobSummary;
-  onShortcuts: () => void;
-  shortcutsOpen: boolean;
-  shortcutsRef: RefObject<HTMLButtonElement | null>;
-}) {
+/** Job · Customer · Status · Saved · Undo/Redo/Export. Only on job screens. */
+function JobCells({ job }: { job: JobSummary }) {
   return (
     <div className={styles.cells}>
       <div className={cx(styles.cell, styles.jobCell)}>
@@ -67,12 +61,20 @@ function JobCells({
             label: <Stamp status={s} flat />,
             checked: s === job.status,
             hint: s === job.status ? 'Current' : undefined,
+            note: statusLockHint(job.status, s),
             onSelect: () => {
               if (s === job.status) return;
+              const previous = job.status;
               // The open job's status is a workspace command, so Undo covers it.
-              if (jobSession.getJob()?.id === job.id) runCommand({ type: 'setStatus', status: s });
-              else changeJobStatus(job.id, s);
-              showToast(`Job marked ${STATUS_INFO[s].label.toLowerCase()}`);
+              const entry = jobSession.getJob()?.id === job.id ? runCommand({ type: 'setStatus', status: s }) : null;
+              if (!entry) changeJobStatus(job.id, s);
+              showToast(markedText(previous, s), {
+                label: 'Undo',
+                run: () => {
+                  if (entry) undoIfLatest(entry);
+                  else changeJobStatus(job.id, previous);
+                },
+              });
             },
           }))}
           trigger={(props) => (
@@ -94,17 +96,30 @@ function JobCells({
         <IconButton label="Export job file…" tooltip="Export job file… (to move it to another PC)" tooltipPlacement="bottom" onClick={() => void exportJob(job.id)}>
           <ExportIcon />
         </IconButton>
-        <IconButton
-          ref={shortcutsRef}
-          label="Keyboard shortcuts"
-          tooltip="Keyboard shortcuts  ?"
-          tooltipPlacement="bottom"
-          aria-expanded={shortcutsOpen}
-          onClick={onShortcuts}
-        >
-          <KeyboardIcon />
-        </IconButton>
       </div>
+    </div>
+  );
+}
+
+/** Help · Shortcuts, on every screen. Help opens Settings → Help. */
+function HelpCell({ shortcutsRef }: { shortcutsRef: RefObject<HTMLButtonElement | null> }) {
+  const help = useSectionLink('help');
+  const shortcutsOpen = useShortcutsOpen();
+  return (
+    <div className={cx(styles.cell, styles.actionsCell)}>
+      <ButtonLink {...help} icon={<HelpIcon />} className={styles.helpLink}>
+        Help
+      </ButtonLink>
+      <IconButton
+        ref={shortcutsRef}
+        label="Keyboard shortcuts"
+        tooltip="Keyboard shortcuts  ?"
+        tooltipPlacement="bottom"
+        aria-expanded={shortcutsOpen}
+        onClick={toggleShortcuts}
+      >
+        <KeyboardIcon />
+      </IconButton>
     </div>
   );
 }
@@ -144,7 +159,7 @@ function SavedState({ job }: { job: JobSummary }) {
     return (
       <span role="status" className={styles.saved}>
         <span className={styles.saveError}>
-          <span aria-hidden="true">⚠</span> Not saved
+          <SymbolMark symbol="needsFix" decorative /> Not saved
         </span>
         <Tooltip content={save.message} placement="bottom" describe>
           <button type="button" className={styles.retry} onClick={save.retry}>
@@ -235,10 +250,11 @@ export function App() {
   const job = useJob(jobId);
   const lastJobId = useLastJobId();
   const screen = currentScreen(route);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const shortcutsOpen = useShortcutsOpen();
   const shortcutsRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => shortcuts.attach(window), []);
+  useEffect(() => closeShortcuts, []);
 
   useEffect(() => {
     if (!jobId) return;
@@ -247,7 +263,7 @@ export function App() {
   }, [jobId]);
 
   useWindowTitle(job ? `KERFuffle — ${job.name}` : 'KERFuffle');
-  useGlobalShortcuts(lastJobId, () => setShortcutsOpen((open) => !open));
+  useGlobalShortcuts(lastJobId, toggleShortcuts);
 
   return (
     <div className={cx('paper', styles.shell)}>
@@ -272,15 +288,9 @@ export function App() {
         </nav>
         <div className={styles.spacer} />
         <UpdateNotice />
-        {job && (
-          <JobCells
-            job={job}
-            shortcutsOpen={shortcutsOpen}
-            shortcutsRef={shortcutsRef}
-            onShortcuts={() => setShortcutsOpen((open) => !open)}
-          />
-        )}
-        <ShortcutsPopover open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} anchorRef={shortcutsRef} />
+        {job && <JobCells job={job} />}
+        <HelpCell shortcutsRef={shortcutsRef} />
+        <ShortcutsPopover open={shortcutsOpen} onClose={closeShortcuts} anchorRef={shortcutsRef} />
       </header>
       <main className={styles.main}>
         <RouteOutlet route={route} />

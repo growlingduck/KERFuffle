@@ -21,6 +21,7 @@ import { selectCabinet, selectedCabinetId, setUi, useSelectedCabinetId, useUi, w
 import { useCabinets, useDraftFor, useRules } from './hooks';
 import { MiniElevation } from './MiniElevation';
 import styles from './Workspace.module.css';
+import { SymbolMark } from '../../components/InfoTip';
 
 /** The "new row" sweep (§3 slow). */
 const SWEEP_MS = 1400;
@@ -112,7 +113,7 @@ const CabinetRow = memo(function CabinetRow({ cabinet, rules, selected, fresh, l
             <span className={styles.cabType}>{TYPE_LABEL[cabinet.type]}</span>
             {duplicateId && (
               <span className={styles.cabDup}>
-                <span aria-hidden="true">△</span> ID used twice
+                <SymbolMark symbol="warning" decorative /> ID used twice
               </span>
             )}
             {cabinet.quantity > 1 && (
@@ -125,7 +126,7 @@ const CabinetRow = memo(function CabinetRow({ cabinet, rules, selected, fresh, l
             <span className={styles.cabSize}>{sizeText(live.spec)}</span>
           ) : (
             <span className={cx(styles.cabSize, styles.cabBad)}>
-              <span aria-hidden="true">⚠</span> Needs a fix
+              <SymbolMark symbol="needsFix" decorative /> Needs a fix
             </span>
           )}
           <span className={styles.cabEnds}>{ENDS_TEXT[cabinet.finishedEnds]}</span>
@@ -273,7 +274,7 @@ export function CabinetList() {
         )}
       </div>
       {cabinets.length === 0 ? (
-        <p className={styles.empty}>No cabinets yet. Add one to start.</p>
+        <p className={styles.empty}>No cabinets yet. Use Add cabinet below to start.</p>
       ) : groups ? (
         <div className={styles.cabGroups} data-cabinet-list role="group" aria-label="Cabinets in this job, by run">
           {groups.map((g) => (
@@ -297,6 +298,8 @@ export function CabinetList() {
         className={styles.addSplit}
         icon={<PlusIcon />}
         onClick={() => addCabinet(cabinets, currentType)}
+        tooltip="Add cabinet  Ctrl+N"
+        keyShortcuts="Control+N"
         menuLabel="Add from a preset size"
         items={presetItems(cabinets, rules)}
       >

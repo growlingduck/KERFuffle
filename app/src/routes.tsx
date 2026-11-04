@@ -6,24 +6,33 @@ import { WorkspaceScreen } from './screens/Workspace';
 
 /**
  * Hash routing. Four screens; Workspace and Cut list take a job id.
- *   #/jobs · #/jobs/:id/workspace · #/jobs/:id/cut-list · #/settings
- * plus #/dev/gallery in development builds.
+ *   #/jobs · #/jobs/:id/workspace · #/jobs/:id/cut-list · #/settings[/:section]
+ * plus #/jobs/new (Jobs, with New job open) and #/dev/gallery in development builds.
  */
 export type Route =
-  | { name: 'jobs' }
+  | { name: 'jobs'; newJob?: true }
   | { name: 'workspace'; jobId: string }
   | { name: 'cutlist'; jobId: string }
-  | { name: 'settings' }
+  | { name: 'settings'; section?: SettingsSection }
   | { name: 'gallery' };
+
+/** Settings sections a link can open at, e.g. #/settings/materials. */
+export const SETTINGS_SECTIONS = ['construction', 'materials', 'saws', 'display', 'backups', 'about', 'help'] as const;
+export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
+
+function isSettingsSection(value: string | undefined): value is SettingsSection {
+  return (SETTINGS_SECTIONS as readonly (string | undefined)[]).includes(value);
+}
 
 export type ScreenName = 'jobs' | 'workspace' | 'cutlist' | 'settings';
 
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
   const [first, second, third] = parts;
+  if (first === 'jobs' && second === 'new' && !third) return { name: 'jobs', newJob: true };
   if (first === 'jobs' && second && third === 'workspace') return { name: 'workspace', jobId: second };
   if (first === 'jobs' && second && third === 'cut-list') return { name: 'cutlist', jobId: second };
-  if (first === 'settings') return { name: 'settings' };
+  if (first === 'settings') return isSettingsSection(second) ? { name: 'settings', section: second } : { name: 'settings' };
   if (first === 'dev' && second === 'gallery' && import.meta.env.DEV) return { name: 'gallery' };
   return { name: 'jobs' };
 }
@@ -31,13 +40,13 @@ export function parseHash(hash: string): Route {
 export function routeHref(route: Route): string {
   switch (route.name) {
     case 'jobs':
-      return '#/jobs';
+      return route.newJob ? '#/jobs/new' : '#/jobs';
     case 'workspace':
       return `#/jobs/${encodeURIComponent(route.jobId)}/workspace`;
     case 'cutlist':
       return `#/jobs/${encodeURIComponent(route.jobId)}/cut-list`;
     case 'settings':
-      return '#/settings';
+      return route.section ? `#/settings/${route.section}` : '#/settings';
     case 'gallery':
       return '#/dev/gallery';
   }
@@ -46,6 +55,15 @@ export function routeHref(route: Route): string {
 export function navigate(route: Route): void {
   const href = routeHref(route);
   if (window.location.hash !== href) window.location.hash = href;
+}
+
+/** Change the address without a new history entry, so Back skips the old one. No guard asks. */
+export function replaceRoute(route: Route): void {
+  const href = routeHref(route);
+  if (window.location.hash === href) return;
+  window.history.replaceState(window.history.state, '', href);
+  allowedHash = href;
+  window.dispatchEvent(new HashChangeEvent('hashchange'));
 }
 
 /** The route for a screen tab. Job screens need a job; without one they fall back to Jobs. */
@@ -65,9 +83,10 @@ let currentHash = window.location.hash;
 /**
  * A screen with unsaved work (Settings) can hold navigation. The guard sees
  * every route change (tabs, links, shortcuts, Back) and returns true to stop
- * it; it is given `proceed` to continue later (after Save or Discard).
+ * it; it is given `proceed` to continue later (after Save or Discard). `to` is
+ * null when the app is closing.
  */
-export type NavigationGuard = (to: Route, proceed: () => void) => boolean;
+export type NavigationGuard = (to: Route | null, proceed: () => void) => boolean;
 
 let guard: NavigationGuard | null = null;
 /** A change the guard already let through (hashchange arrives later, as its own event). */
@@ -87,7 +106,7 @@ export function setNavigationGuard(next: NavigationGuard): () => void {
  * otherwise, never if they cancel. Used before closing the app for an update.
  */
 export function whenFreeToLeave(proceed: () => void): void {
-  if (!guard?.(current, proceed)) proceed();
+  if (!guard?.(null, proceed)) proceed();
 }
 
 // Registered at load, before any subscriber, so a held change is undone before
@@ -137,13 +156,13 @@ const Gallery = import.meta.env.DEV ? lazy(() => import('./dev/Gallery')) : null
 export function RouteOutlet({ route }: { route: Route }) {
   switch (route.name) {
     case 'jobs':
-      return <JobsScreen />;
+      return <JobsScreen newJob={route.newJob ?? false} />;
     case 'workspace':
       return <WorkspaceScreen jobId={route.jobId} />;
     case 'cutlist':
       return <CutListScreen jobId={route.jobId} />;
     case 'settings':
-      return <SettingsScreen />;
+      return <SettingsScreen section={route.section} />;
     case 'gallery':
       return Gallery ? (
         <Suspense fallback={null}>

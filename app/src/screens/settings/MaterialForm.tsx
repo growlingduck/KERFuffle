@@ -9,6 +9,7 @@ import { KIND_NAMES, MATERIAL_KINDS, moneyInput, normalizeRecord, parseMoney } f
 import type { MaterialRecord } from '../../data/types';
 import { cx } from '../../lib/interaction';
 import s from './Settings.module.css';
+import { SymbolMark } from '../../components/InfoTip';
 
 /** Sizes a new material of each kind starts with, so every size field has a value to edit. */
 const STARTING_SIZES: Readonly<Record<MaterialKind, Partial<MaterialRecord>>> = {
@@ -177,7 +178,11 @@ export function MaterialForm({ initial, adding, onClose, onSave }: MaterialFormP
             autoComplete="off"
           />
           <div id={`${id}-name-msg`} className={s.formMsg}>
-            {show(errors.name) && `⚠ ${errors.name}`}
+            {show(errors.name) && (
+              <>
+                <SymbolMark symbol="needsFix" /> {errors.name}
+              </>
+            )}
           </div>
         </div>
 
@@ -250,7 +255,11 @@ export function MaterialForm({ initial, adding, onClose, onSave }: MaterialFormP
                   aria-invalid={show(errors.roll) ? true : undefined}
                   onChange={(e) => setRollText(e.target.value)}
                 />
-                <div className={s.formMsg}>{show(errors.roll) && `⚠ ${errors.roll}`}</div>
+                <div className={s.formMsg}>{show(errors.roll) && (
+                    <>
+                      <SymbolMark symbol="needsFix" /> {errors.roll}
+                    </>
+                  )}</div>
               </div>
             )}
           </>
@@ -280,7 +289,11 @@ export function MaterialForm({ initial, adding, onClose, onSave }: MaterialFormP
             onChange={(e) => setPriceText(e.target.value)}
           />
           <div id={`${id}-price-msg`} className={s.formMsg}>
-            {show(errors.price) && `⚠ ${errors.price}`}
+            {show(errors.price) && (
+              <>
+                <SymbolMark symbol="needsFix" /> {errors.price}
+              </>
+            )}
           </div>
         </div>
         <div>
@@ -297,7 +310,13 @@ export function MaterialForm({ initial, adding, onClose, onSave }: MaterialFormP
             onChange={(e) => setOnHandText(e.target.value)}
           />
           <div id={`${id}-onhand-msg`} className={s.formMsg}>
-            {show(errors.onHand) ? `⚠ ${errors.onHand}` : 'Counted by hand. The estimate buys only what’s missing.'}
+            {show(errors.onHand) ? (
+              <>
+                <SymbolMark symbol="needsFix" /> {errors.onHand}
+              </>
+            ) : (
+              'Counted by hand. The estimate buys only what’s missing.'
+            )}
           </div>
         </div>
         <div>
@@ -320,7 +339,7 @@ export function MaterialForm({ initial, adding, onClose, onSave }: MaterialFormP
         </div>
         {problem && (
           <p className={cx(s.formSpan, s.noteError)} role="alert">
-            <span aria-hidden="true">⚠ </span>
+            <SymbolMark symbol="needsFix" />{' '}
             {problem}
           </p>
         )}

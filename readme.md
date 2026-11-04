@@ -9,7 +9,9 @@ It runs fully offline, with no account and no Excel. It's used on two shop
 PCs; each keeps its own jobs, and jobs move between them as `.kerfjob` files.
 
 This page is for whoever develops and releases KERFuffle. For the people in the
-shop, see [docs/install.md](docs/install.md).
+shop, see [docs/install.md](docs/install.md) and
+[docs/quick-start.md](docs/quick-start.md) (your first job in six steps; the
+app has the same content under **Help**).
 
 ## What it does
 
@@ -20,7 +22,8 @@ shop, see [docs/install.md](docs/install.md).
   and undo/redo cover the whole session.
 - **Cut list:** parts and laminate for the whole job, as print, PDF or CSV.
 - **Settings:** shop defaults (panel thickness, toe kick, countertop, laminate
-  oversize, and so on), backups and About.
+  oversize, and so on), backups, About and Help (a first-job walkthrough, the
+  shop vocabulary and a printable quick start).
 - **Safety:** a daily rotating backup, crash recovery for the last few
   seconds of edits, and a backup before every database upgrade.
 - **Updates:** checks GitHub Releases once a day, downloads in the

@@ -11,7 +11,7 @@ import { Segmented } from '../components/Segmented';
 import { Sheet } from '../components/Sheet';
 import { Stamp, STATUS_INFO } from '../components/Stamp';
 import { Tooltip } from '../components/Tooltip';
-import { changeJobStatus, duplicateJob, loadSampleJobs } from '../data/storage';
+import { addExampleJob, changeJobStatus, confirmDefaults, duplicateJob, loadSampleJobs } from '../data/storage';
 import { exportJob, prepareImport } from '../data/transfer';
 import type { ImportPlan } from '../data/transfer';
 import type { ImportMode, JobRecord } from '../data/types';
@@ -24,10 +24,11 @@ import { useReducedMotion } from '../motion';
 import { pickJobFile } from '../platform/files';
 import { useOpenedJobFile } from '../platform/openedFiles';
 import type { PickedFile } from '../platform/files';
-import { navigate, routeHref } from '../routes';
+import { navigate, replaceRoute, routeHref } from '../routes';
 import { useStore } from '../state/createStore';
 import { useJobRecord } from '../state/jobRecords';
 import { jobsStore } from '../state/jobs';
+import { useDefaultsChecked } from '../state/shopDefaults';
 import type { JobStatus, JobSummary } from '../state/jobs';
 import { filterCounts, inFilter, registerScroll, registerView, searchPattern, setRegisterView, toggleSort, visibleJobs } from '../state/register';
 import type { RegisterFilter, RegisterSortKey, RegisterView } from '../state/register';
@@ -42,6 +43,7 @@ import { boxCount, elevationCabinets } from './jobs/jobMath';
 import styles from './jobs/Jobs.module.css';
 import { NewJobDialog } from './jobs/NewJobDialog';
 import { useJobFileDrop } from './jobs/useJobFileDrop';
+import { markedText, statusLockHint } from '../workspace/construction';
 
 /** A row hidden by a status change slides out over this long before it leaves the list (matches .leaving in the CSS). */
 const ROW_EXIT_MS = 200;
@@ -98,11 +100,14 @@ function useTimers() {
 function statusToast(job: JobSummary, status: JobStatus): string {
   if (status === 'archived') return `Archived “${job.name}”`;
   if (job.status === 'archived') return `Restored “${job.name}” from archive`;
-  return `Marked ${STATUS_INFO[status].label.toLowerCase()}`;
+  return markedText(job.status, status);
 }
 
-/** Jobs / home: the drawing register, the job preview, New job and backups (interaction-design §6). */
-export function JobsScreen() {
+/**
+ * Jobs / home: the drawing register, the job preview, New job and backups (interaction-design §6).
+ * `newJob` (#/jobs/new, from Settings → Help) opens New job at once.
+ */
+export function JobsScreen({ newJob = false }: { newJob?: boolean }) {
   useShortcutScope('jobs');
   useScrollMemory();
   const later = useTimers();
@@ -114,8 +119,14 @@ export function JobsScreen() {
   const [peekId, setPeekId] = useState<string | null>(null);
   const [freshId, setFreshId] = useState<string | null>(null);
   const [leaving, setLeaving] = useState<ReadonlySet<string>>(() => new Set());
-  const [newOpen, setNewOpen] = useState(false);
+  const [newOpen, setNewOpen] = useState(newJob);
+  // The address goes back to plain Jobs, so Back or the same link again doesn't stay stuck on it.
+  useEffect(() => {
+    if (newJob) replaceRoute({ name: 'jobs' });
+  }, [newJob]);
   const [importPlan, setImportPlan] = useState<ImportPlan | null>(null);
+  const [openingExample, setOpeningExample] = useState(false);
+  const defaultsChecked = useDefaultsChecked();
   const searchRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTableSectionElement>(null);
 
@@ -251,6 +262,13 @@ export function JobsScreen() {
     searchRef.current?.focus();
   };
 
+  const openExample = async () => {
+    setOpeningExample(true);
+    const example = await addExampleJob();
+    setOpeningExample(false);
+    if (example) navigate({ name: 'workspace', jobId: example.id });
+  };
+
   let empty: ReactNode = null;
   if (rows.length === 0) {
     if (pattern) {
@@ -264,6 +282,9 @@ export function JobsScreen() {
       empty = (
         <>
           <p>No jobs yet. Start one with New job.</p>
+          <Button busy={openingExample} onClick={() => void openExample()}>
+            Open an example job
+          </Button>
           {import.meta.env.DEV && <Button onClick={() => void loadSampleJobs()}>Load sample jobs (development only)</Button>}
         </>
       );
@@ -300,11 +321,31 @@ export function JobsScreen() {
             >
               Import job…
             </Button>
-            <Button size="lg" variant="primary" icon={<PlusIcon />} tooltip="New job  Ctrl+N" describeTooltip={false} onClick={() => setNewOpen(true)}>
+            <Button
+              size="lg"
+              variant="primary"
+              icon={<PlusIcon />}
+              tooltip="New job  Ctrl+N"
+              describeTooltip={false}
+              aria-keyshortcuts="Control+N"
+              onClick={() => setNewOpen(true)}
+            >
               New job
             </Button>
           </div>
         </div>
+
+        {defaultsChecked === false && (
+          <div className={styles.checkDefaults} role="region" aria-label="Check shop defaults">
+            <p>Before your first job, check your shop’s construction defaults: panel thickness, toe kick, countertop and the rest.</p>
+            <div className={styles.checkDefaultsActions}>
+              <ButtonLink variant="primary" href={routeHref({ name: 'settings' })}>
+                Check defaults
+              </ButtonLink>
+              <Button onClick={() => void confirmDefaults()}>They’re right</Button>
+            </div>
+          </div>
+        )}
 
         <div className={styles.controls}>
           <div className={styles.search}>
@@ -504,6 +545,7 @@ function JobRow({ job, pattern, now, peeked, fresh, leaving, onPeek, onKeyDown, 
             {STATUS_INFO[s].label}
           </>
         ),
+        note: statusLockHint(job.status, s),
         onSelect: () => onStatus(s),
       })),
     },

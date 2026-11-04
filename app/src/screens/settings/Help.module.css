@@ -1,0 +1,191 @@
+/* Settings → Help, and the printed quick start (one Letter page). */
+
+.heading {
+  margin: 18px 0 8px;
+  font: 600 14px var(--font-sans);
+}
+
+/* ---- Your first job: numbered steps ---- */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+.step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 10px 42px;
+  border: 1px solid var(--rule-divider);
+  background: var(--white);
+  counter-increment: step;
+}
+.step::before {
+  content: counter(step);
+  position: absolute;
+  top: 9px;
+  left: 10px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font: 600 12px var(--font-mono);
+}
+.stepTitle {
+  font-weight: 600;
+  font-size: 14px;
+}
+.stepText {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.stepLink {
+  align-self: flex-start;
+  margin-top: 2px;
+  color: var(--blue);
+  font: 600 13px var(--font-sans);
+  text-underline-offset: 2px;
+}
+.stepLink:hover {
+  color: var(--blue-hover);
+}
+
+/* ---- Words and symbols ---- */
+.symbols {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px 18px;
+  margin: 0 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--rule-divider);
+}
+.terms {
+  margin: 0;
+  column-width: 300px;
+  column-gap: 28px;
+}
+.entry {
+  margin-bottom: 10px;
+  break-inside: avoid;
+}
+.term {
+  font-weight: 600;
+  font-size: 13px;
+}
+.text {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+/* ---- The printed sheet ---- */
+.printOnly {
+  display: none;
+}
+
+.sheetNote {
+  flex: none;
+  max-width: 45%;
+  font-size: 10.5px;
+  line-height: 1.5;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.sheetSteps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px 14px;
+  margin: 12px 0 0;
+  padding: 0 0 10px;
+  border-bottom: 1px solid #000;
+  list-style: none;
+  counter-reset: step;
+}
+.sheetSteps .step {
+  gap: 2px;
+  padding: 2px 0 0 28px;
+  border: 0;
+  background: none;
+}
+.sheetSteps .step::before {
+  top: 1px;
+  left: 0;
+  width: 19px;
+  height: 19px;
+  font-size: 10.5px;
+}
+.sheetSteps .stepTitle {
+  font-size: 12px;
+}
+.sheetSteps .stepText {
+  font-size: 10px;
+  line-height: 1.35;
+  color: #000;
+}
+.where {
+  font: 600 9.5px var(--font-mono);
+}
+
+.sheetWords {
+  flex: 1;
+  min-height: 0;
+  margin-top: 10px;
+  overflow: hidden;
+}
+.sheetHeading {
+  margin: 0 0 6px;
+  font-size: 12px;
+}
+.sheetWords .symbols {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px 14px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom-color: #000;
+}
+.sheetWords .terms {
+  column-count: 2;
+  column-width: auto;
+  column-gap: 20px;
+}
+.sheetWords .entry {
+  margin-bottom: 4.5px;
+}
+/* On paper the term runs into its text, to fit the page. The line box is the entry's. */
+.sheetWords .terms .entry {
+  font-size: 9.5px;
+  line-height: 1.3;
+}
+.sheetWords .terms .term {
+  display: inline;
+  margin-right: 5px;
+  font-size: 10px;
+}
+.sheetWords .terms .text {
+  display: inline;
+}
+.sheetWords .term {
+  font-size: 10.5px;
+}
+.sheetWords .text {
+  margin-top: 0;
+  font-size: 9.5px;
+  line-height: 1.3;
+  color: #000;
+}
+
+@media print {
+  .printOnly {
+    display: block;
+  }
+}

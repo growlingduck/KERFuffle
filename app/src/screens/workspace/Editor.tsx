@@ -8,7 +8,8 @@ import { Dialog } from '../../components/Dialog';
 import { DimensionInput } from '../../components/DimensionInput';
 import { FieldLabel } from '../../components/Field';
 import fieldStyles from '../../components/Field.module.css';
-import { CheckIcon } from '../../components/icons';
+import { InfoTip, SymbolMark } from '../../components/InfoTip';
+import { CheckIcon, PlusIcon } from '../../components/icons';
 import { Segmented } from '../../components/Segmented';
 import { Sheet } from '../../components/Sheet';
 import { Stepper } from '../../components/Stepper';
@@ -17,6 +18,7 @@ import { getStorageClient } from '../../data/client';
 import { jobSession } from '../../data/storage';
 import type { CabinetRecord } from '../../data/types';
 import { displayInches } from '../../lib/dimensions';
+import type { GlossaryKey } from '../../lib/glossary';
 import { cx } from '../../lib/interaction';
 import { routeHref } from '../../routes';
 import { useStore } from '../../state/createStore';
@@ -27,7 +29,8 @@ import { constructionLocked, diffConstruction, diffText, LOCKED_REASON, methodRo
 import type { Evaluation, FieldKey } from '../../workspace/calc';
 import type { DimensionField } from '../../workspace/commands';
 import { runCommand, undoIfLatest } from '../../workspace/history';
-import { hoverKeyHandlers, setUi, traceKeyOf, useSelectedCabinetId, useUi, workspaceUi } from '../../workspace/ui';
+import { hoverKeyHandlers, requestFocus, setUi, traceKeyOf, useSelectedCabinetId, useUi, workspaceUi } from '../../workspace/ui';
+import { addCabinet } from './CabinetList';
 import { useCabinet, useCabinets, useEvaluation, useRules } from './hooks';
 import styles from './Workspace.module.css';
 
@@ -70,7 +73,21 @@ function focusHandlers(field: FieldKey) {
   };
 }
 
-function DimensionField({ cabinet, evaluation, field, label, symbol }: { cabinet: CabinetRecord; evaluation: Evaluation; field: DimensionField; label: string; symbol: string }) {
+function DimensionField({
+  cabinet,
+  evaluation,
+  field,
+  label,
+  symbol,
+  info,
+}: {
+  cabinet: CabinetRecord;
+  evaluation: Evaluation;
+  field: DimensionField;
+  label: string;
+  symbol: string;
+  info?: GlossaryKey;
+}) {
   const trace = useUi(traceKeyOf);
   const key = FIELD_TRACE[field];
   return (
@@ -78,6 +95,7 @@ function DimensionField({ cabinet, evaluation, field, label, symbol }: { cabinet
       <DimensionInput
         id={fieldId(field)}
         label={label}
+        info={info && <InfoTip term={info} />}
         symbol={symbol}
         value={cabinet[field]}
         traced={lit(trace, key)}
@@ -136,8 +154,7 @@ function MessageLine({ id, tone, children }: { id: string; tone: 'warning' | 'hi
     <div id={id} className={cx(fieldStyles.msg, tone === 'warning' && fieldStyles.msgWarning)}>
       {tone === 'warning' && children ? (
         <>
-          <span aria-hidden="true">△ </span>
-          <span className="visually-hidden">Warning:</span> {children}
+          <SymbolMark symbol="warning" decorative /> <span className="visually-hidden">Warning:</span> {children}
         </>
       ) : (
         children
@@ -271,7 +288,9 @@ function RunField({ cabinet }: { cabinet: CabinetRecord }) {
 
   return (
     <div className={cx(fieldStyles.field, styles.runField)} data-field="run">
-      <FieldLabel htmlFor={fieldId('run')}>Run</FieldLabel>
+      <FieldLabel htmlFor={fieldId('run')} info={<InfoTip term="run" />}>
+        Run
+      </FieldLabel>
       <input
         id={fieldId('run')}
         className={fieldStyles.input}
@@ -319,9 +338,12 @@ function EndsTiles({ cabinet }: { cabinet: CabinetRecord }) {
   const id = useId();
   return (
     <div className={styles.ends} {...hoverKeyHandlers('ends')}>
-      <span className={styles.endsLabel} id={id}>
-        Finished ends <span className={styles.endsSub}>· laminated outside faces</span>
-      </span>
+      <div className={styles.endsHead}>
+        <span className={styles.endsLabel} id={id}>
+          Finished ends <span className={styles.endsSub}>· laminated outside faces</span>
+        </span>
+        <InfoTip term="finishedEnds" />
+      </div>
       <div role="group" aria-labelledby={id} className={styles.endsRow}>
         {ENDS.map((o) => {
           const on = cabinet.finishedEnds === o.value;
@@ -449,19 +471,19 @@ function Construction({ rules, type }: { rules: ConstructionRules; type: Cabinet
   const [changing, setChanging] = useState(false);
   const differs = shop ? differences(shop, rules) : 0;
 
-  const rows: [string, string, TraceKey][] = [
-    ['Panel thickness', displayInches(rules.panelThickness), 'p'],
+  const rows: [string, string, TraceKey, GlossaryKey][] = [
+    ['Panel thickness', displayInches(rules.panelThickness), 'p', 'panelThickness'],
     ...(type === 'base'
       ? ([
-          ['Toe kick', displayInches(rules.toeKickHeight), 'toe'],
-          ['Countertop', displayInches(rules.countertopThickness), 'ctop'],
-        ] as [string, string, TraceKey][])
+          ['Toe kick', displayInches(rules.toeKickHeight), 'toe', 'toeKick'],
+          ['Countertop', displayInches(rules.countertopThickness), 'ctop', 'countertop'],
+        ] as [string, string, TraceKey, GlossaryKey][])
       : []),
-    ['Shelf clearance, each side', displayInches(rules.shelfClearancePerSide), 'cl'],
-    ['Shelf setback from front', displayInches(rules.shelfSetback), 'sb'],
-    ['Shelf thickness', displayInches(rules.shelfThickness), 'wide'],
-    ['Wide shelves', wideRule(rules), 'wide'],
-    ['Laminate oversize, each edge', displayInches(rules.laminateOversizePerEdge), 'lam'],
+    ['Shelf clearance, each side', displayInches(rules.shelfClearancePerSide), 'cl', 'shelfClearance'],
+    ['Shelf setback from front', displayInches(rules.shelfSetback), 'sb', 'shelfSetback'],
+    ['Shelf thickness', displayInches(rules.shelfThickness), 'wide', 'shelfThickness'],
+    ['Wide shelves', wideRule(rules), 'wide', 'wideShelves'],
+    ['Laminate oversize, each edge', displayInches(rules.laminateOversizePerEdge), 'lam', 'laminateOversize'],
   ];
 
   return (
@@ -485,7 +507,7 @@ function Construction({ rules, type }: { rules: ConstructionRules; type: Cabinet
             </span>
           ) : (
             <span className={styles.differs}>
-              <span aria-hidden="true">◆</span> Differs from shop defaults ({differs})
+              <SymbolMark symbol="differs" decorative /> Differs from shop defaults ({differs})
             </span>
           ))}
       </button>
@@ -493,7 +515,9 @@ function Construction({ rules, type }: { rules: ConstructionRules; type: Cabinet
         <div className={styles.disclosureInner}>
           <div className={styles.method}>
             <div>
-              <div className={styles.methodName}>{CONSTRUCTION_NAMES[constructionChoiceOf(rules.method)].long}</div>
+              <div className={styles.methodName}>
+                {CONSTRUCTION_NAMES[constructionChoiceOf(rules.method)].long} <InfoTip term="constructionMethod" />
+              </div>
               <p id={lockId} className={styles.methodNote}>
                 {locked ? LOCKED_REASON : 'Every cabinet in this job is built this way. You can change it while the job is a draft.'}
               </p>
@@ -503,15 +527,19 @@ function Construction({ rules, type }: { rules: ConstructionRules; type: Cabinet
             </Button>
           </div>
           <dl className={styles.rules}>
-            {rows.map(([label, value, key]) => (
+            {rows.map(([label, value, key, term]) => (
               <div key={label} className={cx(styles.rule, trace === key && styles.ruleOn)} {...hoverKeyHandlers(key)}>
-                <dt>{label}</dt>
+                <dt>
+                  {label} <InfoTip term={term} />
+                </dt>
                 <dd>{value}</dd>
               </div>
             ))}
-            {methodRows(rules, type).map(([label, value]) => (
+            {methodRows(rules, type).map(([label, value, term]) => (
               <div key={label} className={styles.rule}>
-                <dt>{label}</dt>
+                <dt>
+                  {label} <InfoTip term={term} />
+                </dt>
                 <dd>{value}</dd>
               </div>
             ))}
@@ -572,7 +600,7 @@ function EditorFor({ cabinet, rules }: { cabinet: CabinetRecord; rules: Construc
 
       <div className={styles.grid3}>
         <DimensionField cabinet={cabinet} evaluation={evaluation} field="width" label="Width" symbol="W" />
-        <DimensionField cabinet={cabinet} evaluation={evaluation} field="height" label="Height, overall" symbol="H" />
+        <DimensionField cabinet={cabinet} evaluation={evaluation} field="height" label="Height, overall" symbol="H" info="boxHeight" />
         <DimensionField cabinet={cabinet} evaluation={evaluation} field="depth" label="Depth" symbol="D" />
       </div>
 
@@ -633,6 +661,7 @@ function EditorFor({ cabinet, rules }: { cabinet: CabinetRecord; rules: Construc
 export function Editor() {
   const id = useSelectedCabinetId();
   const cabinet = useCabinet(id);
+  const cabinets = useCabinets();
   const rules = useRules();
   return (
     <Sheet aria-labelledby="ws-ed" className={styles.editorPanel}>
@@ -643,6 +672,26 @@ export function Editor() {
         <>
           <ViewTitle id="ws-ed" mark="2" title="Cabinet editor" sub="NO CABINET" />
           <p className={styles.empty}>Add a cabinet to start entering sizes.</p>
+          <div className={styles.emptyActions}>
+            {(['base', 'wall'] as const).map((type) => (
+              <Button
+                key={type}
+                icon={<PlusIcon />}
+                // With no cabinet selected, Ctrl+N adds a base cabinet.
+                {...(type === 'base' ? { tooltip: 'Add base cabinet  Ctrl+N', describeTooltip: false, 'aria-keyshortcuts': 'Control+N' } : {})}
+                onClick={() => {
+                  // The button goes as the editor appears, so focus goes to Width, ready to type.
+                  addCabinet(cabinets, type);
+                  requestFocus('width');
+                }}
+              >
+                Add {type} cabinet
+              </Button>
+            ))}
+          </div>
+          <p className={styles.emptyHint}>
+            The <strong>Add cabinet ▾</strong> menu in the cabinet list has preset widths.
+          </p>
         </>
       )}
     </Sheet>

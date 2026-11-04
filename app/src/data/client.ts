@@ -58,6 +58,8 @@ export interface StorageClient {
   setShopSetting(key: ShopSettingKey, value: unknown): Promise<void>;
   /** Development builds only. */
   devLoadSampleJobs(): Promise<JobRecord[]>;
+  /** Every build: "Example – Small kitchen", an ordinary draft with the next number and the shop defaults. */
+  addExampleJob(): Promise<JobRecord>;
 
   /**
    * Keep these sheet layouts with the job, in place of the ones it has. Not
@@ -145,6 +147,7 @@ export const tauriClient: StorageClient = {
           construction: constructionWire(job.construction),
           materials: job.materials ?? null,
           sawProfile: job.sawProfile ?? null,
+          cabinets: job.cabinets ?? [],
         },
       }),
     ),
@@ -164,6 +167,7 @@ export const tauriClient: StorageClient = {
   },
   setShopSetting: (key, value) => call('set_shop_setting', { key, value }),
   devLoadSampleJobs: async () => (await call<WireJob[]>('dev_load_sample_jobs')).map(fromWire),
+  addExampleJob: async () => fromWire(await call<WireJob>('add_example_job')),
   saveJobLayouts: (jobId, layouts) => call('save_job_layouts', { jobId, layouts }),
   listMaterials: () => call('list_materials'),
   saveMaterial: (material) => call('save_material', { material }),

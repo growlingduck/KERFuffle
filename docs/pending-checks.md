@@ -1,6 +1,6 @@
 # Pending checks
 
-Things built so far (prompts 01–13) that still need you to look at them, try
+Things built so far (prompts 01–17) that still need you to look at them, try
 them, or make a call. Tick them off or delete lines as you go. Last updated
 2026-11-02.
 
@@ -403,3 +403,59 @@ Choices made. Keep or change?
 - [ ] **A duplicated job doesn't copy the kept layouts** (it's a draft).
 - [ ] **`.kerfjob` files are now format 4** (they carry kept layouts). The
       database is schema 5 (`layouts` table). Update both PCs together.
+
+## 12. First run (prompt 14)
+
+- [ ] **Release build, fresh database:** the Jobs screen shows the "check your
+      shop's construction defaults" banner and **Open an example job**. The
+      example opens in the workspace and its cut list prints. Tested in the
+      browser build only; never in an installed release build.
+- [ ] **Existing database (schema 5 with jobs):** upgrading takes the usual
+      pre-upgrade backup and never shows the banner. Database is now schema 6.
+- [ ] **Choice to confirm:** with no jobs, a shop that already saved its own
+      construction defaults is also treated as checked.
+- [ ] **Choice to confirm:** if you check the defaults in Settings and change
+      nothing, Save stays disabled, so you go back to Jobs and click **They're
+      right**. Settings has no confirm button of its own.
+- [ ] **Example job content** (`app/src-tauri/src/db/example_job.json`): 120″
+      of base on one "Sink wall" run (long enough to split the ladder base),
+      matching uppers, two cabinets ×2. Runs are dropped when the shop's
+      default method doesn't use them.
+
+## 13. Starting a job (prompt 15)
+
+- [ ] **Desktop build:** New job → name → Enter opens the workspace with B1's
+      Width focused and selected. Checked in the browser build and in Rust tests
+      (`create_job` now saves the first cabinet in the same transaction); not yet
+      in the Tauri app. No schema change: `cabinets` is an optional field.
+- [ ] **Choice to confirm:** the drawing panel's empty state also changed (to
+      "The drawing appears here once the job has a cabinet."), not only the list
+      and parts panel.
+- [ ] **Choice to confirm:** once **Change…** is clicked, the one-line summary
+      gives way to the picker (there's no way to collapse it again, as asked).
+
+## 14. Explaining shop terms (prompt 16)
+
+- [ ] **Wording:** read every entry in `app/src/lib/glossary.ts` (the ? tips
+      and, later, the help screen). Each was written from
+      `docs/calculation-rules.md`; correct anything that isn't how the shop says it.
+- [ ] **Choice to confirm:** in the workspace editor's narrow columns the
+      focused hint ("Reads as … · ↑↓ nudges 1/16″, Shift+↑↓ 1″") is cut off with
+      "…", as "1/16″" already was. It shows whole in Settings. Errors show
+      whole while typing, laid over the line below.
+- [ ] **Choice to confirm:** the tracing hint is remembered in the `display`
+      shop setting (with the rounding), so restoring an older backup can bring
+      it back once.
+
+## 15. Pointing to the next step (prompt 17)
+
+- [ ] **Look:** the parts panel's primary **Cut list →** button and the red
+      "1 cabinet needs a fix" beside it, in a narrow window. Never seen on screen.
+- [ ] **Look:** the status menu's two-line **Ready to cut** item fits the
+      220 px header menu, and the "Locks construction" line reads as a note.
+- [ ] **Choice to confirm:** only draft → Ready to cut gets the hint and the
+      "Construction is locked" toast. Draft → Completed also locks it, silently.
+- [ ] **Choice to confirm:** a job made before saw profiles now shows "No saw
+      profile chosen for this job" in the cut list rail until one is picked.
+- [ ] **Choice to confirm:** the "No price for …" notice shows on the Estimate
+      view only, not on the cut list or layouts.

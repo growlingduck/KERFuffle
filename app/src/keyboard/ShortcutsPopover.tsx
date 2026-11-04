@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import type { RefObject } from 'react';
 import { KeyCombo } from '../components/Kbd';
 import { cx, useDismiss } from '../lib/interaction';
@@ -12,6 +12,31 @@ export interface ShortcutsPopoverProps {
   /** The button that toggles the popover; clicks on it don't count as "outside". */
   anchorRef?: RefObject<HTMLElement | null>;
   className?: string | undefined;
+}
+
+/** Whether the popover is open: the header button, `?` and Settings → Help all open it. */
+let shown = false;
+const listeners = new Set<() => void>();
+
+function setShown(next: boolean): void {
+  if (shown === next) return;
+  shown = next;
+  for (const listener of [...listeners]) listener();
+}
+
+export const openShortcuts = (): void => setShown(true);
+export const closeShortcuts = (): void => setShown(false);
+export const toggleShortcuts = (): void => setShown(!shown);
+
+export function useShortcutsOpen(): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    () => shown,
+    () => shown,
+  );
 }
 
 function group(listing: readonly ShortcutListing[]): [string, ShortcutListing[]][] {

@@ -7,8 +7,10 @@ import type { PriceChange } from '../../data/materials';
 import type { JobMaterialsRecord, MaterialRecord } from '../../data/types';
 import { routeHref } from '../../routes';
 import styles from './CutList.module.css';
+import { SymbolMark } from '../../components/InfoTip';
 
 export interface MaterialsPanelProps {
+  jobId: string;
   /** The job's materials (or the shop defaults it's using). */
   record: JobMaterialsRecord;
   /** True when the job has no materials of its own yet. */
@@ -26,15 +28,27 @@ export interface MaterialsPanelProps {
 
 const NONE = '';
 
+const PANEL_ID = 'cutlist-materials';
+
+/** Bring the materials panel into view, focused on the first slot with no material (or the first slot). */
+export function focusMaterialsPanel(): void {
+  const panel = document.getElementById(PANEL_ID);
+  if (!panel) return;
+  const target = panel.querySelector<HTMLElement>('select[aria-invalid="true"]') ?? panel.querySelector<HTMLElement>('select');
+  panel.scrollIntoView?.({ block: 'nearest' });
+  target?.focus({ preventScroll: true });
+}
+
 /**
  * Screen only: what each slot is cut from, changed per slot. A change copies
  * the material (and its price) into the job and regroups the cut list.
  */
-export function MaterialsPanel({ record, usingDefaults, catalog, slots, issues, pricesAsOf, changes, onChoose, onUpdatePrices }: MaterialsPanelProps) {
+export function MaterialsPanel({ jobId, record, usingDefaults, catalog, slots, issues, pricesAsOf, changes, onChoose, onUpdatePrices }: MaterialsPanelProps) {
   const id = useId();
   const changed = changedMaterialCount(changes);
+  const settingsHref = routeHref({ name: 'settings', section: 'materials' });
   return (
-    <section className={styles.railPanel} aria-labelledby={`${id}-title`}>
+    <section id={PANEL_ID} className={styles.railPanel} aria-labelledby={`${id}-title`}>
       <h2 id={`${id}-title`} className={styles.sketchTitle}>
         Materials
       </h2>
@@ -43,7 +57,16 @@ export function MaterialsPanel({ record, usingDefaults, catalog, slots, issues, 
           ? 'This job uses the shop’s default materials. Choosing one keeps a copy, with its price, in the job.'
           : 'Each slot keeps a copy of its material and price. Editing the catalog never changes this job.'}
       </p>
-      {slots.length === 0 && <p className={styles.railHelp}>Add cabinets to choose their materials.</p>}
+      {catalog.length === 0 && (
+        <p className={styles.railEmpty} data-empty="catalog">
+          The materials catalog is empty. <a href={settingsHref}>Add materials in Settings → Materials</a>
+        </p>
+      )}
+      {slots.length === 0 && (
+        <p className={styles.railEmpty} data-empty="slots">
+          No cabinets to choose materials for yet. <a href={routeHref({ name: 'workspace', jobId })}>Back to the workspace</a>
+        </p>
+      )}
       <div className={styles.slots}>
         {slots.map((slot) => {
           const current = record.slots[slot] ?? null;
@@ -78,7 +101,7 @@ export function MaterialsPanel({ record, usingDefaults, catalog, slots, issues, 
               <div id={noteId} className={styles.slotNote}>
                 {slotIssues.map((issue) => (
                   <span key={issue.message} className={styles.slotWarn}>
-                    <span aria-hidden="true">△ </span>
+                    <SymbolMark symbol="warning" />{' '}
                     {issue.message}
                   </span>
                 ))}
@@ -112,7 +135,7 @@ export function MaterialsPanel({ record, usingDefaults, catalog, slots, issues, 
         </Button>
       </div>
       <p className={styles.railHelp}>
-        Add materials and prices in <a href={routeHref({ name: 'settings' })}>Settings → Materials</a>. Screen only: never printed.
+        Add materials and prices in <a href={settingsHref}>Settings → Materials</a>. Screen only: never printed.
       </p>
     </section>
   );

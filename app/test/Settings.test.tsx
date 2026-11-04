@@ -16,12 +16,12 @@ beforeEach(async () => {
   window.location.hash = '#/settings';
   const toast = toastStore.getState();
   if (toast) dismissToast(toast.id);
-  setDisplaySettings({ roundTo: 16 });
+  setDisplaySettings({ roundTo: 16, tracingHintDismissed: true });
   db = await useTestDatabase([testJob()]);
 });
 
 afterEach(() => {
-  setDisplaySettings({ roundTo: 16 });
+  setDisplaySettings({ roundTo: 16, tracingHintDismissed: true });
 });
 
 async function renderSettings() {
@@ -176,7 +176,8 @@ describe('Settings: display and backups', () => {
     await user.click(saveButton());
     await waitFor(() => expect(displayStore.getState().roundTo).toBe(8));
     expect(displayInches(inches(28 + 7 / 16))).toBe('≈28 1/2″');
-    expect((await db.getShopSettings()).other.display).toEqual({ roundTo: 8 });
+    // Kept with the rest of the display setting.
+    expect((await db.getShopSettings()).other.display).toEqual({ roundTo: 8, tracingHintDismissed: true });
   });
 
   it('keeps the latest n backups, saved with the other settings', async () => {

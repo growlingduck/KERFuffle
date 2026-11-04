@@ -10,6 +10,7 @@ export function FieldLabel({
   symbol,
   symbolOn = false,
   hiddenSuffix,
+  info,
 }: {
   htmlFor: string;
   id?: string;
@@ -18,6 +19,8 @@ export function FieldLabel({
   symbolOn?: boolean;
   /** Read by screen readers only, e.g. "(inches)". */
   hiddenSuffix?: string;
+  /** An InfoTip, beside the label but outside it, so clicking the label still focuses the field. */
+  info?: ReactNode;
 }) {
   return (
     <div className={styles.labelRow}>
@@ -25,6 +28,7 @@ export function FieldLabel({
         {children}
         {hiddenSuffix && <span className="visually-hidden"> {hiddenSuffix}</span>}
       </label>
+      {info}
       {symbol && <SymbolChip on={symbolOn}>{symbol}</SymbolChip>}
     </div>
   );

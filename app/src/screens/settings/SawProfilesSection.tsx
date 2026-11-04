@@ -3,12 +3,14 @@ import type { Dispatch } from 'react';
 import type { SawProfile } from '@kerfuffle/engine';
 import { Button } from '../../components/Button';
 import { DimensionInput } from '../../components/DimensionInput';
+import { InfoTip } from '../../components/InfoTip';
 import { Sheet } from '../../components/Sheet';
 import { Stepper } from '../../components/Stepper';
 import { ViewTitle } from '../../components/ViewTitle';
 import { BUILT_IN_SAW, FIRST_CUT_NAMES, FIRST_CUTS, MAX_EXTRA_SHEETS, sawProfileIssues } from '../../data/sawProfiles';
 import type { SawLengthField } from '../../data/sawProfiles';
 import { exactInches } from '../../lib/dimensions';
+import type { GlossaryKey } from '../../lib/glossary';
 import { cx } from '../../lib/interaction';
 import { sawField } from './draft';
 import type { DraftAction, SettingsDraft } from './draft';
@@ -16,8 +18,8 @@ import s from './Settings.module.css';
 
 const newId = () => crypto.randomUUID();
 
-const LENGTH_ROWS: readonly { field: SawLengthField; label: string; help: string }[] = [
-  { field: 'kerf', label: 'Kerf', help: 'The blade’s width, lost at every cut. Check it against the real blade.' },
+const LENGTH_ROWS: readonly { field: SawLengthField; label: string; help: string; term?: GlossaryKey }[] = [
+  { field: 'kerf', term: 'kerf', label: 'Kerf', help: 'The blade’s width, lost at every cut. Check it against the real blade.' },
   { field: 'edgeTrim', label: 'Edge trim, each sheet edge', help: 'Taken off all four edges before anything is cut, the trim cut included. 0 is allowed.' },
   { field: 'minPiece', label: 'Smallest safe piece', help: 'Narrower pieces are still laid out, but flagged so they’re cut with care.' },
   { field: 'keepLength', label: 'Keepable offcut, length', help: 'Offcuts at least this size (either way round) are marked to keep.' },
@@ -62,7 +64,9 @@ export function SawProfilesSection({ draft, dispatch }: SawProfilesSectionProps)
       <table className={s.materialTable}>
         <thead>
           <tr>
-            <th scope="col">Profile</th>
+            <th scope="col">
+              Profile <InfoTip term="sawProfile" />
+            </th>
             <th scope="col">Kerf</th>
             <th scope="col">Edge trim</th>
             <th scope="col">First cut</th>
@@ -148,6 +152,7 @@ export function SawProfilesSection({ draft, dispatch }: SawProfilesSectionProps)
                 key={`${selected.id}-${row.field}-${draft.generation}`}
                 id={`set-saw-${row.field}`}
                 label={row.label}
+                info={row.term && <InfoTip term={row.term} />}
                 value={selected[row.field]}
                 error={unreadable ? 'Can’t be saved like this' : (issues[row.field] ?? null)}
                 className={cx(changed(row.field) && s.modified)}

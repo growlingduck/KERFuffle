@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { CONSTRUCTION_CHOICES, CONSTRUCTION_NAMES } from '@kerfuffle/engine';
 import type { ConstructionChoice } from '@kerfuffle/engine';
 import { cx } from '../lib/interaction';
+import { InfoTip } from './InfoTip';
 import styles from './ConstructionPicker.module.css';
 
 /**
@@ -64,9 +65,13 @@ export interface ConstructionPickerProps {
 export function ConstructionPicker({ value, onChange, legend, hint, currentLabel, disabled = false, className }: ConstructionPickerProps) {
   const name = useId();
   const hintId = `${name}-hint`;
+  const legendId = `${name}-legend`;
   return (
-    <fieldset className={cx(styles.group, className)} aria-describedby={hint ? hintId : undefined} disabled={disabled}>
-      <legend className={styles.legend}>{legend}</legend>
+    // Named by the legend's words alone, not its info tip.
+    <fieldset className={cx(styles.group, className)} aria-labelledby={legendId} aria-describedby={hint ? hintId : undefined} disabled={disabled}>
+      <legend className={styles.legend}>
+        <span id={legendId}>{legend}</span> <InfoTip term="constructionMethod" />
+      </legend>
       {hint && (
         <p id={hintId} className={styles.hint}>
           {hint}

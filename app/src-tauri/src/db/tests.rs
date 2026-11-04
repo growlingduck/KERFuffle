@@ -24,7 +24,7 @@ fn cabinet(id: &str, label: &str) -> Cabinet {
 }
 
 fn new_job(conn: &mut Connection, name: &str) -> Job {
-    create_job(conn, &NewJob { name: name.into(), customer: None, notes: None, construction: None, materials: None, saw_profile: None }).unwrap()
+    create_job(conn, &NewJob { name: name.into(), customer: None, notes: None, construction: None, materials: None, saw_profile: None, cabinets: Vec::new() }).unwrap()
 }
 
 fn snapshot(job: &Job, cabinets: Vec<Cabinet>) -> JobSnapshot {
@@ -257,11 +257,27 @@ fn creates_jobs_with_sequential_numbers_and_the_shop_rules() {
 }
 
 #[test]
+fn creates_a_job_with_its_first_cabinet() {
+    let mut conn = db();
+    let job = create_job(&mut conn, &NewJob { name: "Kitchen".into(), cabinets: vec![cabinet("c1", "B1")], ..Default::default() }).unwrap();
+    assert_eq!(job.cabinets, vec![cabinet("c1", "B1")]);
+    assert_eq!(list_jobs(&conn).unwrap()[0].cabinet_count, 1);
+
+    // A bad cabinet rejects the whole job: nothing is half-created.
+    let bad = Cabinet { id: " ".into(), ..cabinet("c2", "B1") };
+    let error = create_job(&mut conn, &NewJob { name: "Bath".into(), cabinets: vec![bad], ..Default::default() }).unwrap_err();
+    assert_eq!(error.kind(), "invalid");
+    let twice = vec![cabinet("c3", "B1"), cabinet("c3", "B2")];
+    assert_eq!(create_job(&mut conn, &NewJob { name: "Bath".into(), cabinets: twice, ..Default::default() }).unwrap_err().kind(), "invalid");
+    assert_eq!(list_jobs(&conn).unwrap().len(), 1);
+}
+
+#[test]
 fn round_trips_every_field() {
     let mut conn = db();
     let job = create_job(
         &mut conn,
-        &NewJob { name: "Kitchen".into(), customer: Some("Pat".into()), notes: Some("Uppers?".into()), construction: None, materials: None, saw_profile: None },
+        &NewJob { name: "Kitchen".into(), customer: Some("Pat".into()), notes: Some("Uppers?".into()), construction: None, materials: None, saw_profile: None, cabinets: Vec::new() },
     )
     .unwrap();
     let cabinets = vec![
@@ -465,7 +481,7 @@ fn duplicate_is_a_fully_independent_copy() {
     let mut conn = db();
     let source = create_job(
         &mut conn,
-        &NewJob { name: "Kitchen".into(), customer: Some("Pat".into()), notes: Some("n".into()), construction: None, materials: None, saw_profile: None },
+        &NewJob { name: "Kitchen".into(), customer: Some("Pat".into()), notes: Some("n".into()), construction: None, materials: None, saw_profile: None, cabinets: Vec::new() },
     )
     .unwrap();
     let mut snap = snapshot(&source, vec![cabinet("a", "B1"), cabinet("b", "W1")]);
@@ -980,7 +996,7 @@ fn a_material_a_job_uses_cant_be_deleted() {
     let mut conn = db();
     let job = create_job(
         &mut conn,
-        &NewJob { name: "Kitchen".into(), customer: None, notes: None, construction: None, materials: Some(job_materials("std-birch-3-4")), saw_profile: None },
+        &NewJob { name: "Kitchen".into(), customer: None, notes: None, construction: None, materials: Some(job_materials("std-birch-3-4")), saw_profile: None, cabinets: Vec::new() },
     )
     .unwrap();
     assert_eq!(job.materials, Some(job_materials("std-birch-3-4")));
@@ -1123,7 +1139,7 @@ fn migration_5_adds_saved_layouts_to_a_version_4_database_with_jobs_in_it() {
     conn.execute("UPDATE meta SET value = '4' WHERE key = 'schema_version'", []).unwrap();
 
     let report = migrate(&mut conn, None).unwrap();
-    assert_eq!((report.from_version, report.to_version), (4, 5));
+    assert_eq!((report.from_version, report.to_version), (4, LATEST_VERSION));
     assert_eq!(schema(&conn), schema(&db()), "a migrated database must equal a fresh one");
     // Existing jobs have no saved layouts: they're laid out as needed.
     assert_eq!(get_job(&conn, "fixture-job-1").unwrap().layouts, vec![]);
@@ -1200,4 +1216,102 @@ fn saved_layouts_import_with_the_job() {
 
     let bad = ImportJob { layouts: vec![SavedLayout { mode: "fastest".into(), ..saved_layout("m", "h", 1) }], ..exported(&saved) };
     assert_eq!(import_job(&mut conn, &bad, ImportMode::Copy).unwrap_err().kind(), "invalid");
+}
+
+// --- First run (prompt 14) ---------------------------------------------------
+
+/// A version 5 database made from the v1 fixture (two jobs, saved construction rules).
+fn version_5_database(conn: &Connection) {
+    conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+    conn.execute_batch(include_str!("fixtures/schema_v1.sql")).unwrap();
+    conn.execute_batch(include_str!("migrations/0002_cabinet_runs.sql")).unwrap();
+    conn.execute_batch(include_str!("migrations/0003_materials.sql")).unwrap();
+    conn.execute_batch(include_str!("migrations/0004_saw_profiles.sql")).unwrap();
+    conn.execute_batch(include_str!("migrations/0005_layouts.sql")).unwrap();
+    conn.execute("UPDATE meta SET value = '5' WHERE key = 'schema_version'", []).unwrap();
+}
+
+fn defaults_checked(conn: &Connection) -> Option<serde_json::Value> {
+    get_shop_settings(conn).unwrap().get(DEFAULTS_CHECKED_SETTING).cloned()
+}
+
+#[test]
+fn a_new_database_has_not_checked_its_defaults() {
+    let conn = db();
+    assert_eq!(defaults_checked(&conn), None);
+    set_shop_setting(&conn, DEFAULTS_CHECKED_SETTING, &json!(true)).unwrap();
+    assert_eq!(defaults_checked(&conn), Some(json!(true)));
+    assert_eq!(set_shop_setting(&conn, DEFAULTS_CHECKED_SETTING, &json!("yes")).unwrap_err().kind(), "invalid");
+}
+
+#[test]
+fn migration_6_marks_defaults_checked_only_where_the_shop_is_already_in_use() {
+    // Jobs in it: checked.
+    let mut with_jobs = Connection::open_in_memory().unwrap();
+    version_5_database(&with_jobs);
+    let report = migrate(&mut with_jobs, None).unwrap();
+    assert_eq!((report.from_version, report.to_version), (5, LATEST_VERSION));
+    assert_eq!(schema(&with_jobs), schema(&db()), "a migrated database must equal a fresh one");
+    assert_eq!(defaults_checked(&with_jobs), Some(json!(true)));
+
+    // No jobs, but its own construction defaults saved: checked.
+    let mut saved_rules = Connection::open_in_memory().unwrap();
+    version_5_database(&saved_rules);
+    saved_rules.execute_batch("DELETE FROM jobs;").unwrap();
+    migrate(&mut saved_rules, None).unwrap();
+    assert_eq!(defaults_checked(&saved_rules), Some(json!(true)));
+
+    // Neither: not checked.
+    let mut unused = Connection::open_in_memory().unwrap();
+    version_5_database(&unused);
+    unused.execute_batch("DELETE FROM jobs; DELETE FROM shop_settings;").unwrap();
+    migrate(&mut unused, None).unwrap();
+    assert_eq!(defaults_checked(&unused), None);
+}
+
+#[test]
+fn migration_6_backs_up_the_version_5_database_first() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join(DB_FILE_NAME);
+    version_5_database(&Connection::open(&path).unwrap());
+    let backups = policy(dir.path());
+    let (conn, report) = open(&path, Some(&backups)).unwrap();
+    assert_eq!(defaults_checked(&conn), Some(json!(true)));
+    let copy = Connection::open(report.backup.expect("a pre-upgrade backup")).unwrap();
+    assert_eq!(schema_version(&copy).unwrap(), 5, "the copy is from before the upgrade");
+    assert_eq!(count(&copy, "SELECT COUNT(*) FROM jobs"), 2);
+}
+
+#[test]
+fn the_example_job_is_an_ordinary_draft_with_the_shop_defaults() {
+    let mut conn = db();
+    new_job(&mut conn, "Real work");
+    let example = add_example_job(&mut conn).unwrap();
+    assert_eq!(example.name, "Example – Small kitchen");
+    assert_eq!(example.customer.as_deref(), Some("Example"));
+    assert_eq!(example.number, 2, "the next job number");
+    assert_eq!(example.status, JobStatus::Draft);
+    assert_eq!(example.rules, current_rules(&conn).unwrap());
+    let cabinets = &example.cabinets;
+    assert!(cabinets.iter().any(|c| c.cabinet_type == CabinetType::Base));
+    assert!(cabinets.iter().any(|c| c.cabinet_type == CabinetType::Wall));
+    assert!(cabinets.iter().any(|c| c.finished_ends != FinishedEnds::None));
+    assert!(cabinets.iter().any(|c| c.quantity > 1));
+    // The built-in method (A1) puts bases on runs.
+    assert!(cabinets.iter().filter(|c| c.cabinet_type == CabinetType::Base).all(|c| c.run.as_deref() == Some("Sink wall")));
+    assert!(cabinets.iter().filter(|c| c.cabinet_type == CabinetType::Wall).all(|c| c.run.is_none()));
+
+    // Adding it again gives another job, so it can come back after archiving.
+    set_job_status(&mut conn, &example.id, JobStatus::Archived).unwrap();
+    let again = add_example_job(&mut conn).unwrap();
+    assert_ne!(again.id, example.id);
+    assert_eq!(again.number, 3);
+
+    // A shop whose default method has no runs gets the example without them.
+    let mut rules = current_rules(&conn).unwrap();
+    rules["method"]["id"] = json!("B");
+    set_shop_setting(&conn, RULES_SETTING, &rules).unwrap();
+    let no_runs = add_example_job(&mut conn).unwrap();
+    assert_eq!(no_runs.rules["method"]["id"], json!("B"));
+    assert!(no_runs.cabinets.iter().all(|c| c.run.is_none()));
 }

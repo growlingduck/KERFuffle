@@ -11,6 +11,7 @@ import { formatJobNumber } from '../../data/types';
 import { cx } from '../../lib/interaction';
 import { formatEdited } from '../../lib/relativeDate';
 import styles from './Jobs.module.css';
+import { SymbolMark } from '../../components/InfoTip';
 
 export interface ImportJobDialogProps {
   plan: ImportPlan;
@@ -103,7 +104,7 @@ export function ImportJobDialog({ plan, onClose, onImported }: ImportJobDialogPr
           {flagged.length > 0 && (
             <div className={cx(styles.importText, styles.importNote)}>
               <strong>
-                <span aria-hidden="true">△ </span>
+                <SymbolMark symbol="warning" />{' '}
                 {flagged.length === 1 ? '1 cabinet needs' : `${flagged.length} cabinets need`} attention.
               </strong>{' '}
               {flagged.length === 1 ? 'It comes in' : 'They come in'} as {flagged.length === 1 ? 'it is' : 'they are'} and {flagged.length === 1 ? 'is' : 'are'}{' '}
@@ -142,7 +143,7 @@ export function ImportJobDialog({ plan, onClose, onImported }: ImportJobDialogPr
       )}
       {error && (
         <p className={cx(styles.importText, styles.importError)} role="alert">
-          <span aria-hidden="true">⚠ </span>
+          <SymbolMark symbol="needsFix" />{' '}
           {error}
         </p>
       )}

@@ -477,6 +477,13 @@ pub fn create_job(conn: &mut Connection, new_job: &NewJob) -> DbResult<Job> {
     if let Some(profile) = &new_job.saw_profile {
         check_saw_profile(profile)?;
     }
+    let mut seen = std::collections::HashSet::new();
+    for cabinet in &new_job.cabinets {
+        cabinet.check()?;
+        if !seen.insert(cabinet.id.as_str()) {
+            return Err(DbError::invalid(format!("Cabinet {} appears twice in the job.", cabinet.label)));
+        }
+    }
     let materials = new_job.materials.as_ref().map(serde_json::Value::to_string);
     let saw_profile = new_job.saw_profile.as_ref().map(serde_json::Value::to_string);
     let id = fresh_id();
@@ -504,6 +511,9 @@ pub fn create_job(conn: &mut Connection, new_job: &NewJob) -> DbResult<Job> {
             saw_profile_json: saw_profile.as_deref(),
         },
     )?;
+    for (position, cabinet) in new_job.cabinets.iter().enumerate() {
+        write_cabinet(&tx, &id, position as i64, cabinet)?;
+    }
     tx.commit()?;
     get_job(conn, &id)
 }

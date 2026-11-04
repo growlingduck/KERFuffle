@@ -47,6 +47,31 @@
   gap: 12px;
   margin-bottom: 14px;
 }
+
+/* ---- Check shop defaults (first run) ---- */
+.checkDefaults {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px dashed var(--rule-input);
+  background: var(--vellum);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.checkDefaults p {
+  flex: 1 1 360px;
+  margin: 0;
+}
+.checkDefaultsActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .controlLabel {
   display: block;
   margin-bottom: 6px;
@@ -616,10 +641,68 @@
   color: var(--muted);
 }
 .ruleValues {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 24px;
+  margin: 0;
+  font-size: 12.5px;
+}
+.ruleValue {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ruleValue dt {
+  white-space: nowrap;
+}
+.ruleValue dd {
+  margin: 0;
+  text-align: right;
+}
+/* Construction as one line until Change… opens the picker and rules. */
+.constructionLine {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 16px;
-  font-size: 12.5px;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 14px 0 0;
+  font-size: 14px;
+}
+.constructionLine > span[aria-hidden] {
+  color: var(--muted);
+}
+.changeLink {
+  min-height: 32px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.changeLink:hover {
+  color: var(--blue-hover);
+}
+.changeLink:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+/* Disclosure (§4): grid rows 0fr → 1fr, no height jump. Reduced motion zeroes the token. */
+.constructionOpen {
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: construction-open var(--dur-base) var(--ease-base);
+}
+.constructionInner {
+  overflow: hidden;
+  min-height: 0;
+}
+@keyframes construction-open {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
 }
 .rulesNote {
   margin-top: 6px;

@@ -19,6 +19,8 @@ export interface TooltipProps {
   describe?: boolean;
   /** Show immediately and keep shown (gallery and tests). */
   forceOpen?: boolean;
+  /** Wrap onto several lines: for a sentence or two, like an info tip. Default: one line. */
+  multiline?: boolean;
 }
 
 interface Position {
@@ -39,7 +41,7 @@ function focusIsVisible(el: Element): boolean {
  * Dark 12 px tooltip. Waits 400 ms of hover intent, then fades in; also shows on
  * keyboard focus. Esc or a press hides it.
  */
-export function Tooltip({ content, children, placement = 'top', describe = false, forceOpen = false }: TooltipProps) {
+export function Tooltip({ content, children, placement = 'top', describe = false, forceOpen = false, multiline = false }: TooltipProps) {
   const id = useId();
   const wrapRef = useRef<HTMLSpanElement>(null);
   const timer = useRef<number | undefined>(undefined);
@@ -64,12 +66,15 @@ export function Tooltip({ content, children, placement = 'top', describe = false
     const rect = wrapRef.current.getBoundingClientRect();
     const roomAbove = rect.top > 44;
     const side = placement === 'top' && !roomAbove ? 'bottom' : placement;
+    const center = rect.left + rect.width / 2;
+    // A wide tip is centered on its trigger, but kept inside the window.
+    const half = multiline ? Math.min(150, window.innerWidth / 2 - 12) : 0;
     setPos({
-      left: rect.left + rect.width / 2,
+      left: Math.min(Math.max(center, half + 12), window.innerWidth - half - 12),
       top: side === 'top' ? rect.top - 8 : rect.bottom + 8,
       placement: side,
     });
-  }, [open, forceOpen, placement]);
+  }, [open, forceOpen, placement, multiline]);
 
   // Esc dismisses (WCAG 1.4.13); scrolling hides it rather than leaving it stranded.
   useEffect(() => {
@@ -111,7 +116,7 @@ export function Tooltip({ content, children, placement = 'top', describe = false
     >
       {child}
       {forceOpen && (
-        <span role="tooltip" id={tipId} className={cx(styles.tip, styles.inline)} data-placement={placement}>
+        <span role="tooltip" id={tipId} className={cx(styles.tip, styles.inline, multiline && styles.multiline)} data-placement={placement}>
           {content}
         </span>
       )}
@@ -121,7 +126,7 @@ export function Tooltip({ content, children, placement = 'top', describe = false
           <span
             role="tooltip"
             id={tipId}
-            className={styles.tip}
+            className={cx(styles.tip, multiline && styles.multiline)}
             data-placement={pos?.placement ?? placement}
             style={pos ? { left: pos.left, top: pos.top } : { visibility: 'hidden' }}
           >

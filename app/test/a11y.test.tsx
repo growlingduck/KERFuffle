@@ -6,6 +6,7 @@ import axe from 'axe-core';
 import type { Result } from 'axe-core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { App } from '../src/App';
+import { loadShopSettings } from '../src/data/storage';
 import Gallery from '../src/dev/Gallery';
 import { testCabinet, testJob, useTestDatabase } from './storage';
 
@@ -52,6 +53,47 @@ describe('accessibility (axe)', { timeout: 20_000 }, () => {
     expect(violations, describeViolations(violations)).toEqual([]);
   });
 
+  it('the cut list’s empty states (no cabinets, no materials, no saw profile) have no serious or critical violations', async () => {
+    await useTestDatabase([testJob({ cabinets: [], materials: { slots: {} }, sawProfile: null })]);
+    window.location.hash = '#/jobs/j-0014/cut-list';
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+    await act(async () => {});
+    expect(document.querySelector('[data-notice="no-cabinets"]')).not.toBeNull();
+    for (const view of ['Cut list', 'Layouts', 'Estimate']) {
+      await user.click(screen.getByRole('button', { name: view }));
+      const violations = await seriousViolations(container);
+      expect(violations, `${view}:\n${describeViolations(violations)}`).toEqual([]);
+    }
+  });
+
+  it('the workspace with Cut list →, a cabinet needing a fix, and the status menu open has no serious or critical violations', async () => {
+    await useTestDatabase([testJob({ cabinets: [testCabinet('c-b1', 'B1'), testCabinet('c-b2', 'B2', { height: inches(2) })] })]);
+    window.location.hash = '#/jobs/j-0014/workspace';
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+    await act(async () => {});
+    expect(screen.getByText('1 cabinet needs a fix')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Job status/ }));
+    expect(screen.getByRole('menuitemradio', { name: 'Ready to cut' })).toHaveAccessibleDescription('Locks construction');
+    const violations = await seriousViolations(container);
+    expect(violations, describeViolations(violations)).toEqual([]);
+  });
+
+  it('the workspace with the tracing hint and the Construction rules’ info tips has no serious or critical violations', async () => {
+    await loadShopSettings(); // a fresh profile: the hint shows
+    window.location.hash = '#/jobs/j-0014/workspace';
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+    await act(async () => {});
+    expect(screen.getByText('Point at any size or rule to see what it changes in the drawing.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^Construction/ }));
+    // A tip open from the keyboard, too.
+    screen.getByRole('button', { name: 'About Panel thickness' }).focus();
+    const violations = await seriousViolations(container);
+    expect(violations, describeViolations(violations)).toEqual([]);
+  });
+
   describe('Jobs screen', () => {
     beforeEach(async () => {
       window.location.hash = '#/jobs';
@@ -80,6 +122,12 @@ describe('accessibility (axe)', { timeout: 20_000 }, () => {
       expect(screen.getByRole('dialog', { name: 'New job' })).toBeInTheDocument();
       const violations = await seriousViolations(document.body);
       expect(violations, describeViolations(violations)).toEqual([]);
+
+      // And with construction opened by Change….
+      await user.click(await screen.findByRole('button', { name: 'Change…' }));
+      expect(screen.getByRole('group', { name: 'Construction' })).toBeInTheDocument();
+      const open = await seriousViolations(document.body);
+      expect(open, describeViolations(open)).toEqual([]);
     });
 
     it('has no serious or critical violations in the empty and archived views', async () => {
@@ -131,6 +179,15 @@ describe('accessibility (axe)', { timeout: 20_000 }, () => {
       await user.clear(width);
       await user.type(width, '32{Enter}');
       await user.hover(width);
+      const violations = await seriousViolations(container);
+      expect(violations, describeViolations(violations)).toEqual([]);
+    });
+
+    it('has no serious or critical violations in a job with no cabinets', async () => {
+      await seedDatabase([testJob({ cabinets: [] })]);
+      window.location.hash = '#/jobs/j-0014/workspace';
+      const { container } = render(<App />);
+      await screen.findByRole('button', { name: 'Add base cabinet' });
       const violations = await seriousViolations(container);
       expect(violations, describeViolations(violations)).toEqual([]);
     });

@@ -55,6 +55,7 @@ pub fn run() {
             commands::set_shop_setting,
             commands::save_job_layouts,
             commands::dev_load_sample_jobs,
+            commands::add_example_job,
             commands::list_materials,
             commands::save_material,
             commands::delete_material,

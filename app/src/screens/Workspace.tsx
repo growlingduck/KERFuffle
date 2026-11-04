@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { requestPrintOnOpen } from '../cutlist/printRequest';
 import { useShortcut, useShortcutScope } from '../keyboard/shortcuts';
 import { isTypingTarget } from '../keyboard/shortcuts';
@@ -7,7 +8,7 @@ import { useStore } from '../state/createStore';
 import { useJob } from '../state/jobs';
 import type { FieldKey } from '../workspace/calc';
 import { canRedo, canUndo, redoWithToast, undoWithToast } from '../workspace/history';
-import { requestFocus, selectCabinet, selectedCabinetId, useSelectedCabinetId } from '../workspace/ui';
+import { requestFocus, selectCabinet, selectedCabinetId, takeStartTyping, useSelectedCabinetId } from '../workspace/ui';
 import { MissingJob } from './MissingJob';
 import styles from './Screen.module.css';
 import { addCabinet, CabinetList, duplicateCabinet, removeCabinet, selectedCabinet } from './workspace/CabinetList';
@@ -150,6 +151,16 @@ function Panels({ jobId }: { jobId: string }) {
   const cabinet = useCabinet(id);
   const rules = useRules();
   const evaluation = useEvaluation(cabinet, rules);
+
+  // A job just made from New job opens on its first cabinet, Width selected, so typing replaces it.
+  useEffect(() => {
+    if (!rules || !takeStartTyping(jobId)) return;
+    const first = jobSession.getJob()?.cabinets[0];
+    if (!first) return;
+    selectCabinet(first.id);
+    requestFocus('width');
+  }, [jobId, rules]);
+
   if (!rules) return null;
   return (
     <div className={styles.row}>

@@ -149,9 +149,13 @@ Three columns, all of which wrap on narrow windows: **1 Cabinets**, **2 Cabinet
 editor**, then **3 Drawing** above **4 Parts**.
 
 ### 5.1 Header title block
-- Cells: Job | Customer | Status | Saved | Undo · Redo · Shortcuts.
+- Cells: Job | Customer | Status | Saved | Undo · Redo · Export, then
+  Help · Shortcuts, which every screen has (prompt 18). **Help** is a link to
+  Settings → Help.
 - **Status stamp** is a button that opens a menu of the four statuses. Choosing
-  one saves and shows a toast ("Job marked ready to cut").
+  one saves and shows a toast with **Undo** ("Marked completed"). On a draft,
+  **Ready to cut** carries a second line, "Locks construction", and its toast
+  says "Marked ready to cut. Construction is locked." No confirmation dialog.
 - **Saved cell**: "Saving…" with a spinner while a write is in flight, then a
   check that draws itself and "Saved 9:41 AM". Never show "Saving…" for under
   300 ms.
@@ -286,8 +290,10 @@ Columns: balloon + part, Grain (↕ / ↔ with a tooltip), Length, Width, Thick.
 Qty, △. Laminate gets its own table with no thickness column. The Front row is
 italic with a **REF** tag ("Door / front-laminate size. Optional on the cut
 list."). A 1″ shelf carries a note: "△ 1″ thick: cabinet is 36″ or wider". A
-footnote explains inches, ≈, grain and oversize. "Whole-job cut list →" links to
-the cut list.
+footnote explains inches, ≈, grain and oversize. Once any cabinet makes parts,
+the panel head has a primary **Cut list →** button (tooltip "Ctrl + L"), with
+"⚠ n cabinets need a fix" beside it while any do; it never blocks. Before that,
+a small "Whole-job cut list →" link.
 
 ---
 
@@ -385,6 +391,16 @@ the cut list.
 - **Dirty bar**: appears with the first change: "n unsaved changes · applies to
   new jobs only". Discard / Save defaults. Save is disabled while any field is
   invalid. Leaving the screen with unsaved changes asks Save / Discard / Cancel.
+- **Advanced** (prompt 18): Saw profiles and Display carry a small "Advanced"
+  tag in the section nav. They're never hidden or moved.
+- **Help** (07, prompt 18, after About): **Your first job** in six numbered
+  steps, each linking to its place (Settings → Construction, Jobs → New job
+  at `#/jobs/new`, which opens the dialog, then the last job's Workspace and
+  Cut list); **Words and symbols**, rendered from `app/src/lib/glossary.ts`
+  (no second copy of the text); **Show keyboard shortcuts**; and **Add the
+  example job** (moved here from About). **Print quick start** prints the steps
+  and the words on one Letter page, in the cut list's sheet frame. Settings
+  itself never prints: printing from Settings prints only that sheet.
 
 ---
 
@@ -393,7 +409,7 @@ the cut list.
 | Keys | Action | Scope |
 |---|---|---|
 | Ctrl+Z / Ctrl+Shift+Z (also Ctrl+Y) | Undo / redo | Workspace |
-| Ctrl+N | Add cabinet (workspace) / New job (home) | |
+| Ctrl+N | Add cabinet (workspace) / New job (home). The Add cabinet and New job buttons say so in their tooltips. | Workspace / Jobs |
 | Ctrl+D | Duplicate selected cabinet / job | |
 | Delete | Remove selected cabinet (list focused) | |
 | Alt+↑ / Alt+↓ | Previous / next cabinet from anywhere in the workspace | |

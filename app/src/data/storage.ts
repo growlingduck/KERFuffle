@@ -4,7 +4,8 @@ import { useStore } from '../state/createStore';
 import { clearJobRecords, rememberJobRecord } from '../state/jobRecords';
 import { jobsStore, summarize } from '../state/jobs';
 import type { JobStatus, JobSummary } from '../state/jobs';
-import { setDisplaySettings } from '../state/display';
+import { displayStore, setDisplaySettings } from '../state/display';
+import { setDefaultsChecked } from '../state/shopDefaults';
 import { loadMaterials, materialsStore } from '../state/materials';
 import { loadSawProfiles, sawProfilesStore } from '../state/sawProfiles';
 import { showToast } from '../state/toast';
@@ -18,7 +19,7 @@ import type { SaveState } from './jobSession';
 import { recoverPendingEdits } from './recovery';
 import { RULES_VERSION, withConstruction } from './rules';
 import type { JobRecord, NewJob } from './types';
-import { DISPLAY_SETTING, parseDisplaySettings, toSnapshot } from './types';
+import { DEFAULTS_CHECKED_SETTING, DISPLAY_SETTING, parseDisplaySettings, toSnapshot } from './types';
 
 /** The app's one open job. Screens read it synchronously; commits autosave. */
 export const jobSession = createJobSession({
@@ -97,13 +98,60 @@ export async function createJob(input: NewJob, copyFromId?: string): Promise<Job
   return listed({ ...renamed, ...saved });
 }
 
-/** Read the "round shown sizes to" setting. Keeps the current one if it can't be read. */
-export async function loadDisplaySettings(): Promise<void> {
+/**
+ * Read the "round shown sizes to" setting and whether the shop has checked its
+ * construction defaults. Keeps the current ones if they can't be read.
+ */
+export async function loadShopSettings(): Promise<void> {
   try {
     const { other } = await getStorageClient().getShopSettings();
     setDisplaySettings(parseDisplaySettings(other[DISPLAY_SETTING]));
+    setDefaultsChecked(other[DEFAULTS_CHECKED_SETTING] === true);
   } catch (error) {
-    console.warn('Could not read the display settings', toStorageError(error));
+    console.warn('Could not read the shop settings', toStorageError(error));
+  }
+}
+
+/**
+ * The workspace's tracing hint was dismissed: it goes at once, and for good
+ * on this PC (it's kept with the display setting). If storing it fails, it
+ * stays dismissed for this visit.
+ */
+export async function dismissTracingHint(): Promise<void> {
+  const next = { ...displayStore.getState(), tracingHintDismissed: true };
+  setDisplaySettings(next);
+  try {
+    await getStorageClient().setShopSetting(DISPLAY_SETTING, next);
+  } catch (error) {
+    console.warn('Could not remember that the tracing hint was dismissed', toStorageError(error));
+  }
+}
+
+/**
+ * The shop has checked its construction defaults: from the Jobs banner, or by
+ * saving Construction in Settings. The banner goes at once; if storing it
+ * fails, it comes back with a toast.
+ */
+export async function confirmDefaults(): Promise<void> {
+  setDefaultsChecked(true);
+  try {
+    await getStorageClient().setShopSetting(DEFAULTS_CHECKED_SETTING, true);
+  } catch (error) {
+    setDefaultsChecked(false);
+    showToast(toStorageError(error).message);
+  }
+}
+
+/**
+ * Add the example job ("Example – Small kitchen"): an ordinary draft built with
+ * the shop defaults. Failures are shown as a toast and resolve to null.
+ */
+export async function addExampleJob(): Promise<JobSummary | null> {
+  try {
+    return listed(await getStorageClient().addExampleJob());
+  } catch (error) {
+    showToast(toStorageError(error).message);
+    return null;
   }
 }
 
@@ -122,7 +170,7 @@ export async function startStorage(): Promise<void> {
   }
   try {
     await recoverPendingEdits(client, (message) => showToast(message));
-    await loadDisplaySettings();
+    await loadShopSettings();
     await loadMaterials();
     await loadSawProfiles();
     await refreshJobList();

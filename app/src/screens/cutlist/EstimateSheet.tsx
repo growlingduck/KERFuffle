@@ -22,6 +22,7 @@ import { cx } from '../../lib/interaction';
 import styles from './CutList.module.css';
 import type { SheetJob } from './Sheets';
 import { Zones } from './Sheets';
+import { SymbolMark } from '../../components/InfoTip';
 
 export interface EstimateSheetProps {
   estimate: Estimate;
@@ -61,7 +62,7 @@ export function EstimateSheet({ estimate, list, rules, job, printed, pricesAsOf,
           </header>
           {excludes && (
             <p className={styles.excludes}>
-              <span aria-hidden="true">⚠ </span>
+              <SymbolMark symbol="needsFix" />{' '}
               {excludes}
             </p>
           )}
@@ -116,7 +117,7 @@ export function EstimateSheet({ estimate, list, rules, job, printed, pricesAsOf,
                             <div className={styles.estSub}>{slotsText(line.slots)}</div>
                             {line.oversize.length > 0 && (
                               <div className={styles.estWarn}>
-                                <span aria-hidden="true">△ </span>
+                                <SymbolMark symbol="warning" />{' '}
                                 {line.oversize.join(', ')} {line.oversize.length === 1 ? 'is' : 'are'} bigger than one sheet
                               </div>
                             )}
@@ -148,7 +149,7 @@ export function EstimateSheet({ estimate, list, rules, job, printed, pricesAsOf,
                         Job total, materials to buy
                       </th>
                       <td colSpan={complete ? 1 : 3} className={cx(styles.num, !complete && styles.estIncomplete)} data-estimate-total>
-                        {!complete && <span aria-hidden="true">⚠ </span>}
+                        {!complete && <><SymbolMark symbol="needsFix" />{' '}</>}
                         {totalText(estimate)}
                       </td>
                     </tr>

@@ -124,7 +124,8 @@ describe('a new job built each way', () => {
     render(<App />);
     await user.click(await screen.findByRole('button', { name: 'New job' }));
     const dialog = screen.getByRole('dialog', { name: 'New job' });
-    const group = await within(dialog).findByRole('group', { name: 'Construction' });
+    await user.click(await within(dialog).findByRole('button', { name: 'Change…' }));
+    const group = within(dialog).getByRole('group', { name: 'Construction' });
     // The shop default is picked to start with.
     expect(within(group).getByRole('radio', { name: 'Frameless on a separate ladder base' })).toBeChecked();
     await user.click(within(group).getByRole('radio', { name: choice }));
@@ -156,6 +157,9 @@ describe('a new job built each way', () => {
     const dialog = screen.getByRole('dialog', { name: 'New job' });
     await user.type(within(dialog).getByLabelText('Job name'), 'Copy of B');
     await user.selectOptions(within(dialog).getByLabelText('Start with'), 'A copy of “Kitchen remodel” (J-0014)');
+    // Unchanged, the copy just says it keeps that job's construction.
+    expect(await within(dialog).findByText('Construction: same as “Kitchen remodel”')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Change…' }));
     const group = within(dialog).getByRole('group', { name: 'Construction' });
     await waitFor(() => expect(within(group).getByRole('radio', { name: 'Frameless with integral toe kick' })).toBeChecked());
     await user.click(within(dialog).getByRole('button', { name: 'Create and open' }));

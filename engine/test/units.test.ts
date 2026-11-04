@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDimension, inches, parseDimension, ticks, type Ticks } from '../src/index';
+import { DIMENSION_EXAMPLES, formatDimension, inches, parseDimension, ticks, type Ticks } from '../src/index';
 
 function parsed(text: string): Ticks {
   const result = parseDimension(text);
@@ -36,9 +36,9 @@ describe('parseDimension', () => {
   });
 
   it('rejects empty input', () => {
-    expect(rejected('')).toMatch(/enter a dimension/i);
-    expect(rejected('   ')).toMatch(/enter a dimension/i);
-    expect(rejected('"')).toMatch(/enter a dimension/i);
+    expect(rejected('')).toBe(`Enter a size. ${DIMENSION_EXAMPLES}`);
+    expect(rejected('   ')).toMatch(/enter a size/i);
+    expect(rejected('"')).toMatch(/enter a size/i);
   });
 
   it('rejects negatives', () => {
@@ -49,7 +49,7 @@ describe('parseDimension', () => {
   it.each(['abc', '23 3/4 1/2', '3/', '1..5', '23 3', '1e3', '23 3/4 in', '23,5'])(
     'rejects non-numeric %j',
     (text) => {
-      expect(rejected(text)).toMatch(/not a dimension/i);
+      expect(rejected(text)).toBe('Type inches, like 23 3/4, 23-3/4 or 23.75.');
     },
   );
 
@@ -67,6 +67,12 @@ describe('parseDimension', () => {
 
   it('rejects a mixed number whose fraction is 1 or more', () => {
     expect(rejected('23 5/4')).toMatch(/less than 1/);
+  });
+
+  it('ends every error with the forms a size can be typed in, after anything more specific', () => {
+    expect(rejected('23 3/')).toBe(DIMENSION_EXAMPLES);
+    expect(rejected('23 3/0')).toBe(`The bottom of a fraction cannot be zero. ${DIMENSION_EXAMPLES}`);
+    for (const text of ['', '-3', '23 3/0', '23 5/4', '1/128', 'abc']) expect(rejected(text).endsWith(DIMENSION_EXAMPLES)).toBe(true);
   });
 });
 

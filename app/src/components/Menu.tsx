@@ -13,6 +13,8 @@ export interface MenuItem {
   disabled?: boolean;
   danger?: boolean;
   hint?: ReactNode;
+  /** A line under the label saying what choosing it does ("Locks construction"). Read as its description. */
+  note?: string | undefined;
 }
 
 export type MenuEntry =
@@ -137,6 +139,7 @@ export function Menu({ label, items, trigger, align = 'start', matchWidth = fals
   const renderItem = (entry: MenuItem) => {
     const index = flat.indexOf(entry);
     const radio = entry.checked !== undefined;
+    const noteId = entry.note ? `${menuId}-${entry.id}-note` : undefined;
     return (
       <button
         key={entry.id}
@@ -148,6 +151,8 @@ export function Menu({ label, items, trigger, align = 'start', matchWidth = fals
         role={radio ? 'menuitemradio' : 'menuitem'}
         aria-checked={radio ? entry.checked : undefined}
         aria-disabled={entry.disabled || undefined}
+        aria-labelledby={noteId ? `${menuId}-${entry.id}-label` : undefined}
+        aria-describedby={noteId}
         tabIndex={index === active ? 0 : -1}
         className={cx(styles.item, entry.danger && styles.danger)}
         onMouseEnter={() => !entry.disabled && setActive(index)}
@@ -157,7 +162,16 @@ export function Menu({ label, items, trigger, align = 'start', matchWidth = fals
           entry.onSelect();
         }}
       >
-        {entry.label}
+        {noteId ? (
+          <span className={styles.stack}>
+            <span id={`${menuId}-${entry.id}-label`}>{entry.label}</span>
+            <span id={noteId} className={styles.note}>
+              {entry.note}
+            </span>
+          </span>
+        ) : (
+          entry.label
+        )}
         {entry.hint !== undefined && <span className={styles.hint}>{entry.hint}</span>}
       </button>
     );

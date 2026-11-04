@@ -477,3 +477,22 @@
     stroke-width: 1.2;
   }
 }
+
+/* The fix for "Nothing to lay out yet". */
+.nothingAction {
+  margin: 0;
+  font-size: 14px;
+}
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.linkButton:hover {
+  color: var(--blue-hover);
+}

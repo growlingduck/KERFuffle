@@ -27,6 +27,10 @@ If the PC is missing a part Windows uses to draw the KERFuffle window
 KERFuffle opens on the **Jobs** screen. It works fully offline. The only time
 it uses the internet is a quick check for updates, once a day.
 
+New to KERFuffle? [Quick start: your first job](quick-start.md) takes you from
+an empty app to a printed cut list in six steps. The app has the same steps
+under **Help**, at the top right.
+
 On the first day you use it, and each day after, KERFuffle makes a backup of
 all your jobs when it starts (once there are jobs to back up).
 

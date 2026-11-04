@@ -7,6 +7,8 @@ import type { MemoryStorageClient } from '../src/data/memoryClient';
 import type { JobRecord } from '../src/data/types';
 import { formatEdited } from '../src/lib/relativeDate';
 import { resetRegisterView } from '../src/state/register';
+import { NEW_CABINET } from '../src/workspace/cabinets';
+import { historyStore } from '../src/workspace/history';
 import { dismissToast, toastStore } from '../src/state/toast';
 import { testCabinet, testJob, useTestDatabase } from './storage';
 
@@ -261,7 +263,8 @@ describe('Job preview', () => {
     await waitFor(() => expect(previewCell('Panel pcs')).toBe('6'));
     expect(previewCell('Boxes')).toBe('2');
     expect(preview().querySelectorAll('svg [data-invalid]')).toHaveLength(1);
-    expect(within(preview()).getByRole('img')).toHaveAccessibleName(/1 cabinet has errors and is drawn dashed\./);
+    expect(within(preview()).getByRole('img', { name: /elevation/ })).toHaveAccessibleName(/1 cabinet has errors and is drawn dashed\./);
+    expect(within(preview()).getByRole('img', { name: 'Warning' })).toBeInTheDocument();
     expect(within(preview()).getByText(/B2 has errors, so its parts aren’t counted\./)).toBeInTheDocument();
   });
 });
@@ -337,12 +340,12 @@ describe('Archive and status changes', () => {
     const user = await renderJobs();
     const menu = await openRowMenu(user, 'Kitchen remodel');
     const markAs = within(menu).getByRole('group', { name: 'Mark as' });
-    expect(within(markAs).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['◆Ready to cut', '✓Completed']);
+    expect(within(markAs).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['◆Ready to cutLocks construction', '✓Completed']);
 
     await user.click(within(markAs).getByRole('menuitem', { name: 'Ready to cut' }));
     expect(within(row('Kitchen remodel')).getByText('Ready to cut')).toBeInTheDocument();
     expect(row('Kitchen remodel').className).not.toContain('leaving');
-    expect(toast()).toHaveTextContent('Marked ready to cut');
+    expect(toast()).toHaveTextContent('Marked ready to cut. Construction is locked.');
     await waitFor(async () => expect((await db.getJob('k')).status).toBe('ready'));
 
     await user.click(within(toast()).getByRole('button', { name: 'Undo' }));
@@ -427,8 +430,10 @@ describe('New job', () => {
     expect(within(dialog).getByText('J-0015 · STARTS AS DRAFT')).toBeInTheDocument();
     const name = within(dialog).getByLabelText('Job name');
     expect(name).toHaveFocus();
-    expect(await within(dialog).findByText('Panel 3/4″')).toBeInTheDocument();
-    expect(within(dialog).getByText('Construction · copied from shop defaults')).toBeInTheDocument();
+    // Construction is one line until Change… opens it.
+    expect(await within(dialog).findByText('Construction: Frameless · separate ladder base (shop default)')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('group', { name: 'Construction' })).toBeNull();
+    expect(within(dialog).queryByText('Panel thickness')).toBeNull();
 
     await user.click(within(dialog).getByRole('button', { name: 'Create and open' }));
     expect(name).toHaveAttribute('aria-invalid', 'true');
@@ -457,8 +462,72 @@ describe('New job', () => {
 
     await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Workspace: Pantry' })).toBeInTheDocument());
     const created = (await db.listJobs()).find((j) => j.name === 'Pantry')!;
-    expect(created).toMatchObject({ number: 15, customer: 'Lee', notes: 'Pull-outs', status: 'draft', cabinetCount: 0 });
-    expect((await db.getJob(created.id)).rules).toEqual(DEFAULT_RULES);
+    expect(created).toMatchObject({ number: 15, customer: 'Lee', notes: 'Pull-outs', status: 'draft', cabinetCount: 1 });
+    const job = await db.getJob(created.id);
+    expect(job.rules).toEqual(DEFAULT_RULES);
+    // One base cabinet at the new-cabinet size, saved with the job.
+    expect(job.cabinets).toMatchObject([{ label: 'B1', type: 'base', ...NEW_CABINET.base, finishedEnds: 'none', quantity: 1 }]);
+    expect(historyStore.getState().past).toHaveLength(0);
+  });
+
+  it('a name and Enter land on B1’s Width, selected, so typing replaces it; opening the job later leaves focus alone', async () => {
+    const user = await renderJobs();
+    await user.click(screen.getByRole('button', { name: 'New job' }));
+    await user.type(within(screen.getByRole('dialog', { name: 'New job' })).getByLabelText('Job name'), 'Pantry{Enter}');
+
+    await waitFor(() => expect(screen.getByLabelText(/^Width/, { selector: 'input' })).toHaveFocus());
+    const width = screen.getByLabelText<HTMLInputElement>(/^Width/, { selector: 'input' });
+    expect(screen.getByRole('heading', { name: 'Cabinet B1' })).toBeInTheDocument();
+    expect([width.selectionStart, width.selectionEnd]).toEqual([0, width.value.length]);
+    await user.keyboard('30');
+    expect(width).toHaveValue('30');
+    await user.keyboard('{Enter}');
+    expect(historyStore.getState().past).toHaveLength(1);
+
+    const id = (await db.listJobs()).find((j) => j.name === 'Pantry')!.id;
+    window.location.hash = '#/jobs';
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New job' })).toBeInTheDocument());
+    window.location.hash = `#/jobs/${id}/workspace`;
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Cabinet B1' })).toBeInTheDocument());
+    await act(async () => {});
+    expect(screen.getByLabelText(/^Width/, { selector: 'input' })).not.toHaveFocus();
+  });
+
+  it('Change… opens the construction picker and rules in place, in full words, and they stay open', async () => {
+    const user = await renderJobs();
+    await user.click(screen.getByRole('button', { name: 'New job' }));
+    const dialog = screen.getByRole('dialog', { name: 'New job' });
+    const change = await within(dialog).findByRole('button', { name: 'Change…' });
+    expect(change).toHaveAttribute('aria-expanded', 'false');
+    await user.click(change);
+
+    const group = within(dialog).getByRole('group', { name: 'Construction' });
+    const shopDefault = within(group).getByRole('radio', { name: 'Frameless on a separate ladder base' });
+    expect(shopDefault).toBeChecked();
+    expect(shopDefault).toHaveFocus();
+    expect(within(dialog).queryByRole('button', { name: 'Change…' })).toBeNull();
+    expect(within(dialog).getByText('Construction · copied from shop defaults')).toBeInTheDocument();
+    const full: [string, string][] = [
+      ['Panel thickness', '3/4″'],
+      ['Shelf clearance, each side', '1/8″'],
+      ['Shelf setback from front', '1/8″'],
+      ['Laminate oversize, each edge', '1″'],
+    ];
+    for (const [label, value] of full) {
+      expect(within(dialog).getByText(label).parentElement).toHaveTextContent(`${label}${value}`);
+    }
+
+    // Changing the start resets the pick, but the picker stays open.
+    await user.click(within(group).getByRole('radio', { name: 'Frameless on leveling legs' }));
+    await user.selectOptions(within(dialog).getByLabelText('Start with'), 'A copy of “Garage wall cabinets” (J-0012)');
+    await user.selectOptions(within(dialog).getByLabelText('Start with'), 'An empty job');
+    expect(within(dialog).getByRole('radio', { name: 'Frameless on a separate ladder base' })).toBeChecked();
+
+    await user.click(within(dialog).getByRole('radio', { name: 'Frameless on leveling legs' }));
+    await user.type(within(dialog).getByLabelText('Job name'), 'Legs{Enter}');
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Workspace: Legs' })).toBeInTheDocument());
+    const created = (await db.listJobs()).find((j) => j.name === 'Legs')!;
+    expect((await db.getJob(created.id)).rules.method).toMatchObject({ id: 'A', baseType: 'legs' });
   });
 
   it('“Start with” a copy takes that job’s cabinets and own rules under the new name', async () => {
@@ -467,8 +536,10 @@ describe('New job', () => {
     const dialog = screen.getByRole('dialog', { name: 'New job' });
     await user.type(within(dialog).getByLabelText('Job name'), 'Garage, east wall');
     await user.selectOptions(within(dialog).getByLabelText('Start with'), 'A copy of “Garage wall cabinets” (J-0012)');
+    expect(await within(dialog).findByText('Construction: same as “Garage wall cabinets”')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Change…' }));
     expect(within(dialog).getByText('Construction · copied from “Garage wall cabinets”')).toBeInTheDocument();
-    expect(await within(dialog).findByText('Panel 23/32″')).toBeInTheDocument();
+    expect(within(dialog).getByText('Panel thickness').parentElement).toHaveTextContent('Panel thickness23/32″');
     await user.click(within(dialog).getByRole('button', { name: 'Create and open' }));
 
     await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Workspace: Garage, east wall' })).toBeInTheDocument());

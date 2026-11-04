@@ -8,6 +8,8 @@ import { Tooltip } from './Tooltip';
 
 export interface StepperProps {
   label: ReactNode;
+  /** An InfoTip beside the label. */
+  info?: ReactNode;
   value: number;
   /** Called once per click, arrow key or committed edit: each is one undo step. */
   onChange: (value: number) => void;
@@ -34,6 +36,7 @@ export interface StepperProps {
 /** − / input / +. − is disabled at the minimum. ↑/↓ in the input step by one. */
 export function Stepper({
   label,
+  info,
   value,
   onChange,
   min = 0,
@@ -113,7 +116,7 @@ export function Stepper({
 
   return (
     <div className={cx(styles.field, className)} onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave}>
-      <FieldLabel htmlFor={inputId} symbol={symbol} symbolOn={traced}>
+      <FieldLabel htmlFor={inputId} symbol={symbol} symbolOn={traced} info={info}>
         {label}
       </FieldLabel>
       <div className={styles.stepper}>

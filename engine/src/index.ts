@@ -22,7 +22,7 @@ export type {
 } from './types';
 
 export type { FormatOptions, FormattedDimension, ParseResult, Ticks } from './units';
-export { TICKS_PER_INCH, formatDimension, inches, parseDimension, ticks, toInches } from './units';
+export { DIMENSION_EXAMPLES, TICKS_PER_INCH, formatDimension, inches, parseDimension, ticks, toInches } from './units';
 
 export {
   DEFAULT_METHOD,

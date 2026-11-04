@@ -18,6 +18,17 @@
   color: var(--muted);
   font-size: 14px;
 }
+.emptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 4px 2px 0;
+}
+.emptyHint {
+  margin: 12px 2px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
 
 .panelHead {
   display: flex;
@@ -340,9 +351,14 @@
 .ends {
   margin-top: 8px;
 }
+.endsHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
 .endsLabel {
   display: block;
-  margin-bottom: 6px;
   font: 600 13px var(--font-sans);
   color: var(--ink-2);
 }
@@ -706,6 +722,24 @@
   fill: var(--blue);
 }
 
+/* First visit only: how tracing works, until it is dismissed. */
+.tracingHint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 2px 2px 2px 10px;
+  border: 1px solid var(--blue-tint-strong);
+  border-left: 3px solid var(--blue);
+  background: var(--blue-tint-faint);
+  font-size: 13px;
+  color: var(--ink);
+}
+.tracingHint p {
+  margin: 0;
+}
+
 /* Caption: one fixed-height line, so tracing never moves anything. */
 .caption {
   display: flex;
@@ -740,6 +774,18 @@
 .smallLink {
   min-height: 40px;
   font-size: 13px;
+}
+.nextStep {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.nextFix {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--red);
 }
 .tableWrap {
   overflow-x: auto;

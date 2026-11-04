@@ -1,0 +1,54 @@
+/* A small ? beside a term. The hit area is 24 px; the drawn circle is 16 px. */
+.info {
+  display: inline-flex;
+  flex: none;
+  vertical-align: middle;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: -4px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font: 700 11px/1 var(--font-sans);
+  cursor: help;
+}
+.button > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+.button:hover,
+.button:focus-visible {
+  color: var(--blue);
+}
+.button:hover > span,
+.button:focus-visible > span {
+  background: var(--blue-tint);
+}
+
+.symbol {
+  cursor: default;
+}
+
+@media print {
+  .info {
+    display: none;
+  }
+}

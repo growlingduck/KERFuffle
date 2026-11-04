@@ -118,6 +118,21 @@
 .msgWarning {
   color: var(--amber);
 }
+/* An error while typing is shown whole: it wraps onto a box laid over what is
+   below, so the line keeps its 18 px and nothing moves. */
+.msgOpen {
+  position: relative;
+  z-index: 4;
+  overflow: visible;
+}
+.msgOpen .msgText {
+  position: absolute;
+  inset: 0 0 auto;
+  padding-bottom: 3px;
+  background: var(--red-tint);
+  box-shadow: 0 0 0 3px var(--red-tint);
+  white-space: normal;
+}
 
 /* Busy: a thin bar along the bottom edge (e.g. a value being recomputed or saved). */
 .busy::after {

@@ -88,8 +88,30 @@ describe('DimensionInput: parsing feedback', () => {
     await user.type(input, '23 3/');
     expect(onLiveChange).toHaveBeenLastCalledWith(null);
     expect(input).toHaveAttribute('aria-invalid', 'true');
-    expect(message()).toHaveTextContent(/^⚠ Error: "23 3\/" is not a dimension/);
-    expect(input).toHaveAccessibleDescription(/Error: .*is not a dimension/);
+    expect(message()).toHaveTextContent('⚠ Error: Type inches, like 23 3/4, 23-3/4 or 23.75.');
+    expect(input).toHaveAccessibleDescription('Error: Type inches, like 23 3/4, 23-3/4 or 23.75.');
+  });
+
+  it('puts a more specific problem in front of the examples', async () => {
+    const { user, input, message } = setup();
+    await user.clear(input);
+    await user.type(input, '23 3/0');
+    expect(message()).toHaveTextContent('⚠ Error: The bottom of a fraction cannot be zero. Type inches, like 23 3/4, 23-3/4 or 23.75.');
+  });
+
+  it('shows an error whole while typing, laid over what is below, and as one line again after', async () => {
+    const { user, input, message } = setup();
+    await user.clear(input);
+    await user.type(input, '23 3/');
+    expect(message().className).toMatch(/msgOpen/);
+    await user.tab();
+    expect(message().className).not.toMatch(/msgOpen/);
+  });
+
+  it('mentions Shift for 1″ steps while focused', async () => {
+    const { user, input, message } = setup();
+    await user.click(input);
+    expect(message()).toHaveTextContent('Reads as 23 3/4″ · ↑↓ nudges 1/16″, Shift+↑↓ 1″');
   });
 
   it('shows an outside validation error', () => {

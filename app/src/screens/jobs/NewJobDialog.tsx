@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { constructionChoiceOf } from '@kerfuffle/engine';
+import { constructionChoiceOf, constructionName } from '@kerfuffle/engine';
 import type { ConstructionChoice, ConstructionRules } from '@kerfuffle/engine';
 import { Button } from '../../components/Button';
 import { ConstructionPicker } from '../../components/ConstructionPicker';
@@ -13,28 +13,37 @@ import { exactInches } from '../../lib/dimensions';
 import { cx } from '../../lib/interaction';
 import { routeHref } from '../../routes';
 import { useJobRecord } from '../../state/jobRecords';
+import { useDefaultsChecked } from '../../state/shopDefaults';
 import type { JobSummary } from '../../state/jobs';
+import { newCabinet } from '../../workspace/cabinets';
 import { methodRows } from '../../workspace/construction';
+import { startTypingOnOpen } from '../../workspace/ui';
 import styles from './Jobs.module.css';
+import { SymbolMark } from '../../components/InfoTip';
 
 const EMPTY = '';
 
+/** In the same words as the workspace's Construction section. */
 function RuleValues({ rules }: { rules: ConstructionRules | null }) {
   if (!rules) return <div className={styles.ruleValues}>Loading…</div>;
+  const rows: [string, string][] = [
+    ['Panel thickness', exactInches(rules.panelThickness)],
+    ['Toe kick', exactInches(rules.toeKickHeight)],
+    ['Countertop', exactInches(rules.countertopThickness)],
+    ['Shelf clearance, each side', exactInches(rules.shelfClearancePerSide)],
+    ['Shelf setback from front', exactInches(rules.shelfSetback)],
+    ['Laminate oversize, each edge', exactInches(rules.laminateOversizePerEdge)],
+    ...methodRows(rules).map(([label, value]): [string, string] => [label, value]),
+  ];
   return (
-    <div className={cx('mono', styles.ruleValues)}>
-      <span>Panel {exactInches(rules.panelThickness)}</span>
-      <span>Toe kick {exactInches(rules.toeKickHeight)}</span>
-      <span>Countertop {exactInches(rules.countertopThickness)}</span>
-      <span>Shelf clear. {exactInches(rules.shelfClearancePerSide)} ea.</span>
-      <span>Setback {exactInches(rules.shelfSetback)}</span>
-      <span>Lam. +{exactInches(rules.laminateOversizePerEdge)} ea. edge</span>
-      {methodRows(rules).map(([label, value]) => (
-        <span key={label}>
-          {label} {value}
-        </span>
+    <dl className={styles.ruleValues}>
+      {rows.map(([label, value]) => (
+        <div key={label} className={styles.ruleValue}>
+          <dt>{label}</dt>
+          <dd className="mono">{value}</dd>
+        </div>
       ))}
-    </div>
+    </dl>
   );
 }
 
@@ -76,8 +85,12 @@ export function NewJobDialog({ jobs, onClose, onCreated }: NewJobDialogProps) {
   const [notes, setNotes] = useState('');
   /** Null until picked: the default follows the shop (or the job being copied). */
   const [picked, setPicked] = useState<ConstructionChoice | null>(null);
+  /** Construction shows as one line until Change… opens it; then it stays open. */
+  const [changing, setChanging] = useState(false);
+  const constructionRef = useRef<HTMLDivElement>(null);
   const [tried, setTried] = useState(false);
   const [busy, setBusy] = useState(false);
+  const defaultsChecked = useDefaultsChecked();
   const [error, setError] = useState<string | null>(null);
 
   const shopRules = useShopRules();
@@ -89,6 +102,16 @@ export function NewJobDialog({ jobs, onClose, onCreated }: NewJobDialogProps) {
   // A copy keeps its source's construction unless another one is picked.
   const changed = picked !== null && picked !== startChoice;
   const rules = startRules && choice && (!source || changed) ? withConstruction(startRules, choice) : startRules;
+  let summary = 'loading…';
+  if (rules && choice) {
+    if (changed) summary = constructionName(rules.method);
+    else summary = source ? `same as “${source.name}”` : `${constructionName(rules.method)} (shop default)`;
+  }
+
+  // Change… goes away as the picker opens, so focus moves to the picked option.
+  useEffect(() => {
+    if (changing) constructionRef.current?.querySelector<HTMLInputElement>('input:checked')?.focus();
+  }, [changing]);
 
   const nextNumber = useMemo(() => Math.max(0, ...jobs.map((j) => j.numberValue)) + 1, [jobs]);
   const trimmed = name.trim();
@@ -106,13 +129,22 @@ export function NewJobDialog({ jobs, onClose, onCreated }: NewJobDialogProps) {
     setError(null);
     try {
       const construction = source ? (changed ? picked : undefined) : (choice ?? undefined);
-      const job = await createJob({ name: trimmed, customer, notes, ...(construction ? { construction } : {}) }, source?.id);
+      // An empty job starts with one base cabinet, saved with it: there's no empty step to undo back to.
+      const cabinets = source ? {} : { cabinets: [newCabinet([], 'base')] };
+      const job = await createJob({ name: trimmed, customer, notes, ...(construction ? { construction } : {}), ...cabinets }, source?.id);
+      if (!source) startTypingOnOpen(job.id);
       onCreated(job);
     } catch (e) {
       setError(toStorageError(e).message);
       setBusy(false);
     }
   };
+
+  const uncheckedNote = !source && defaultsChecked === false && (
+    <div className={styles.rulesNote}>
+      Not checked yet: these are KERFuffle’s built-in values. <a href={routeHref({ name: 'settings' })}>Check them in Settings</a>
+    </div>
+  );
 
   const ids = { name: `${id}-name`, msg: `${id}-name-msg`, customer: `${id}-cust`, start: `${id}-start`, notes: `${id}-notes` };
 
@@ -155,6 +187,12 @@ export function NewJobDialog({ jobs, onClose, onCreated }: NewJobDialogProps) {
             className={styles.input}
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter here creates the job, without relying on implicit submission from the footer button.
+              if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+              e.preventDefault();
+              void create();
+            }}
             aria-invalid={missing || undefined}
             aria-required="true"
             aria-describedby={ids.msg}
@@ -162,7 +200,17 @@ export function NewJobDialog({ jobs, onClose, onCreated }: NewJobDialogProps) {
             autoComplete="off"
           />
           <div id={ids.msg} className={cx(styles.msg, missing ? styles.msgError : taken && styles.msgWarning)}>
-            {missing ? '⚠ Give the job a name' : taken ? '△ A job with this name already exists. That’s allowed.' : ''}
+            {missing ? (
+              <>
+                <SymbolMark symbol="needsFix" /> Give the job a name
+              </>
+            ) : taken ? (
+              <>
+                <SymbolMark symbol="warning" /> A job with this name already exists. That’s allowed.
+              </>
+            ) : (
+              ''
+            )}
           </div>
         </div>
         <div>
@@ -199,40 +247,58 @@ export function NewJobDialog({ jobs, onClose, onCreated }: NewJobDialogProps) {
           <textarea id={ids.notes} className={cx(styles.input, styles.textarea)} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
       </form>
-      {choice ? (
-        <ConstructionPicker
-          className={styles.construction}
-          legend="Construction"
-          hint={
-            source
-              ? `How every cabinet is built. The copy starts with “${source.name}”’s construction.`
-              : 'How every cabinet is built. It can be changed while the job is a draft.'
-          }
-          value={choice}
-          onChange={setPicked}
-          currentLabel={startChoice ? { choice: startChoice, text: source ? '(that job)' : '(shop default)' } : undefined}
-        />
+      {!changing ? (
+        <>
+          <p className={styles.constructionLine}>
+            <span>Construction: {summary}</span>
+            <span aria-hidden="true">·</span>
+            <button type="button" className={styles.changeLink} aria-expanded="false" disabled={!choice} onClick={() => setChanging(true)}>
+              Change…
+            </button>
+          </p>
+          {uncheckedNote}
+        </>
       ) : (
-        <p className={styles.construction}>Loading construction…</p>
+        <div ref={constructionRef} className={styles.constructionOpen}>
+          <div className={styles.constructionInner}>
+            {choice ? (
+              <ConstructionPicker
+                className={styles.construction}
+                legend="Construction"
+                hint={
+                  source
+                    ? `How every cabinet is built. The copy starts with “${source.name}”’s construction.`
+                    : 'How every cabinet is built. It can be changed while the job is a draft.'
+                }
+                value={choice}
+                onChange={setPicked}
+                currentLabel={startChoice ? { choice: startChoice, text: source ? '(that job)' : '(shop default)' } : undefined}
+              />
+            ) : (
+              <p className={styles.construction}>Loading construction…</p>
+            )}
+            <div className={styles.rulesPanel}>
+              <div className={cx('cap', styles.rulesHead)}>
+                {source ? `Construction · copied from “${source.name}”` : 'Construction · copied from shop defaults'}
+              </div>
+              <RuleValues rules={rules} />
+              {uncheckedNote}
+              <div className={styles.rulesNote}>
+                {source ? (
+                  'The new job gets that job’s cabinets and its own copy of these values.'
+                ) : (
+                  <>
+                    The job keeps its own copy. <a href={routeHref({ name: 'settings' })}>Edit shop defaults</a>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
-      <div className={styles.rulesPanel}>
-        <div className={cx('cap', styles.rulesHead)}>
-          {source ? `Construction · copied from “${source.name}”` : 'Construction · copied from shop defaults'}
-        </div>
-        <RuleValues rules={rules} />
-        <div className={styles.rulesNote}>
-          {source ? (
-            'The new job gets that job’s cabinets and its own copy of these values.'
-          ) : (
-            <>
-              The job keeps its own copy. <a href={routeHref({ name: 'settings' })}>Edit shop defaults</a>
-            </>
-          )}
-        </div>
-      </div>
       {error && (
         <p role="alert" className={cx(styles.msg, styles.msgError, styles.createError)}>
-          ⚠ {error}
+          <SymbolMark symbol="needsFix" /> {error}
         </p>
       )}
     </Dialog>

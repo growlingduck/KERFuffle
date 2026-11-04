@@ -31,6 +31,7 @@ import { sawProfileIssues } from '../../data/sawProfiles';
 import type { SawLengthField, SawSettings } from '../../data/sawProfiles';
 import type { BackupSettings, RoundTo } from '../../data/types';
 import { displayInches } from '../../lib/dimensions';
+import type { GlossaryKey } from '../../lib/glossary';
 
 /**
  * The Settings screen's working copy: what's saved, what's on screen, and
@@ -58,30 +59,32 @@ export interface RuleRow {
   label: string;
   help: string;
   detail: DetailKey;
+  /** The glossary entry its info tip shows. */
+  term: GlossaryKey;
 }
 
 export const RULE_GROUPS: readonly { label: string; rows: readonly RuleRow[] }[] = [
-  { label: 'Panels', rows: [{ field: 'panelThickness', label: 'Panel thickness', help: 'Backs, sides, top, bottom and front.', detail: 'panel' }] },
+  { label: 'Panels', rows: [{ field: 'panelThickness', label: 'Panel thickness', help: 'Backs, sides, top, bottom and front.', detail: 'panel', term: 'panelThickness' }] },
   {
     label: 'Base allowances',
     rows: [
-      { field: 'toeKickHeight', label: 'Toe-kick height', help: 'Base cabinets only.', detail: 'toeKick' },
-      { field: 'countertopThickness', label: 'Countertop thickness', help: 'Base cabinets only.', detail: 'countertop' },
+      { field: 'toeKickHeight', label: 'Toe-kick height', help: 'Base cabinets only.', detail: 'toeKick', term: 'toeKick' },
+      { field: 'countertopThickness', label: 'Countertop thickness', help: 'Base cabinets only.', detail: 'countertop', term: 'countertop' },
     ],
   },
   {
     label: 'Shelves',
     rows: [
-      { field: 'shelfThickness', label: 'Shelf thickness', help: 'Shelves in narrower cabinets.', detail: 'wide' },
-      { field: 'wideShelfThickness', label: 'Wide-shelf thickness', help: 'Shelves in wide cabinets.', detail: 'wide' },
-      { field: 'shelfThickWidthThreshold', label: 'Wide-shelf cabinet width', help: 'Cabinet width where wide shelves start.', detail: 'wide' },
-      { field: 'shelfClearancePerSide', label: 'Shelf clearance, each side', help: 'Gap at each end; the shelf loses twice this. 0 is allowed.', detail: 'clearance' },
-      { field: 'shelfSetback', label: 'Shelf setback', help: 'How far shelves sit back from the front. 0 is allowed.', detail: 'setback' },
+      { field: 'shelfThickness', label: 'Shelf thickness', help: 'Shelves in narrower cabinets.', detail: 'wide', term: 'shelfThickness' },
+      { field: 'wideShelfThickness', label: 'Wide-shelf thickness', help: 'Shelves in wide cabinets.', detail: 'wide', term: 'wideShelves' },
+      { field: 'shelfThickWidthThreshold', label: 'Wide-shelf cabinet width', help: 'Cabinet width where wide shelves start.', detail: 'wide', term: 'wideShelves' },
+      { field: 'shelfClearancePerSide', label: 'Shelf clearance, each side', help: 'Gap at each end; the shelf loses twice this. 0 is allowed.', detail: 'clearance', term: 'shelfClearance' },
+      { field: 'shelfSetback', label: 'Shelf setback', help: 'How far shelves sit back from the front. 0 is allowed.', detail: 'setback', term: 'shelfSetback' },
     ],
   },
   {
     label: 'Laminate',
-    rows: [{ field: 'laminateOversizePerEdge', label: 'Laminate oversize, each edge', help: 'Extra past every edge, trimmed after gluing.', detail: 'laminate' }],
+    rows: [{ field: 'laminateOversizePerEdge', label: 'Laminate oversize, each edge', help: 'Extra past every edge, trimmed after gluing.', detail: 'laminate', term: 'laminateOversize' }],
   },
 ];
 
@@ -120,6 +123,7 @@ export interface MethodRow {
   key: MethodRowKey;
   label: string;
   help: string;
+  term: GlossaryKey;
   /** Shown only when the default construction uses it; hidden values are kept. */
   shown: (m: MethodSettings) => boolean;
 }
@@ -128,6 +132,7 @@ export interface MethodChoiceRow<K extends MethodChoiceKey = MethodChoiceKey> {
   key: K;
   label: string;
   help: string;
+  term: GlossaryKey;
   options: readonly [MethodSettings[K], string][];
 }
 
@@ -148,6 +153,7 @@ const legs = (m: MethodSettings) => m.id === 'A' && m.baseType === 'legs';
 const BACK_CHOICE: MethodChoiceRow<'backType'> = {
   key: 'backType',
   label: 'How the back fits',
+  term: 'back',
   help: 'An inset back sits in a groove in the sides, top and bottom, and adds a nailer under the top.',
   options: [
     ['applied', 'Applied, full width'],
@@ -159,6 +165,7 @@ const BACK_CHOICE: MethodChoiceRow<'backType'> = {
 const TOP_CHOICE: MethodChoiceRow<'baseTop'> = {
   key: 'baseTop',
   label: 'Base cabinet top',
+  term: 'baseTop',
   help: 'Base cabinets only; wall cabinets always get a full top.',
   options: [
     ['full', 'Full top panel'],
@@ -174,10 +181,10 @@ export const METHOD_GROUPS: readonly MethodGroup[] = [
     choice: BACK_CHOICE,
     shown: always,
     rows: [
-      { key: 'backThickness', label: 'Back thickness', help: 'A thin back (1/4″) usually goes in a dado or rabbet.', shown: always },
-      { key: 'backGrooveDepth', label: 'Groove depth', help: 'How deep the back sits in the sides, top and bottom.', shown: inset },
-      { key: 'backDadoInset', label: 'Dado in from the back edge', help: 'Dado backs only.', shown: (m) => m.backType === 'dado' },
-      { key: 'nailerWidth', label: 'Nailer height', help: 'The hanging rail under the top, behind an inset back.', shown: inset },
+      { key: 'backThickness', term: 'backThickness', label: 'Back thickness', help: 'A thin back (1/4″) usually goes in a dado or rabbet.', shown: always },
+      { key: 'backGrooveDepth', term: 'backGroove', label: 'Groove depth', help: 'How deep the back sits in the sides, top and bottom.', shown: inset },
+      { key: 'backDadoInset', term: 'backDadoInset', label: 'Dado in from the back edge', help: 'Dado backs only.', shown: (m) => m.backType === 'dado' },
+      { key: 'nailerWidth', term: 'nailer', label: 'Nailer height', help: 'The hanging rail under the top, behind an inset back.', shown: inset },
     ],
   },
   {
@@ -185,15 +192,15 @@ export const METHOD_GROUPS: readonly MethodGroup[] = [
     detail: 'top',
     choice: TOP_CHOICE,
     shown: always,
-    rows: [{ key: 'stretcherWidth', label: 'Stretcher width', help: 'Front to back, each.', shown: (m) => m.baseTop === 'stretchers' }],
+    rows: [{ key: 'stretcherWidth', term: 'baseTop', label: 'Stretcher width', help: 'Front to back, each.', shown: (m) => m.baseTop === 'stretchers' }],
   },
   {
     label: 'Toe kick',
     detail: 'kick',
     shown: always,
     rows: [
-      { key: 'kickDepth', label: 'Kick depth', help: 'How far the kick face sits back from the cabinet front.', shown: always },
-      { key: 'kickSkinThickness', label: 'Kick skin thickness', help: 'The finished face over the ladder base’s front rail.', shown: ladder },
+      { key: 'kickDepth', term: 'kickDepth', label: 'Kick depth', help: 'How far the kick face sits back from the cabinet front.', shown: always },
+      { key: 'kickSkinThickness', term: 'kickSkin', label: 'Kick skin thickness', help: 'The finished face over the ladder base’s front rail.', shown: ladder },
     ],
   },
   {
@@ -201,11 +208,11 @@ export const METHOD_GROUPS: readonly MethodGroup[] = [
     detail: 'base',
     shown: (m) => m.id === 'A',
     rows: [
-      { key: 'sleeperSpacingMax', label: 'Sleeper spacing, most', help: 'Center to center. Sleepers are added to stay under it.', shown: ladder },
-      { key: 'platformLengthMax', label: 'Longest platform', help: 'Longer runs are split, at a cabinet joint where possible.', shown: ladder },
-      { key: 'legsPerBox', label: 'Legs per box', help: 'Leveling legs under each cabinet.', shown: legs },
-      { key: 'legsPerWideBox', label: 'Legs per wide box', help: 'For cabinets wider than the width below.', shown: legs },
-      { key: 'legWidthThreshold', label: 'Wide box, wider than', help: 'Cabinets wider than this get the extra legs.', shown: legs },
+      { key: 'sleeperSpacingMax', term: 'sleeperSpacing', label: 'Sleeper spacing, most', help: 'Center to center. Sleepers are added to stay under it.', shown: ladder },
+      { key: 'platformLengthMax', term: 'platformLength', label: 'Longest platform', help: 'Longer runs are split, at a cabinet joint where possible.', shown: ladder },
+      { key: 'legsPerBox', term: 'legs', label: 'Legs per box', help: 'Leveling legs under each cabinet.', shown: legs },
+      { key: 'legsPerWideBox', term: 'legs', label: 'Legs per wide box', help: 'For cabinets wider than the width below.', shown: legs },
+      { key: 'legWidthThreshold', term: 'legs', label: 'Wide box, wider than', help: 'Cabinets wider than this get the extra legs.', shown: legs },
     ],
   },
 ];

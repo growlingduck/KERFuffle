@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/require-await --
    Methods are async without awaiting so that a thrown StorageError becomes a
    rejected promise, exactly like a failed Tauri command. */
-import { applyConstructionChoice } from '@kerfuffle/engine';
+import { applyConstructionChoice, usesRuns } from '@kerfuffle/engine';
 import type { ConstructionChoice, ConstructionRules } from '@kerfuffle/engine';
 import defaultRulesJson from '../../src-tauri/src/db/default_rules.json';
+import exampleJobJson from '../../src-tauri/src/db/example_job.json';
 import sampleJobsJson from '../../src-tauri/src/db/sample_jobs.json';
 import type { StorageClient } from './client';
 import { StorageError } from './errors';
@@ -24,7 +25,7 @@ import type {
   Saved,
 } from './types';
 import { parseSawProfile } from './sawProfiles';
-import { ESTIMATE_SETTING, JOB_STATUSES, RULES_SETTING, SAW_PROFILES_SETTING } from './types';
+import { DEFAULTS_CHECKED_SETTING, ESTIMATE_SETTING, JOB_STATUSES, RULES_SETTING, SAW_PROFILES_SETTING } from './types';
 
 /**
  * An in-memory job database with the same rules as the Rust one: used by
@@ -157,8 +158,12 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
     if (!JOB_STATUSES.includes(s.status)) throw invalid('That job status is unknown.');
     checkMaterials(s.materials);
     checkSawProfile(s.sawProfile);
+    checkCabinets(s.cabinets);
+  }
+
+  function checkCabinets(cabinets: readonly CabinetRecord[]) {
     const seen = new Set<string>();
-    for (const c of s.cabinets) {
+    for (const c of cabinets) {
       checkCabinet(c);
       if (seen.has(c.id)) throw invalid(`Cabinet ${c.label} appears twice in the job.`);
       seen.add(c.id);
@@ -268,6 +273,9 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
       if (name === '') throw invalid('A job needs a name.');
       checkMaterials(input.materials);
       checkSawProfile(input.sawProfile);
+      const cabinets = input.cabinets ?? [];
+      checkCabinets(cabinets);
+      for (const c of cabinets) if (cabinetOwner(c.id)) throw invalid(`Cabinet ${c.label} belongs to a different job.`);
       const record = insert({
         name,
         customer: blankToNull(input.customer),
@@ -275,7 +283,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
         status: 'draft',
         rules: input.construction ? { ...currentRules(), method: applyConstructionChoice(currentRules().method, input.construction) } : currentRules(),
         rulesVersion: RULES_VERSION,
-        cabinets: [],
+        cabinets: copy(cabinets),
         materials: input.materials ? copy(input.materials) : null,
         sawProfile: input.sawProfile ? copy(input.sawProfile) : null,
       });
@@ -372,7 +380,10 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
       return { rules: currentRules(), other };
     },
     async setShopSetting(key, value) {
-      if (![RULES_SETTING, 'display', 'backups', ESTIMATE_SETTING, SAW_PROFILES_SETTING].includes(key)) throw invalid(`"${key}" is not a shop setting.`);
+      if (![RULES_SETTING, 'display', 'backups', ESTIMATE_SETTING, SAW_PROFILES_SETTING, DEFAULTS_CHECKED_SETTING].includes(key)) {
+        throw invalid(`"${key}" is not a shop setting.`);
+      }
+      if (key === DEFAULTS_CHECKED_SETTING && typeof value !== 'boolean') throw invalid('Whether the shop defaults were checked must be true or false.');
       if (key === RULES_SETTING && (typeof value !== 'object' || value === null || Array.isArray(value))) {
         throw invalid('Construction rules must be a set of named values.');
       }
@@ -400,6 +411,22 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
           },
           taken ? nextNumber() : sample.number,
         );
+      });
+      return copy(added);
+    },
+    async addExampleJob() {
+      // Like the Rust one: the shop's defaults, the next number, and the run only where the method uses runs.
+      const example = exampleJobJson as unknown as SampleJob;
+      const rules = currentRules();
+      const runs = usesRuns(rules.method);
+      const added = insert({
+        name: example.name,
+        customer: example.customer,
+        notes: example.notes,
+        status: example.status,
+        rules,
+        rulesVersion: RULES_VERSION,
+        cabinets: example.cabinets.map((c) => ({ ...c, id: crypto.randomUUID(), room: null, run: runs ? (c.run ?? null) : null })),
       });
       return copy(added);
     },
@@ -513,6 +540,8 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
     },
     seed(records) {
       for (const record of records) jobs.set(record.id, copy(record));
+      // A database that already has jobs has checked its defaults (migration 6).
+      if (records.length > 0 && !settings.has(DEFAULTS_CHECKED_SETTING)) settings.set(DEFAULTS_CHECKED_SETTING, true);
     },
     pendingJobIds() {
       return [...pending.keys()];

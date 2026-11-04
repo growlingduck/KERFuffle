@@ -49,6 +49,24 @@
 .navNum {
   font: 500 11px var(--font-mono);
 }
+/* "Advanced": most shops never change these. */
+.navTag {
+  margin-left: auto;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  font: 600 9.5px/16px var(--font-cond);
+  letter-spacing: 0.06em;
+}
+
+/* Settings never prints; the quick start (Help) prints on its own Letter page. */
+@media print {
+  .printPage {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+}
 
 /* ---- Main column ---- */
 .main {

@@ -6,7 +6,7 @@ import type { CabinetRecord } from '../data/types';
 export const LABEL_PREFIX: Record<CabinetType, string> = { base: 'B', wall: 'W' };
 
 /** Same label, ignoring case and outer spaces: "b1 " and "B1" collide on the cut list. */
-function labelKey(label: string): string {
+export function labelKey(label: string): string {
   return label.trim().toUpperCase();
 }
 

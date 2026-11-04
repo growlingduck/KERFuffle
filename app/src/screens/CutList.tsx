@@ -4,9 +4,10 @@ import type { CutListMode, CutListOptions, CutListSortKey, Estimate, JobSlot, La
 import { Button, ButtonLink } from '../components/Button';
 import { CheckIcon, ChevronLeftIcon, ImportIcon, PrintIcon } from '../components/icons';
 import { Segmented } from '../components/Segmented';
+import { InfoTip } from '../components/InfoTip';
 import { Switch } from '../components/Switch';
 import { cutListCsv } from '../cutlist/csv';
-import { estimateCsv } from '../cutlist/estimate';
+import { estimateCsv, slotsText } from '../cutlist/estimate';
 import { MODE_HELP, MODE_NAMES } from '../cutlist/layoutText';
 import { exportFileName, isoDate, PAGE_SIZES } from '../cutlist/format';
 import { useIncludeFronts } from '../cutlist/prefs';
@@ -35,7 +36,7 @@ import { useMaterials } from '../state/materials';
 import { useSawProfiles } from '../state/sawProfiles';
 import { showToast } from '../state/toast';
 import { toStorageError } from '../data/errors';
-import { duplicateLabels } from '../workspace/cabinets';
+import { duplicateLabels, labelKey } from '../workspace/cabinets';
 import { selectCabinet } from '../workspace/ui';
 import { MissingJob } from './MissingJob';
 import styles from './cutlist/CutList.module.css';
@@ -44,13 +45,14 @@ import { LayoutPages } from './cutlist/LayoutPages';
 import { LayoutsView } from './cutlist/LayoutsView';
 import type { ShownLayout } from './cutlist/LayoutsView';
 import ls from './cutlist/Layouts.module.css';
-import { MaterialsPanel } from './cutlist/MaterialsPanel';
+import { focusMaterialsPanel, MaterialsPanel } from './cutlist/MaterialsPanel';
 import { SawProfilePanel } from './cutlist/SawProfilePanel';
 import { PartSketch } from './cutlist/PartSketch';
 import type { SketchSource } from './cutlist/PartSketch';
 import { Sheets } from './cutlist/Sheets';
 import type { CabinetChip, SheetData, SheetInteraction } from './cutlist/Sheets';
 import ws from './workspace/Workspace.module.css';
+import { SymbolMark } from '../components/InfoTip';
 
 type ExportKind = 'csv' | 'pdf';
 /** The sheets on screen, which Print, Save PDF and Export CSV act on. */
@@ -412,12 +414,25 @@ function CutListView({ job }: { job: JobRecord }) {
   }, []);
 
   const dupes = [...duplicateLabels(job.cabinets)];
-  const fixFirst = () => {
-    const first = list.blocked[0];
-    const cabinet = first ? job.cabinets[first.index] : undefined;
-    if (cabinet) selectCabinet(cabinet.id);
+  /** Open the workspace on a cabinet. */
+  const openCabinet = (cabinetId: string | undefined) => {
+    if (cabinetId) selectCabinet(cabinetId);
     navigate({ name: 'workspace', jobId: job.id });
   };
+  const fixFirst = () => {
+    const first = list.blocked[0];
+    openCabinet(first ? job.cabinets[first.index]?.id : undefined);
+  };
+  const renameFirst = () => openCabinet(job.cabinets.find((c) => labelKey(c.label) === dupes[0])?.id);
+  const workspaceHref = routeHref({ name: 'workspace', jobId: job.id });
+  const materialsHref = routeHref({ name: 'settings', section: 'materials' });
+
+  // Parts with no material, and materials with no price (named, so the fix is obvious).
+  const unassigned = estimate.total.unassigned;
+  const catalogEmpty = catalog.length === 0;
+  const unpriced = [...new Set(estimate.lines.flatMap((l) => (l.material && l.price === null ? [l.material.name] : [])))];
+  const showUnpriced = view === 'estimate' && unpriced.length > 0;
+  const noticeCount = list.blocked.length + list.jobIssues.length + list.materialIssues.length + dupes.length + unassigned.length + (showUnpriced ? 1 : 0);
 
   return (
     <div className={styles.root}>
@@ -464,6 +479,7 @@ function CutListView({ job }: { job: JobRecord }) {
                 ))}
               </select>
             </label>
+            <InfoTip term="sawProfile" />
             <label className={ls.toolPick}>
               <span className="cap">Material</span>
               <select
@@ -537,12 +553,12 @@ function CutListView({ job }: { job: JobRecord }) {
         </div>
       </div>
 
-      {(list.blocked.length > 0 || list.jobIssues.length > 0 || list.materialIssues.length > 0 || dupes.length > 0 || job.cabinets.length === 0) && (
+      {(noticeCount > 0 || job.cabinets.length === 0) && (
         <div className={styles.notices}>
           {list.blocked.length > 0 && (
             <p className={styles.notice} role="alert">
               <strong>
-                <span aria-hidden="true">⚠ </span>
+                <SymbolMark symbol="needsFix" decorative />{' '}
                 {list.blocked.map((b) => b.cabinetId.trim() || `Cabinet ${b.index + 1}`).join(', ')}{' '}
                 {list.blocked.length === 1 ? 'needs a fix' : 'need a fix'}
               </strong>
@@ -550,7 +566,7 @@ function CutListView({ job }: { job: JobRecord }) {
                 {list.blocked.length === 1 ? 'It is' : 'They are'} left off this cut list, and the printout says so. Printing still works.
               </span>
               <a
-                href={routeHref({ name: 'workspace', jobId: job.id })}
+                href={workspaceHref}
                 onClick={(e) => {
                   e.preventDefault();
                   fixFirst();
@@ -562,28 +578,74 @@ function CutListView({ job }: { job: JobRecord }) {
           )}
           {dupes.length > 0 && (
             <p className={cx(styles.notice, styles.noticeWarn)} role="note">
-              <span aria-hidden="true">△ </span>
-              <span className="visually-hidden">Warning: </span>
-              More than one cabinet uses the ID {dupes.join(', ')}. Rename one in the workspace so the cut list can tell them apart.
+              <span>
+                <SymbolMark symbol="warning" decorative />{' '}
+                <span className="visually-hidden">Warning: </span>
+                More than one cabinet uses the ID {dupes.join(', ')}. Rename one so the cut list can tell them apart.
+              </span>
+              <a
+                href={workspaceHref}
+                onClick={(e) => {
+                  e.preventDefault();
+                  renameFirst();
+                }}
+              >
+                Rename in the workspace
+              </a>
+            </p>
+          )}
+          {unassigned.length > 0 && (
+            <p className={cx(styles.notice, styles.noticeWarn)} role="note" data-notice="no-material">
+              <span>
+                <SymbolMark symbol="warning" decorative />{' '}
+                <span className="visually-hidden">Warning: </span>
+                <strong>No material chosen for {slotsText(unassigned).toLowerCase()}.</strong>{' '}
+                {catalogEmpty
+                  ? 'The materials catalog is empty, so there’s nothing to choose yet.'
+                  : 'Those parts can’t be laid out, and the estimate total is incomplete.'}
+              </span>
+              {catalogEmpty ? (
+                <a href={materialsHref}>Add materials in Settings → Materials</a>
+              ) : (
+                <button type="button" className={styles.noticeAction} onClick={focusMaterialsPanel}>
+                  Choose materials
+                </button>
+              )}
+            </p>
+          )}
+          {showUnpriced && (
+            <p className={cx(styles.notice, styles.noticeWarn)} role="note" data-notice="no-price">
+              <span>
+                <SymbolMark symbol="warning" decorative />{' '}
+                <span className="visually-hidden">Warning: </span>
+                <strong>No price for {unpriced.join(', ')}.</strong> The estimate total is incomplete until {unpriced.length === 1 ? 'it has' : 'they have'} a price.
+              </span>
+              <a href={materialsHref}>Add prices in Settings → Materials</a>
             </p>
           )}
           {list.jobIssues.map(({ ref, issue }) => (
             <p key={`${ref}:${issue.field}`} className={cx(styles.notice, styles.noticeWarn)} role="note">
-              <span aria-hidden="true">△ </span>
+              <SymbolMark symbol="warning" decorative />{' '}
               <span className="visually-hidden">{issue.severity === 'error' ? 'Problem: ' : 'Warning: '}</span>
               {ref}: {issue.message}
             </p>
           ))}
           {list.materialIssues.map((issue) => (
             <p key={`${issue.slot}:${issue.message}`} className={cx(styles.notice, styles.noticeWarn)} role="note">
-              <span aria-hidden="true">△ </span>
-              <span className="visually-hidden">Warning: </span>
-              {issue.message}
+              <span>
+                <SymbolMark symbol="warning" decorative />{' '}
+                <span className="visually-hidden">Warning: </span>
+                {issue.message}
+              </span>
+              <button type="button" className={styles.noticeAction} onClick={focusMaterialsPanel}>
+                Choose materials
+              </button>
             </p>
           ))}
           {job.cabinets.length === 0 && (
-            <p className={cx(styles.notice, styles.noticeWarn)} role="note">
-              This job has no cabinets yet. Add them in the workspace and they’ll appear here.
+            <p className={cx(styles.notice, styles.noticeWarn)} role="note" data-notice="no-cabinets">
+              <span>This job has no cabinets yet. Add them in the workspace and they’ll appear here.</span>
+              <a href={workspaceHref}>Back to the workspace</a>
             </p>
           )}
         </div>
@@ -599,6 +661,9 @@ function CutListView({ job }: { job: JobRecord }) {
             <div className={ls.screenOnly}>
               <LayoutsView
                 jobId={job.id}
+                nothing={job.cabinets.length === 0 ? 'no-cabinets' : list.blocked.length >= job.cabinets.length ? 'no-parts' : 'no-material'}
+                catalogEmpty={catalogEmpty}
+                onChooseMaterials={focusMaterialsPanel}
                 shown={shown}
                 fixed={fixed}
                 modeStats={modeStats}
@@ -617,6 +682,7 @@ function CutListView({ job }: { job: JobRecord }) {
         )}
         <PartSketch line={view === 'estimate' ? undefined : (sketchLine ?? null)} source={source} totals={list.totals}>
           <MaterialsPanel
+            jobId={job.id}
             record={record}
             usingDefaults={!job.materials}
             catalog={catalog}

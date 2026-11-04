@@ -102,6 +102,20 @@ export function selectCabinet(id: string | null): void {
   setUi({ selectedId: id, pinPart: null, hoverPart: null, focusPart: null, marks: null, draft: null });
 }
 
+/** A job just made from New job: when the workspace first shows it, Width on its cabinet is ready to type in. */
+let startTypingJobId: string | null = null;
+
+export function startTypingOnOpen(jobId: string): void {
+  startTypingJobId = jobId;
+}
+
+/** Once only: opening the job again later leaves focus alone. */
+export function takeStartTyping(jobId: string): boolean {
+  if (startTypingJobId !== jobId) return false;
+  startTypingJobId = null;
+  return true;
+}
+
 export function requestFocus(field: FieldKey, select = true): void {
   setUi({ focusRequest: { field, select, n: (workspaceUi.getState().focusRequest?.n ?? 0) + 1 } });
 }

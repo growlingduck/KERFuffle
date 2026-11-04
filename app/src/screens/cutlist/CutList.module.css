@@ -74,6 +74,20 @@
   border-color: var(--amber);
   background: var(--white);
 }
+/* An action in a notice that isn't a link (focus the materials panel); looks like one. */
+.noticeAction {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.noticeAction:hover {
+  color: var(--blue-hover);
+}
 
 /* ---- Layout: sheets + rail ---- */
 .content {
@@ -569,6 +583,15 @@
   font-size: 12px;
   line-height: 1.45;
   color: var(--muted);
+}
+/* Something missing, with the link that fixes it: ink, with an amber rule. */
+.railEmpty {
+  margin-top: 10px;
+  padding-left: 8px;
+  border-left: 3px solid var(--amber);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink);
 }
 .totals {
   margin: 0;

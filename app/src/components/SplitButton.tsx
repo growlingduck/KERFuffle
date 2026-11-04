@@ -14,6 +14,10 @@ export interface SplitButtonProps {
   onClick: () => void;
   /** Accessible name of the ▾ part, e.g. "Add from a preset size". */
   menuLabel: string;
+  /** Tooltip on the main action, e.g. its shortcut: "Add cabinet  Ctrl+N". */
+  tooltip?: string;
+  /** The main action's shortcut for screen readers, e.g. "Control+N". */
+  keyShortcuts?: string;
   items: readonly MenuEntry[];
   variant?: ButtonVariant;
   disabled?: boolean;
@@ -29,6 +33,8 @@ export function SplitButton({
   icon,
   onClick,
   menuLabel,
+  tooltip,
+  keyShortcuts,
   items,
   variant = 'primary',
   disabled = false,
@@ -55,6 +61,8 @@ export function SplitButton({
             onClick={onClick}
             disabled={disabled}
             {...reason}
+            {...(tooltip ? { tooltip, describeTooltip: false } : {})}
+            {...(keyShortcuts ? { 'aria-keyshortcuts': keyShortcuts } : {})}
             {...(force ? { 'data-force': force } : {})}
           >
             {children}

@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useReducer, useRef, useState } from 'react';
 import type { Dispatch, ReactNode } from 'react';
 import { backThicknessOf, CONSTRUCTION_NAMES, constructionChoiceOf, inches } from '@kerfuffle/engine';
 import type { ShelfThickComparison, Ticks } from '@kerfuffle/engine';
 import { Button } from '../components/Button';
 import { ConstructionPicker } from '../components/ConstructionPicker';
 import { Dialog } from '../components/Dialog';
+import { InfoTip, SymbolMark } from '../components/InfoTip';
 import { DimensionInput } from '../components/DimensionInput';
 import { Sheet } from '../components/Sheet';
 import { Stepper } from '../components/Stepper';
 import { ViewTitle } from '../components/ViewTitle';
 import { backupsStore, estimateBackupBytes, formatBytes, saveBackupSettings, useBackups } from '../data/backups';
 import { getStorageClient } from '../data/client';
+import { confirmDefaults } from '../data/storage';
 import { toStorageError } from '../data/errors';
 import { BUILT_IN_ESTIMATE, estimateSettingValue, parseEstimateSettings } from '../data/materials';
 import type { RoundTo } from '../data/types';
@@ -19,19 +21,23 @@ import { DISPLAY_SETTING, ESTIMATE_SETTING, parseDisplaySettings, ROUND_TO_OPTIO
 import { setSawSettings } from '../state/sawProfiles';
 import { useShortcutScope } from '../keyboard/shortcuts';
 import { displayInches, exactInches } from '../lib/dimensions';
+import type { GlossaryKey } from '../lib/glossary';
 import { cx } from '../lib/interaction';
 import { useReducedMotion } from '../motion';
 import { formatEdited } from '../lib/relativeDate';
 import { chooseBackupFolder, hasFileSystem, openBackupFolder } from '../platform/files';
 import { APP_VERSION, checkForUpdates, restartToUpdate, useUpdates } from '../platform/updates';
 import { setNavigationGuard } from '../routes';
-import { setDisplaySettings } from '../state/display';
+import type { SettingsSection } from '../routes';
+import { displayStore, setDisplaySettings } from '../state/display';
 import { loadMaterials, setEstimateSettings } from '../state/materials';
 import { showToast } from '../state/toast';
 import styles from './Screen.module.css';
 import { DETAILS, DetailDrawing } from './settings/DetailDrawing';
+import { HelpSection, QuickStartSheet } from './settings/HelpSection';
 import { MaterialsSection } from './settings/MaterialsSection';
 import { SawProfilesSection } from './settings/SawProfilesSection';
+import { goToSection, useSectionLink } from './settings/sectionLink';
 import type {
   DetailKey,
   DraftAction,
@@ -67,15 +73,17 @@ import {
 } from './settings/draft';
 import s from './settings/Settings.module.css';
 
-const SECTIONS = [
+/** `advanced`: most shops never change it. Tagged in the nav, never hidden or moved. */
+const SECTIONS: readonly { id: SectionId; num: string; label: string; advanced?: true }[] = [
   { id: 'construction', num: '01', label: 'Construction' },
   { id: 'materials', num: '02', label: 'Materials' },
-  { id: 'saws', num: '03', label: 'Saw profiles' },
-  { id: 'display', num: '04', label: 'Display' },
+  { id: 'saws', num: '03', label: 'Saw profiles', advanced: true },
+  { id: 'display', num: '04', label: 'Display', advanced: true },
   { id: 'backups', num: '05', label: 'Backups' },
   { id: 'about', num: '06', label: 'About' },
-] as const;
-type SectionId = (typeof SECTIONS)[number]['id'];
+  { id: 'help', num: '07', label: 'Help' },
+];
+type SectionId = SettingsSection;
 
 const ROUND_LABELS: Record<RoundTo, string> = { 8: '1/8″', 16: '1/16″ (shop)', 32: '1/32″' };
 
@@ -89,8 +97,8 @@ const NO_FILE_SYSTEM = 'Only in the desktop app';
 
 type Load = { kind: 'loading' } | { kind: 'ready' } | { kind: 'failed'; message: string };
 
-/** Shop settings (interaction-design §8): construction defaults, display, backups, about. */
-export function SettingsScreen() {
+/** Shop settings (interaction-design §8): construction defaults, display, backups, about. Opens at `section` when a link names one. */
+export function SettingsScreen({ section }: { section?: SettingsSection | undefined }) {
   useShortcutScope('settings');
   useShortcutScope('fields');
 
@@ -139,8 +147,9 @@ export function SettingsScreen() {
   }, [dirty]);
   useEffect(
     () =>
-      setNavigationGuard((_to, proceed) => {
-        if (!dirtyRef.current) return false;
+      setNavigationGuard((to, proceed) => {
+        // Moving to another section of Settings doesn't leave it.
+        if (!dirtyRef.current || to?.name === 'settings') return false;
         setLeaving({ proceed });
         return true;
       }),
@@ -161,6 +170,8 @@ export function SettingsScreen() {
       if (rulesChanged(draft)) {
         await client.setShopSetting(RULES_SETTING, current.rules);
         dispatch({ type: 'saved', part: { rules: current.rules } });
+        // Saving Construction counts as checking it (the Jobs banner goes).
+        await confirmDefaults();
       }
       if (estimateChanged(draft)) {
         await client.setShopSetting(ESTIMATE_SETTING, estimateSettingValue(current.estimate));
@@ -174,8 +185,10 @@ export function SettingsScreen() {
         dispatch({ type: 'saved', part: { saw: current.saw } });
       }
       if (draft.saved.roundTo !== current.roundTo) {
-        await client.setShopSetting(DISPLAY_SETTING, { roundTo: current.roundTo });
-        setDisplaySettings({ roundTo: current.roundTo });
+        // Kept with the rest of the display setting (the dismissed tracing hint).
+        const display = { ...displayStore.getState(), roundTo: current.roundTo };
+        await client.setShopSetting(DISPLAY_SETTING, display);
+        setDisplaySettings(display);
         dispatch({ type: 'saved', part: { roundTo: current.roundTo } });
       }
       showToast(rulesChanged(draft) ? 'Shop defaults saved. Existing jobs are unchanged.' : 'Settings saved.');
@@ -188,16 +201,18 @@ export function SettingsScreen() {
     }
   };
 
+  // Settings never prints itself: printing here prints the quick start (Help).
   return (
-    <div className={styles.page}>
-      <div className={styles.pageHead}>
+    <div className={cx(styles.page, s.printPage)}>
+      <div className={styles.pageHead} data-screen-only>
         <div>
           <div className={cx('cap', styles.eyebrow)}>Shop</div>
           <h1 className={styles.h1}>Settings</h1>
         </div>
       </div>
+      <QuickStartSheet />
       {load.kind === 'ready' ? (
-        <SettingsBody draft={draft} dispatch={dispatch} issues={issues}>
+        <SettingsBody draft={draft} dispatch={dispatch} issues={issues} openAt={section}>
           {dirty && (
             <div className={s.dirty} role="region" aria-label="Unsaved changes">
               <span className={s.dirtyText} role="status">
@@ -215,7 +230,7 @@ export function SettingsScreen() {
           )}
         </SettingsBody>
       ) : (
-        <p className={s.loading} role="status">
+        <p className={s.loading} role="status" data-screen-only>
           {load.kind === 'failed' ? `Settings couldn’t be read. ${load.message}` : 'Loading settings…'}
         </p>
       )}
@@ -272,13 +287,20 @@ interface BodyProps {
   draft: SettingsDraft;
   dispatch: Dispatch<DraftAction>;
   issues: FieldIssues;
+  /** The section a link opened Settings at. */
+  openAt: SectionId | undefined;
   /** The dirty bar, at the end of the main column. */
   children: ReactNode;
 }
 
-function SettingsBody({ draft, dispatch, issues, children }: BodyProps) {
+function SettingsBody({ draft, dispatch, issues, openAt, children }: BodyProps) {
   const reduced = useReducedMotion();
-  const [section, setSection] = useState<SectionId>('construction');
+  const [section, setSection] = useState<SectionId>(openAt ?? 'construction');
+
+  // A link such as "Settings → Materials" opens at its section (the observer then follows the scroll).
+  useEffect(() => {
+    if (openAt) goToSection(openAt, true);
+  }, [openAt]);
   const [hover, setHover] = useState<DetailKey | null>(null);
   const [focus, setFocus] = useState<DetailKey | null>(null);
   const [last, setLast] = useState<DetailKey>('panel');
@@ -321,7 +343,7 @@ function SettingsBody({ draft, dispatch, issues, children }: BodyProps) {
   const info = DETAILS[active];
 
   return (
-    <div className={s.layout}>
+    <div className={s.layout} data-screen-only>
       <nav className={s.nav} aria-label="Settings sections">
         <div className={cx('cap', s.navLabel)} aria-hidden="true">
           Settings
@@ -334,13 +356,12 @@ function SettingsBody({ draft, dispatch, issues, children }: BodyProps) {
             aria-current={section === item.id ? 'true' : undefined}
             onClick={() => {
               setSection(item.id);
-              const target = document.getElementById(item.id);
-              target?.scrollIntoView?.({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
-              target?.querySelector<HTMLElement>('h2')?.focus({ preventScroll: true });
+              goToSection(item.id, reduced);
             }}
           >
             <span className={s.navNum}>{item.num}</span>
             {item.label}
+            {item.advanced && <span className={s.navTag}>Advanced</span>}
           </button>
         ))}
       </nav>
@@ -420,6 +441,8 @@ function SettingsBody({ draft, dispatch, issues, children }: BodyProps) {
 
         <AboutSection />
 
+        <HelpSection />
+
         {children}
       </div>
 
@@ -463,6 +486,7 @@ function RuleRowView({ row, draft, dispatch, issues, hot, pointer, focusHandlers
         key={`${field}-${draft.generation}-${draft.resets[field] ?? 0}`}
         id={`set-${field}`}
         label={label}
+        info={<InfoTip term={row.term} />}
         value={value}
         // The field's message line is one fixed line; the engine's full message goes beside it.
         error={error ? 'Can’t be saved like this' : null}
@@ -476,8 +500,7 @@ function RuleRowView({ row, draft, dispatch, issues, hot, pointer, focusHandlers
       <div className={s.side}>
         {error || warning ? (
           <div id={noteId} className={error ? s.noteError : s.noteWarning}>
-            <span aria-hidden="true">{error ? '⚠ ' : '△ '}</span>
-            {error ?? warning}
+            <SymbolMark symbol={error ? 'needsFix' : 'warning'} /> {error ?? warning}
           </div>
         ) : (
           <div className={s.help}>{help}</div>
@@ -518,10 +541,13 @@ function ComparisonRow({
   ];
   const value = draft.current.rules.shelfThickComparison;
   const fallback = BUILT_IN_RULES.shelfThickComparison;
+  const legendId = useId();
   return (
     <div className={cx(s.row, s.rowLast, s.choiceRow)} data-hot={hot || undefined} style={{ display: 'block' }} {...pointer}>
-      <fieldset className={s.choices}>
-        <legend className={s.choiceLabel}>Wide shelves start at</legend>
+      <fieldset className={s.choices} aria-labelledby={legendId}>
+        <ChoiceLegend id={legendId} term="wideShelves">
+          Wide shelves start at
+        </ChoiceLegend>
         <p className={s.choiceHelp}>Shop decision Q1: a cabinet exactly at the width gets the wide shelf.</p>
         {options.map(([option, label]) => (
           <Choice
@@ -604,8 +630,7 @@ function MethodSettingsView({ draft, dispatch, issues, active, point, focusOn }:
           />
           {pickerIssues.map((issue) => (
             <div key={issue.message} className={s.noteError}>
-              <span aria-hidden="true">⚠ </span>
-              {issue.message}
+              <SymbolMark symbol="needsFix" /> {issue.message}
             </div>
           ))}
           <DefaultStatus
@@ -686,6 +711,7 @@ function MethodLengthRow({ row, draft, dispatch, issues, hot, pointer, focusHand
         key={`${field}-${draft.generation}-${draft.resets[field] ?? 0}`}
         id={`set-method-${key}`}
         label={label}
+        info={<InfoTip term={row.term} />}
         value={value}
         error={error ? 'Can’t be saved like this' : null}
         warning={warning ? 'Check the note beside this field' : null}
@@ -698,8 +724,7 @@ function MethodLengthRow({ row, draft, dispatch, issues, hot, pointer, focusHand
       <div className={s.side}>
         {error || warning ? (
           <div id={noteId} className={error ? s.noteError : s.noteWarning}>
-            <span aria-hidden="true">{error ? '⚠ ' : '△ '}</span>
-            {error ?? warning}
+            <SymbolMark symbol={error ? 'needsFix' : 'warning'} /> {error ?? warning}
           </div>
         ) : (
           <div className={s.help}>{help}</div>
@@ -719,6 +744,7 @@ function MethodCountRow({ row, draft, dispatch, issues, hot, pointer, focusHandl
       <Stepper
         id={`set-method-${key}`}
         label={row.label}
+        info={<InfoTip term={row.term} />}
         value={value}
         min={1}
         max={24}
@@ -732,8 +758,7 @@ function MethodCountRow({ row, draft, dispatch, issues, hot, pointer, focusHandl
       <div className={s.side}>
         {error ? (
           <div className={s.noteError}>
-            <span aria-hidden="true">⚠ </span>
-            {error}
+            <SymbolMark symbol="needsFix" /> {error}
           </div>
         ) : (
           <div className={s.help}>{row.help}</div>
@@ -760,10 +785,13 @@ function MethodChoiceView({
   const value = draft.current.rules.method[row.key];
   const builtIn = BUILT_IN_RULES.method[row.key];
   const builtInLabel = row.options.find(([option]) => option === builtIn)?.[1] ?? String(builtIn);
+  const legendId = useId();
   return (
     <div className={cx(s.row, s.choiceRow)} data-hot={hot || undefined} style={{ display: 'block' }} {...pointer}>
-      <fieldset className={s.choices}>
-        <legend className={s.choiceLabel}>{row.label}</legend>
+      <fieldset className={s.choices} aria-labelledby={legendId}>
+        <ChoiceLegend id={legendId} term={row.term}>
+          {row.label}
+        </ChoiceLegend>
         <p className={s.choiceHelp}>{row.help}</p>
         {row.options.map(([option, label]) => (
           <Choice
@@ -786,6 +814,18 @@ function MethodChoiceView({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * A radio group's legend with an info tip. Give the fieldset
+ * aria-labelledby={id}, so the group is named by the words alone.
+ */
+function ChoiceLegend({ id, term, children }: { id: string; term: GlossaryKey; children: string }) {
+  return (
+    <legend className={s.choiceLabel}>
+      <span id={id}>{children}</span> <InfoTip term={term} />
+    </legend>
   );
 }
 
@@ -896,6 +936,7 @@ function AboutSection() {
   const { status, restarting } = useUpdates();
   const [checking, setChecking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const help = useSectionLink('help');
   const version = status?.currentVersion ?? APP_VERSION;
 
   let line: string;
@@ -927,6 +968,9 @@ function AboutSection() {
           <div className={s.fieldTitle}>KERFuffle</div>
           <div className={s.path}>Version {version}</div>
           <p className={s.footnote}>Jobs are kept on this PC, apart from the program, so updating or reinstalling never touches them.</p>
+          <p className={s.footnote}>
+            New here? <a {...help}>Help</a> has your first job in six steps, the words KERFuffle uses, and the example job.
+          </p>
         </div>
         <div>
           <div className={s.fieldTitle}>Updates</div>

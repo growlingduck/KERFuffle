@@ -19,6 +19,7 @@ import { showToast } from '../../state/toast';
 import type { DraftAction, SettingsDraft } from './draft';
 import { MaterialForm } from './MaterialForm';
 import s from './Settings.module.css';
+import { SymbolMark } from '../../components/InfoTip';
 
 type Filter = MaterialKind | 'all';
 
@@ -165,7 +166,7 @@ export function MaterialsSection({ draft, dispatch }: MaterialsSectionProps) {
                 <td className={cx(s.right, 'mono')}>
                   {m.price === null ? (
                     <span className={s.needsPrice}>
-                      <span aria-hidden="true">△ </span>needs a price
+                      <SymbolMark symbol="warning" decorative /> needs a price
                     </span>
                   ) : (
                     <>

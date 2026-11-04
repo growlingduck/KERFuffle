@@ -147,7 +147,7 @@ describe('App shell', () => {
     await user.click(screen.getByRole('button', { name: /Job status: .*Draft/ }));
     await user.click(screen.getByRole('menuitemradio', { name: /Ready to cut/ }));
     expect(screen.getByRole('button', { name: /Job status: .*Ready to cut/ })).toBeInTheDocument();
-    expect(screen.getByText('Job marked ready to cut')).toBeInTheDocument();
+    expect(screen.getByText('Marked ready to cut. Construction is locked.')).toBeInTheDocument();
 
     // The open job saves the change through its session.
     await act(() => jobSession.flush());

@@ -55,6 +55,15 @@ describe('reduced motion', () => {
     expect(base).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
   });
 
+  it('the New job dialog’s construction opens on the motion tokens, so reduced motion keeps only the open state', () => {
+    const jobs = readFileSync(join(process.cwd(), 'src', 'screens', 'jobs', 'Jobs.module.css'), 'utf8');
+    const open = /\.constructionOpen\s*\{([^}]*)\}/.exec(jobs)?.[1] ?? '';
+    expect(open).toMatch(/animation:\s*construction-open var\(--dur-base\) var\(--ease-base\)/);
+    // The end state is the rule itself; the keyframes only say where it starts.
+    expect(open).toMatch(/grid-template-rows:\s*1fr/);
+    expect(jobs).toMatch(/@keyframes construction-open\s*\{\s*from\s*\{[^}]*grid-template-rows:\s*0fr/);
+  });
+
   it('the Layouts tab uses only the motion tokens, so reduced motion stills it; its drawings never animate', () => {
     const layouts = readFileSync(join(process.cwd(), 'src', 'screens', 'cutlist', 'Layouts.module.css'), 'utf8');
     const transitions = [...layouts.matchAll(/transition[^;]*;/g)].map((t) => t[0]);

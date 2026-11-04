@@ -36,6 +36,17 @@ export function useEvaluation(cabinet: CabinetRecord | null, rules: Construction
   return useMemo(() => (cabinet && rules ? evaluateCabinet(cabinet, rules, draft) : null), [cabinet, rules, draft]);
 }
 
+/** How many of the job's cabinets make parts, and how many need a fix (as saved). */
+export function useJobReadiness(): { valid: number; needsFix: number } {
+  const cabinets = useCabinets();
+  const rules = useRules();
+  return useMemo(() => {
+    if (!rules) return { valid: 0, needsFix: 0 };
+    const valid = cabinets.filter((c) => evaluateCabinet(c, rules).valid).length;
+    return { valid, needsFix: cabinets.length - valid };
+  }, [cabinets, rules]);
+}
+
 /** The base under a cabinet (method A1's ladder base), from the whole job. */
 export function useCabinetBase(cabinet: CabinetRecord | null, evaluation: Evaluation | null): CabinetBase | null {
   const cabinets = useCabinets();

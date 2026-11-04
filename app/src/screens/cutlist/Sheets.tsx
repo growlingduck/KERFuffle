@@ -2,6 +2,7 @@ import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { constructionName } from '@kerfuffle/engine';
 import type { CabinetType, ConstructionRules, CutList, CutListLine, CutListSortKey, Ticks } from '@kerfuffle/engine';
+import { InfoTip } from '../../components/InfoTip';
 import { STATUS_INFO } from '../../components/Stamp';
 import { TitleBlock } from '../../components/TitleBlock';
 import { Tooltip } from '../../components/Tooltip';
@@ -11,6 +12,7 @@ import { paginate } from '../../cutlist/paginate';
 import type { MeasuredGroup, PageLayout, PagePiece } from '../../cutlist/paginate';
 import type { JobStatus } from '../../data/types';
 import { displayInches } from '../../lib/dimensions';
+import type { GlossaryKey } from '../../lib/glossary';
 import { cx } from '../../lib/interaction';
 import styles from './CutList.module.css';
 
@@ -74,12 +76,21 @@ interface SheetGroup {
   lines: CutListLine[];
   /** By cabinet: the cabinet label, for tracing. */
   cabinet?: string;
+  /** An info tip beside the title (screen only). */
+  term?: GlossaryKey;
 }
 
 function sheetGroups(data: SheetData): SheetGroup[] {
   const { list, rules } = data;
   if (list.options.mode === 'merged') {
-    return list.groups.map((g) => ({ id: g.id, kind: 'merged', title: groupTitle(g, rules), pieces: g.pieces, lines: g.lines }));
+    return list.groups.map((g) => ({
+      id: g.id,
+      kind: 'merged',
+      title: groupTitle(g, rules),
+      pieces: g.pieces,
+      lines: g.lines,
+      ...(g.category === 'laminate' ? { term: 'laminate' as const } : {}),
+    }));
   }
   const cabinets = list.sections.map((s): SheetGroup => {
     const c = s.cabinet;
@@ -321,6 +332,7 @@ function GroupPiece({
             {group.title}
             {cont && <span className={styles.cont}>, cont.</span>}
           </h2>
+          {group.term && <InfoTip term={group.term} />}
           {group.sub && <span className={cx('mono', styles.groupSub)}>{group.sub}</span>}
         </div>
         <span className={cx('mono', styles.groupCount)}>{group.pieces} pcs</span>

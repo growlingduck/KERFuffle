@@ -167,6 +167,10 @@
   gap: 6px;
 }
 
+.helpLink {
+  white-space: nowrap;
+}
+
 /* ---- Routed outlet ---- */
 .main {
   flex: 1;

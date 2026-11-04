@@ -141,8 +141,10 @@ describe('Settings → Materials', () => {
     const dialog = screen.getByRole('dialog', { name: 'Add material' });
     await user.type(within(dialog).getByLabelText(/^Price/), 'about ten');
     await user.click(within(dialog).getByRole('button', { name: 'Add material' }));
-    expect(within(dialog).getByText('⚠ Give the material a name')).toBeInTheDocument();
-    expect(within(dialog).getByText('⚠ Type a price like 68.00')).toBeInTheDocument();
+    // The ⚠ is its own element, named "Needs a fix".
+    const messages = [...dialog.querySelectorAll('[class*="formMsg"]')].map((el) => el.textContent);
+    expect(messages).toContain('⚠ Give the material a name');
+    expect(messages).toContain('⚠ Type a price like 68.00');
     expect(await db.listMaterials()).toHaveLength(12);
   });
 
@@ -298,7 +300,7 @@ describe('cut list: materials and the estimate', () => {
     await openCutList();
     const notes = screen.getAllByRole('note').map((n) => n.textContent);
     expect(notes).toContain(
-      '△ Warning: Box: Birch plywood 3/4″ is 3/4″ thick, but these parts are 23/32″ (the panel thickness rule). Choose a 23/32″ material, or change the rule.',
+      '△ Warning: Box: Birch plywood 3/4″ is 3/4″ thick, but these parts are 23/32″ (the panel thickness rule). Choose a 23/32″ material, or change the rule.Choose materials',
     );
   });
 

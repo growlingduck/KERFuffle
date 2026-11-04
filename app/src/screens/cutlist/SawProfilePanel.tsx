@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import type { SawProfile } from '@kerfuffle/engine';
+import { InfoTip } from '../../components/InfoTip';
 import { FIRST_CUT_NAMES, sameCutting } from '../../data/sawProfiles';
 import { exactInches } from '../../lib/dimensions';
 import { routeHref } from '../../routes';
@@ -25,16 +26,22 @@ export function SawProfilePanel({ profile, usingDefault, profiles, onChoose }: S
   // The job's copy is from another PC, or Settings has changed the profile since it was chosen.
   const known = shop !== undefined;
   const stale = shop !== undefined && !usingDefault && !sameCutting(shop, profile);
+  const settingsHref = routeHref({ name: 'settings', section: 'saws' });
   return (
     <section className={styles.railPanel} aria-labelledby={`${id}-title`}>
-      <h2 id={`${id}-title`} className={styles.sketchTitle}>
-        Saw profile
+      <h2 className={styles.sketchTitle}>
+        <span id={`${id}-title`}>Saw profile</span> <InfoTip term="sawProfile" />
       </h2>
-      <p className={styles.railHelp} style={{ marginTop: 6 }}>
-        {usingDefault
-          ? 'This job uses the shop’s default saw profile. Choosing one keeps a copy in the job.'
-          : 'The job keeps a copy of its saw profile. Editing it in Settings never changes this job.'}
-      </p>
+      {usingDefault ? (
+        <p className={styles.railEmpty} style={{ marginTop: 6 }} data-empty="saw">
+          No saw profile chosen for this job: layouts use the shop default, {profile.name}. Pick one below to keep a copy in the job, or set them up in{' '}
+          <a href={settingsHref}>Settings → Saw profiles</a>.
+        </p>
+      ) : (
+        <p className={styles.railHelp} style={{ marginTop: 6 }}>
+          The job keeps a copy of its saw profile. Editing it in Settings never changes this job.
+        </p>
+      )}
       <div className={styles.slots}>
         <div className={styles.slot}>
           <label className={styles.slotLabel} htmlFor={`${id}-profile`}>
@@ -51,13 +58,14 @@ export function SawProfilePanel({ profile, usingDefault, profiles, onChoose }: S
           <div id={`${id}-note`} className={styles.slotNote}>
             <span className="mono">
               Kerf {exactInches(profile.kerf)} · trim {exactInches(profile.edgeTrim)} · {FIRST_CUT_NAMES[profile.firstCut].toLowerCase()}
-            </span>
+            </span>{' '}
+            <InfoTip term="kerf" />
             {stale && <span className={styles.slotWarn}>Settings has changed this profile since. Choose it again to copy the new values.</span>}
           </div>
         </div>
       </div>
       <p className={styles.railHelp}>
-        Add and edit profiles in <a href={routeHref({ name: 'settings' })}>Settings → Saw profiles</a>. Screen only: never printed.
+        Add and edit profiles in <a href={settingsHref}>Settings → Saw profiles</a>. Screen only: never printed.
       </p>
     </section>
   );

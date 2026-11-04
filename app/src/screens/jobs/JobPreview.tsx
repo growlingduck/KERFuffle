@@ -12,6 +12,7 @@ import type { JobSummary } from '../../state/jobs';
 import { JobElevation } from './Elevation';
 import { elevationCabinets, jobTotals } from './jobMath';
 import styles from './Jobs.module.css';
+import { SymbolMark } from '../../components/InfoTip';
 
 function Count({ value }: { value: number | null }) {
   return <span className={cx('mono', styles.tbCount)}>{value ?? '—'}</span>;
@@ -53,10 +54,12 @@ export function JobPreview({ job, onDuplicate }: { job: JobSummary | null; onDup
               { label: 'Notes', value: <span className={styles.tbNotes}>{job.notes || 'No notes.'}</span>, span: 6 },
             ]}
           />
-          {entry?.error && <p className={styles.previewWarn}>⚠ {entry.error}</p>}
+          {entry?.error && <p className={styles.previewWarn}>
+              <SymbolMark symbol="needsFix" /> {entry.error}
+            </p>}
           {totals && totals.invalid.length > 0 && (
             <p className={styles.previewWarn}>
-              △ {totals.invalid.join(', ')} {totals.invalid.length === 1 ? 'has' : 'have'} errors, so {totals.invalid.length === 1 ? 'its' : 'their'} parts
+              <SymbolMark symbol="warning" /> {totals.invalid.join(', ')} {totals.invalid.length === 1 ? 'has' : 'have'} errors, so {totals.invalid.length === 1 ? 'its' : 'their'} parts
               aren’t counted.
             </p>
           )}

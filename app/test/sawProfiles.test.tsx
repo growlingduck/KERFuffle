@@ -159,7 +159,7 @@ describe('a job’s saw profile', () => {
     const rail = screen.getByRole('complementary', { name: 'Part sketch, totals and materials' });
     const picker = within(rail).getByLabelText('Sheet layouts are cut on');
     expect(picker).toHaveValue('table-saw');
-    expect(within(rail).getByText(/uses the shop’s default saw profile/)).toBeInTheDocument();
+    expect(within(rail).getByText(/No saw profile chosen for this job/)).toBeInTheDocument();
     // Nothing is saved just by looking.
     expect((await db.getJob('j-0014')).sawProfile).toBeNull();
 

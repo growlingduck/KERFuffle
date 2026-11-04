@@ -240,6 +240,28 @@ describe('job workspace', () => {
       expect(input(/Height, overall/)).toHaveValue('30');
     });
 
+    it.each([
+      ['base', 'B1', '24'],
+      ['wall', 'W1', '30'],
+    ])('a job with no cabinets: the editor’s Add %s cabinet adds one, ready to type its width', async (type, label, width) => {
+      client = await seedDatabase([testJob({ cabinets: [] })]);
+      window.location.hash = '#/jobs/j-0014/workspace';
+      const user = userEvent.setup();
+      render(<App />);
+      const editor = await screen.findByRole('region', { name: /^Cabinet editor/ });
+      expect(editor).toHaveTextContent('menu in the cabinet list has preset widths');
+      expect(screen.getByText('No cabinets yet. Use Add cabinet below to start.')).toBeInTheDocument();
+      expect(screen.getByText('Parts appear here once the job has a cabinet.')).toBeInTheDocument();
+      // The list and parts panel point the way without repeating the editor's buttons.
+      expect(screen.getAllByRole('button', { name: `Add ${type} cabinet` })).toHaveLength(1);
+
+      await user.click(within(editor).getByRole('button', { name: `Add ${type} cabinet` }));
+      expect(screen.getByRole('heading', { name: `Cabinet ${label}` })).toBeInTheDocument();
+      expect(input(/^Width/)).toHaveValue(width);
+      expect(input(/^Width/)).toHaveFocus();
+      expect(screen.getByRole('button', { name: `Undo: Add ${label}` })).toBeInTheDocument();
+    });
+
     it('↑/↓ move the selection; Delete removes', async () => {
       const { user } = await openWorkspace();
       screen.getByRole('button', { name: /^B1/ }).focus();
@@ -303,12 +325,12 @@ describe('job workspace', () => {
       const message = /Panels are 23\/32\S* but shelves are listed as 3\/4/;
       expect(screen.getAllByText(message)).toHaveLength(2);
       expect(row('shelf')).toHaveTextContent(message);
-      expect(screen.getByRole('button', { name: /Construction/ })).toHaveTextContent('Differs from shop defaults (1)');
+      expect(screen.getByRole('button', { name: /^Construction/ })).toHaveTextContent('Differs from shop defaults (1)');
     });
 
     it('a matching job says so', async () => {
       await openWorkspace();
-      await waitFor(() => expect(screen.getByRole('button', { name: /Construction/ })).toHaveTextContent('Matches shop defaults'));
+      await waitFor(() => expect(screen.getByRole('button', { name: /^Construction/ })).toHaveTextContent('Matches shop defaults'));
     });
   });
 
@@ -317,7 +339,7 @@ describe('job workspace', () => {
       const { user } = await openWorkspace();
       await user.click(screen.getByRole('button', { name: /Job status/ }));
       await user.click(screen.getByRole('menuitemradio', { name: /Ready to cut/ }));
-      expect(screen.getByText('Job marked ready to cut')).toBeInTheDocument();
+      expect(screen.getByText('Marked ready to cut. Construction is locked.')).toBeInTheDocument();
       expect(jobSession.getJob()?.status).toBe('ready');
       await user.click(screen.getByRole('button', { name: 'Undo: Mark job ready to cut' }));
       expect(jobSession.getJob()?.status).toBe('draft');

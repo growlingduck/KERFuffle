@@ -14,8 +14,9 @@ import { tableInches, wasText } from '../../workspace/revision';
 import type { RevisionMarks } from '../../workspace/ui';
 import type { CabinetBase } from '../../workspace/base';
 import { hotPartOf, hoverPartHandlers, setUi, togglePin, useUi, workspaceUi } from '../../workspace/ui';
-import { useCabinetBase, useTraceMap } from './hooks';
+import { useCabinetBase, useJobReadiness, useTraceMap } from './hooks';
 import styles from './Workspace.module.css';
+import { SymbolMark } from '../../components/InfoTip';
 
 /** Balloon numbers: the part's place in this cabinet's list, panels then laminate. */
 export function balloonNumbers(parts: readonly Part[]): Map<PartRole, number> {
@@ -88,7 +89,7 @@ function PartRow({ part, num, deps, hot, pinned, marks, note, laminate }: RowPro
         )}
         {note && (
           <div className={styles.rowNote}>
-            <span aria-hidden="true">△ </span>
+            <SymbolMark symbol="warning" />{' '}
             {note}
           </div>
         )}
@@ -131,6 +132,36 @@ function shelfNote(part: Part, rules: ConstructionRules, evaluation: Evaluation)
 function runCaption(base: CabinetBase): string {
   const n = base.cabinets.length;
   return `Shared by ${n === 1 ? base.cabinets[0] : `${n} cabinets (${base.cabinets.join(', ')})`}. Quantities are for the whole run.`;
+}
+
+/**
+ * The next step. Once a cabinet makes parts it's a clear button; cabinets that
+ * need a fix are named beside it, but the cut list always opens.
+ */
+function CutListLink({ jobId }: { jobId: string }) {
+  const { valid, needsFix } = useJobReadiness();
+  const href = routeHref({ name: 'cutlist', jobId });
+  if (valid === 0) {
+    return (
+      <ButtonLink href={href} className={styles.smallLink}>
+        Whole-job cut list →
+      </ButtonLink>
+    );
+  }
+  return (
+    <div className={styles.nextStep}>
+      {needsFix > 0 && (
+        <span className={styles.nextFix}>
+          <SymbolMark symbol="needsFix" decorative /> {needsFix === 1 ? '1 cabinet needs a fix' : `${needsFix} cabinets need a fix`}
+        </span>
+      )}
+      <Tooltip content="Ctrl + L">
+        <ButtonLink variant="primary" href={href} aria-keyshortcuts="Control+L">
+          Cut list →
+        </ButtonLink>
+      </Tooltip>
+    </div>
+  );
 }
 
 export function PartsPanel({ cabinet, evaluation, rules, jobId }: { cabinet: CabinetRecord | null; evaluation: Evaluation | null; rules: ConstructionRules; jobId: string }) {
@@ -205,9 +236,7 @@ export function PartsPanel({ cabinet, evaluation, rules, jobId }: { cabinet: Cab
           title={`Parts · ${name}`}
           sub={cabinet && cabinet.quantity > 1 ? `QUANTITIES INCLUDE ×${cabinet.quantity}` : 'QUANTITY 1'}
         />
-        <ButtonLink href={routeHref({ name: 'cutlist', jobId })} className={styles.smallLink}>
-          Whole-job cut list →
-        </ButtonLink>
+        <CutListLink jobId={jobId} />
       </div>
       {parts.length > 0 ? (
         <>
@@ -232,7 +261,7 @@ export function PartsPanel({ cabinet, evaluation, rules, jobId }: { cabinet: Cab
               <ul className={styles.baseIssues}>
                 {base.issues.map((issue) => (
                   <li key={issue.message} className={issue.severity === 'error' ? styles.baseError : styles.baseWarning}>
-                    <span aria-hidden="true">{issue.severity === 'error' ? '⚠ ' : '△ '}</span>
+                    <SymbolMark symbol={issue.severity === 'error' ? 'needsFix' : 'warning'} />{' '}
                     {issue.message}
                   </li>
                 ))}
@@ -250,7 +279,7 @@ export function PartsPanel({ cabinet, evaluation, rules, jobId }: { cabinet: Cab
           </p>
         </>
       ) : (
-        <p className={styles.partsEmpty}>{cabinet ? 'Parts appear when every size is valid.' : 'No cabinet selected.'}</p>
+        <p className={styles.partsEmpty}>{cabinet ? 'Parts appear when every size is valid.' : 'Parts appear here once the job has a cabinet.'}</p>
       )}
     </Sheet>
   );

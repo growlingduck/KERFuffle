@@ -26,6 +26,14 @@
   transform: translate(-50%, 0);
 }
 
+/* A sentence or two (info tips): wraps, and keeps clear of the window edges. */
+.multiline {
+  width: max-content;
+  max-width: min(300px, calc(100vw - 24px));
+  white-space: normal;
+  line-height: 1.45;
+}
+
 /* Forced tooltips (gallery) sit beside their trigger and scroll with it. */
 .inline {
   position: absolute;

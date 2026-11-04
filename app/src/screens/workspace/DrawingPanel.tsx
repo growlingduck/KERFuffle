@@ -3,12 +3,16 @@ import type { ReactNode } from 'react';
 import { boxGeometry } from '@kerfuffle/engine';
 import type { ConstructionRules, DependencyMap, Part, PartRole, TraceKey } from '@kerfuffle/engine';
 import { Button } from '../../components/Button';
+import { CloseIcon } from '../../components/icons';
+import { IconButton } from '../../components/IconButton';
 import { SymbolChip } from '../../components/Field';
 import { Sheet } from '../../components/Sheet';
 import { ViewTitle } from '../../components/ViewTitle';
+import { dismissTracingHint } from '../../data/storage';
 import type { CabinetRecord } from '../../data/types';
 import { displayInches } from '../../lib/dimensions';
 import { cx } from '../../lib/interaction';
+import { useTracingHintDismissed } from '../../state/display';
 import { ENDS_TEXT } from '../../workspace/cabinets';
 import { firstInvalidField } from '../../workspace/calc';
 import type { Evaluation } from '../../workspace/calc';
@@ -156,6 +160,20 @@ function Caption({
   return <div className={styles.caption}>{body}</div>;
 }
 
+/** Shown once per PC, the first time a job is open in the workspace, until it's dismissed. */
+function TracingHint() {
+  const dismissed = useTracingHintDismissed();
+  if (dismissed) return null;
+  return (
+    <div className={styles.tracingHint} role="note" data-tracing-hint>
+      <p>Point at any size or rule to see what it changes in the drawing.</p>
+      <IconButton size="sm" label="Dismiss this tip" onClick={() => void dismissTracingHint()}>
+        <CloseIcon />
+      </IconButton>
+    </div>
+  );
+}
+
 function Toggle({ pressed, onClick, icon, children }: { pressed: boolean; onClick: () => void; icon: ReactNode; children: string }) {
   return (
     <button type="button" className={styles.toggle} aria-pressed={pressed} onClick={onClick}>
@@ -203,6 +221,7 @@ export function DrawingPanel({ cabinet, evaluation, rules }: { cabinet: CabinetR
           </Toggle>
         </div>
       </div>
+      {cabinet && <TracingHint />}
       <div className={styles.frame} style={{ aspectRatio: `${VIEW_W} / ${VIEW_H}` }}>
         {cabinet && evaluation && layout ? (
           <CabinetDrawing
@@ -220,7 +239,7 @@ export function DrawingPanel({ cabinet, evaluation, rules }: { cabinet: CabinetR
               <rect x="10" y="8" width="44" height="48" />
               <path d="M10 8l44 48M54 8L10 56" />
             </svg>
-            <p>{cabinet ? 'The drawing comes back once every size is valid.' : 'No cabinet selected.'}</p>
+            <p>{cabinet ? 'The drawing comes back once every size is valid.' : 'The drawing appears here once the job has a cabinet.'}</p>
             {bad && (
               <Button onClick={() => requestFocus(bad)}>
                 Go to {FIELD_NAME[bad]}

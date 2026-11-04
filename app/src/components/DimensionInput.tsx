@@ -5,10 +5,13 @@ import type { Ticks } from '@kerfuffle/engine';
 import { exactInches, exactText, NUDGE_COARSE, NUDGE_FINE, parseTyped, sameTypedForm } from '../lib/dimensions';
 import { cx } from '../lib/interaction';
 import { FieldLabel } from './Field';
+import { SymbolMark } from './InfoTip';
 import styles from './Field.module.css';
 
 export interface DimensionInputProps {
   label: ReactNode;
+  /** An InfoTip beside the label. */
+  info?: ReactNode;
   /** The committed value, in 1/64″ ticks. */
   value: Ticks;
   /** Blur or Enter, and only when the value differs from the last commit. Undo and autosave hang off this. */
@@ -51,6 +54,7 @@ type Tone = 'hint' | 'error' | 'warning';
  */
 export function DimensionInput({
   label,
+  info,
   value,
   onCommit,
   onLiveChange,
@@ -160,7 +164,7 @@ export function DimensionInput({
     tone = 'warning';
     message = warning;
   } else if (focused) {
-    message = `Reads as ${exactInches(parsed.value)} · ↑↓ nudges 1/16″`;
+    message = `Reads as ${exactInches(parsed.value)} · ↑↓ nudges 1/16″, Shift+↑↓ 1″`;
   } else if (!sameTypedForm(text, parsed.value)) {
     message = `Reads as ${exactInches(parsed.value)}`;
   }
@@ -170,7 +174,7 @@ export function DimensionInput({
 
   return (
     <div className={cx(styles.field, className)} onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave}>
-      <FieldLabel htmlFor={inputId} symbol={symbol} symbolOn={traced} hiddenSuffix="(inches)">
+      <FieldLabel htmlFor={inputId} symbol={symbol} symbolOn={traced} hiddenSuffix="(inches)" info={info}>
         {label}
       </FieldLabel>
       <div className={cx(styles.control, busy && styles.busy)}>
@@ -206,20 +210,21 @@ export function DimensionInput({
           {unit}
         </span>
       </div>
-      <div id={msgId} className={cx(styles.msg, tone === 'error' && styles.msgError, tone === 'warning' && styles.msgWarning)}>
-        {tone === 'error' && message && (
-          <>
-            <span aria-hidden="true">⚠ </span>
-            <span className="visually-hidden">Error:</span>{' '}
-          </>
-        )}
-        {tone === 'warning' && message && (
-          <>
-            <span aria-hidden="true">△ </span>
-            <span className="visually-hidden">Warning:</span>{' '}
-          </>
-        )}
-        {message}
+      {/* While typing, an error is shown whole: it wraps over what's below rather than pushing it down. */}
+      <div id={msgId} className={cx(styles.msg, tone === 'error' && styles.msgError, tone === 'warning' && styles.msgWarning, invalid && focused && styles.msgOpen)}>
+        <span className={styles.msgText}>
+          {tone === 'error' && message && (
+            <>
+              <SymbolMark symbol="needsFix" decorative /> <span className="visually-hidden">Error:</span>{' '}
+            </>
+          )}
+          {tone === 'warning' && message && (
+            <>
+              <SymbolMark symbol="warning" decorative /> <span className="visually-hidden">Warning:</span>{' '}
+            </>
+          )}
+          {message}
+        </span>
       </div>
     </div>
   );

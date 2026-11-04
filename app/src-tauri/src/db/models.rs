@@ -223,6 +223,9 @@ pub struct NewJob {
     /// A copy of the shop's default saw profile.
     #[serde(default)]
     pub saw_profile: Option<serde_json::Value>,
+    /// Cabinets saved with the job in the same transaction (an empty job's first cabinet).
+    #[serde(default)]
+    pub cabinets: Vec<Cabinet>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
