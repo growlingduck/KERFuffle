@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { boxGeometry } from '@kerfuffle/engine';
+import { boxGeometry, fixedShelvesOf, hasCountertop, standsOnFloor } from '@kerfuffle/engine';
 import type { ConstructionRules, DependencyMap, Part, PartRole, TraceKey } from '@kerfuffle/engine';
 import { Button } from '../../components/Button';
 import { CloseIcon } from '../../components/icons';
@@ -33,6 +33,7 @@ export const KEY_INFO: Record<TraceKey, { symbol: string; name: string }> = {
   ctop: { symbol: 'T', name: 'Countertop' },
   d: { symbol: 'D', name: 'Depth' },
   shelves: { symbol: 'n', name: 'Shelves' },
+  fixed: { symbol: 'nf', name: 'Fixed shelves' },
   ends: { symbol: '◧', name: 'Finished ends' },
   qty: { symbol: '×', name: 'Quantity' },
   p: { symbol: 'p', name: 'Panel thickness' },
@@ -55,6 +56,7 @@ const SHORT: Record<PartRole, string> = {
   'kick-board': 'kick board',
   front: 'front',
   shelf: 'shelf',
+  'fixed-shelf': 'fixed shelf',
   'base-rail-front': 'front base rail',
   'base-rail-back': 'back base rail',
   'base-sleeper': 'base sleeper',
@@ -81,11 +83,13 @@ function keyValue(key: TraceKey, cabinet: CabinetRecord, evaluation: Evaluation,
     case 'box':
       return evaluation.valid ? displayInches(boxGeometry(spec, rules).boxHeight) : '?';
     case 'toe':
-      return cabinet.type === 'base' ? displayInches(rules.toeKickHeight) : 'n/a on wall cabinets';
+      return standsOnFloor(cabinet.type) ? displayInches(rules.toeKickHeight) : 'n/a on wall cabinets';
     case 'ctop':
-      return cabinet.type === 'base' ? displayInches(rules.countertopThickness) : 'n/a on wall cabinets';
+      return hasCountertop(cabinet.type) ? displayInches(rules.countertopThickness) : `n/a on ${cabinet.type} cabinets`;
     case 'shelves':
       return String(spec.shelfCount);
+    case 'fixed':
+      return String(fixedShelvesOf(spec));
     case 'ends':
       return ENDS_TEXT[cabinet.finishedEnds];
     case 'qty':

@@ -1,6 +1,9 @@
-import { useMemo } from 'react';
-import type { ConstructionRules, DependencyMap } from '@kerfuffle/engine';
+import { useMemo, useState } from 'react';
+import { sheetLengthIssues } from '@kerfuffle/engine';
+import type { ConstructionRules, DependencyMap, ValidationIssue } from '@kerfuffle/engine';
+import { effectiveJobMaterials, engineMaterials } from '../../data/materials';
 import { jobSession } from '../../data/storage';
+import { useMaterials } from '../../state/materials';
 import type { CabinetRecord } from '../../data/types';
 import { useStore } from '../../state/createStore';
 import { evaluateCabinet } from '../../workspace/calc';
@@ -45,6 +48,30 @@ export function useJobReadiness(): { valid: number; needsFix: number } {
     const valid = cabinets.filter((c) => evaluateCabinet(c, rules).valid).length;
     return { valid, needsFix: cabinets.length - valid };
   }, [cabinets, rules]);
+}
+
+const NO_ISSUES: readonly ValidationIssue[] = [];
+
+/**
+ * A tall cabinet's parts that are longer than a sheet of their material, as
+ * editor warnings. Uses the job's materials (or the shop defaults, for a job
+ * made before materials), as the cut list does.
+ */
+export function useSheetLengthIssues(cabinet: CabinetRecord, evaluation: Evaluation): readonly ValidationIssue[] {
+  const job = useStore(jobSession.store, (s) => s.job);
+  const rules = job?.rules ?? null;
+  const { catalog, estimate } = useMaterials();
+  const [at] = useState(() => new Date().toISOString());
+  const materials = useMemo(
+    () => (job ? engineMaterials(effectiveJobMaterials(job, catalog, estimate, at), catalog) : null),
+    // Only the materials matter here, not every edit to the job.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [job?.materials, catalog, estimate, at],
+  );
+  return useMemo(() => {
+    if (cabinet.type !== 'tall' || !rules || !materials || !evaluation.valid) return NO_ISSUES;
+    return sheetLengthIssues(evaluation.spec, evaluation.parts, rules, materials);
+  }, [cabinet.type, rules, materials, evaluation]);
 }
 
 /** The base under a cabinet (method A1's ladder base), from the whole job. */

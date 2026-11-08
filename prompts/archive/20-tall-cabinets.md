@@ -154,6 +154,18 @@ for counts out.
 - A screenshot of an elevation with base, tall and wall cabinets, and of a tall
   cabinet's drawing with a fixed shelf, in the summary.
 
+## When done: archive this prompt
+
+Do this only after every "Done when" item above passes. If any item fails,
+leave this file where it is and list what's left in the summary.
+
+1. `git mv prompts/20-tall-cabinets.md prompts/archive/`
+2. In `prompts/README.md`, change row 20's link to `archive/20-tall-cabinets.md`
+   and set its Status to `Done`.
+3. Search the repo for `prompts/20-` and point any other links at
+   `prompts/archive/20-tall-cabinets.md`.
+4. Say in the summary that the prompt was archived.
+
 ## Out of scope
 
 Doors, drawer banks inside tall cabinets, appliance cutouts (oven/microwave

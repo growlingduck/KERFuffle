@@ -20,6 +20,9 @@ fn cabinet(id: &str, label: &str) -> Cabinet {
         quantity: 1,
         room: None,
         run: None,
+        fixed_shelf_count: 0,
+        mid_nailer: false,
+        split_back: false,
     }
 }
 
@@ -293,6 +296,9 @@ fn round_trips_every_field() {
             quantity: 3,
             room: Some("Kitchen".into()),
             run: Some("Sink wall".into()),
+            fixed_shelf_count: 0,
+            mid_nailer: false,
+            split_back: false,
         },
         Cabinet {
             id: "c2".into(),
@@ -306,6 +312,9 @@ fn round_trips_every_field() {
             quantity: 1,
             room: None,
             run: None,
+            fixed_shelf_count: 0,
+            mid_nailer: false,
+            split_back: false,
         },
         Cabinet { finished_ends: FinishedEnds::Right, ..cabinet("c3", "B2") },
         Cabinet { width: 0, quantity: 0, ..cabinet("c4", "") }, // in progress: allowed
@@ -425,7 +434,7 @@ fn rejects_impossible_data() {
     assert_eq!(get_job(&conn, &job.id).unwrap().revision, 0, "nothing was written");
 
     // Unknown enum values never get past deserialization at the command boundary...
-    let wire = json!({ "id": "a", "label": "B1", "type": "tall", "width": 1, "height": 1, "depth": 1,
+    let wire = json!({ "id": "a", "label": "B1", "type": "corner", "width": 1, "height": 1, "depth": 1,
                        "shelfCount": 0, "finishedEnds": "none", "quantity": 1 });
     assert!(serde_json::from_value::<Cabinet>(wire).is_err());
     assert!(serde_json::from_value::<JobStatus>(json!("deleted")).is_err());
@@ -433,7 +442,7 @@ fn rejects_impossible_data() {
     let error = conn
         .execute(
             "INSERT INTO cabinets (id, job_id, position, label, type, width, height, depth, shelf_count, finished_ends, quantity)
-             VALUES ('x', ?1, 0, 'X', 'tall', 1, 1, 1, 0, 'none', 1)",
+             VALUES ('x', ?1, 0, 'X', 'corner', 1, 1, 1, 0, 'none', 1)",
             [&job.id],
         )
         .unwrap_err();
@@ -961,6 +970,110 @@ fn migration_7_prices_only_the_standard_materials_the_shop_left_unpriced() {
     assert_eq!((mdf.price, mdf.price_estimated), (Some(4800), true));
     let oak = by_id("shop-oak");
     assert_eq!((oak.price, oak.price_estimated), (None, false), "only standard materials get a rough price");
+}
+
+#[test]
+fn migration_8_rebuilds_cabinets_keeping_every_row_and_then_accepts_tall_cabinets() {
+    let mut conn = Connection::open_in_memory().unwrap();
+    conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+    migrations::build_through(&conn, 7).unwrap();
+    assert_eq!(schema_version(&conn).unwrap(), 7);
+    conn.execute_batch(
+        "INSERT INTO jobs (id, number, name, customer, notes, status, rules_json, rules_version, created_at, updated_at, revision)
+           VALUES ('j1', 3, 'Kitchen', 'Pat', NULL, 'draft', '{\"panelThickness\":48}', 2, 't0', 't1', 5),
+                  ('j2', 4, 'Vanity', NULL, NULL, 'ready', '{\"panelThickness\":46}', 1, 't0', 't1', 2);
+         INSERT INTO cabinets (id, job_id, position, label, type, width, height, depth, shelf_count, finished_ends, quantity, room, run)
+           VALUES ('c1', 'j1', 0, 'B1', 'base', 1920, 2304, 1536, 1, 'left', 2, 'Kitchen', 'Sink wall'),
+                  ('c2', 'j1', 1, 'W1', 'wall', 1920, 1920, 768, 2, 'both', 1, NULL, NULL),
+                  -- Same position as c2: rowid breaks the tie, and must survive the rebuild.
+                  ('c3', 'j1', 1, 'B2', 'base', 2304, 2304, 1536, 0, 'none', 1, NULL, 'Sink wall'),
+                  ('c4', 'j2', 0, 'B1', 'base', 1536, 2208, 1344, 1, 'right', 1, 'Bath', NULL);",
+    )
+    .unwrap();
+    let before: Vec<(String, String, String, i64, i64, String)> = {
+        let mut stmt = conn
+            .prepare("SELECT id, job_id, type, position, rowid, label FROM cabinets ORDER BY rowid")
+            .unwrap();
+        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))).unwrap();
+        rows.map(Result::unwrap).collect()
+    };
+
+    let report = migrate(&mut conn, None).unwrap();
+    assert_eq!((report.from_version, report.to_version), (7, 8));
+    assert_eq!(schema(&conn), schema(&db()), "a migrated database must equal a fresh one");
+    let after: Vec<(String, String, String, i64, i64, String)> = {
+        let mut stmt = conn
+            .prepare("SELECT id, job_id, type, position, rowid, label FROM cabinets ORDER BY rowid")
+            .unwrap();
+        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))).unwrap();
+        rows.map(Result::unwrap).collect()
+    };
+    assert_eq!(after, before, "every row, with its rowid");
+
+    let kitchen = get_job(&conn, "j1").unwrap();
+    assert_eq!(kitchen.cabinets.iter().map(|c| c.label.as_str()).collect::<Vec<_>>(), vec!["B1", "W1", "B2"]);
+    let b1 = &kitchen.cabinets[0];
+    assert_eq!(
+        (b1.cabinet_type, b1.width, b1.height, b1.depth, b1.shelf_count, b1.finished_ends, b1.quantity),
+        (CabinetType::Base, 1920, 2304, 1536, 1, FinishedEnds::Left, 2)
+    );
+    assert_eq!((b1.room.as_deref(), b1.run.as_deref()), (Some("Kitchen"), Some("Sink wall")));
+    assert!(kitchen.cabinets.iter().all(|c| c.fixed_shelf_count == 0 && !c.mid_nailer && !c.split_back));
+    assert_eq!(kitchen.cabinets[1].cabinet_type, CabinetType::Wall);
+    assert_eq!(kitchen.rules_version, 2, "job rules snapshots are stored unchanged");
+    assert_eq!(get_job(&conn, "j2").unwrap().cabinets[0].room.as_deref(), Some("Bath"));
+
+    // Deleting a job still takes its cabinets with it.
+    let tall = Cabinet {
+        cabinet_type: CabinetType::Tall,
+        height: 5376,
+        fixed_shelf_count: 2,
+        mid_nailer: true,
+        split_back: true,
+        ..cabinet("c5", "T1")
+    };
+    upsert_cabinet(&mut conn, "j1", &tall, None).unwrap();
+    let saved = get_job(&conn, "j1").unwrap();
+    assert_eq!(saved.cabinets.last(), Some(&tall));
+    conn.execute("DELETE FROM jobs WHERE id = 'j2'", []).unwrap();
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM cabinets WHERE job_id = 'j2'"), 0);
+    // The CHECKs still hold.
+    assert!(conn
+        .execute("UPDATE cabinets SET type = 'corner' WHERE id = 'c1'", [])
+        .is_err());
+    assert!(conn.execute("UPDATE cabinets SET mid_nailer = 2 WHERE id = 'c1'", []).is_err());
+}
+
+#[test]
+fn a_tall_cabinet_round_trips_with_its_options_and_refuses_impossible_fixed_shelf_counts() {
+    let mut conn = db();
+    let job = new_job(&mut conn, "Pantry");
+    let tall = Cabinet { cabinet_type: CabinetType::Tall, fixed_shelf_count: 1, mid_nailer: true, ..cabinet("t1", "T1") };
+    upsert_cabinet(&mut conn, &job.id, &tall, None).unwrap();
+    assert_eq!(get_job(&conn, &job.id).unwrap().cabinets, vec![tall.clone()]);
+    let bad = Cabinet { fixed_shelf_count: -1, ..tall };
+    assert!(upsert_cabinet(&mut conn, &job.id, &bad, None).is_err());
+
+    // Older clients send no tall fields: they read as the defaults.
+    let older: Cabinet = serde_json::from_value(json!({
+        "id": "x", "label": "B1", "type": "base", "width": 1, "height": 1, "depth": 1,
+        "shelfCount": 0, "finishedEnds": "none", "quantity": 1
+    }))
+    .unwrap();
+    assert_eq!((older.fixed_shelf_count, older.mid_nailer, older.split_back), (0, false, false));
+    let wire = serde_json::to_value(Cabinet { cabinet_type: CabinetType::Tall, ..older }).unwrap();
+    assert_eq!(wire["type"], json!("tall"));
+    assert_eq!(wire["fixedShelfCount"], json!(0));
+}
+
+#[test]
+fn shop_rules_saved_before_tall_cabinets_gain_the_fixed_shelf_rule() {
+    let mut rules: serde_json::Value = serde_json::from_str(DEFAULT_RULES_JSON).unwrap();
+    rules.as_object_mut().unwrap().remove("tallFixedShelfAbove");
+    rules["panelThickness"] = json!(46);
+    let upgraded = upgrade_shop_rules(rules).unwrap();
+    assert_eq!(upgraded["tallFixedShelfAbove"], json!(4608));
+    assert_eq!(upgraded["panelThickness"], json!(46), "the shop's own values stay");
 }
 
 #[test]

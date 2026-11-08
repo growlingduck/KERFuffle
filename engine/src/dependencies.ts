@@ -5,7 +5,7 @@ import { ticks } from './units';
  * Linked tracing (interaction-design §5.5): which part dimensions move when an
  * input moves. The workspace uses this to tint the affected cells and parts.
  *
- * Keys are cabinet inputs (`w h box toe ctop d shelves ends qty`) and
+ * Keys are cabinet inputs (`w h box toe ctop d shelves fixed ends qty`) and
  * construction rules (`p cl sb wide lam`). `box` is the box height, which the
  * user changes through the overall height.
  *
@@ -21,6 +21,7 @@ export type TraceKey =
   | 'ctop'
   | 'd'
   | 'shelves'
+  | 'fixed'
   | 'ends'
   | 'qty'
   | 'p'
@@ -29,7 +30,7 @@ export type TraceKey =
   | 'wide'
   | 'lam';
 
-export const TRACE_KEYS: readonly TraceKey[] = ['w', 'h', 'box', 'toe', 'ctop', 'd', 'shelves', 'ends', 'qty', 'p', 'cl', 'sb', 'wide', 'lam'];
+export const TRACE_KEYS: readonly TraceKey[] = ['w', 'h', 'box', 'toe', 'ctop', 'd', 'shelves', 'fixed', 'ends', 'qty', 'p', 'cl', 'sb', 'wide', 'lam'];
 
 /** A part's Length, Width, Thickness or Quantity, or its Features (method B's kick notch). */
 export type PartField = 'L' | 'W' | 'T' | 'qty' | 'F';
@@ -76,6 +77,8 @@ export const DEPENDENCIES: Readonly<Record<TraceKey, DependencyMap>> = {
     'laminate-side-right': ['W'],
   },
   shelves: { shelf: ['qty'] },
+  // Fixed shelves are tall-cabinet only (see TALL_EXTRA).
+  fixed: {},
   ends: { 'laminate-side-left': ['qty'], 'laminate-side-right': ['qty'] },
   qty: EVERY_QUANTITY,
   // Bottom and top stop at the back (D − p), so p moves their width too.
@@ -100,13 +103,29 @@ export const DEPENDENCIES: Readonly<Record<TraceKey, DependencyMap>> = {
 
 const NONE: DependencyMap = {};
 
+/** What a tall cabinet's fixed shelves add: sized like the bottom, but stopping at the back. */
+const TALL_EXTRA: Readonly<Partial<Record<TraceKey, DependencyMap>>> = {
+  w: { 'fixed-shelf': ['L'] },
+  d: { 'fixed-shelf': ['W'] },
+  fixed: { 'fixed-shelf': ['qty'] },
+  qty: { 'fixed-shelf': ['qty'] },
+  p: { 'fixed-shelf': ['L', 'W', 'T'] },
+};
+
 /**
  * What a trace key moves on a cabinet of this type. Wall cabinets use their
- * full height, so toe kick and countertop move nothing on them.
+ * full height, so toe kick and countertop move nothing on them. Tall cabinets
+ * have no countertop; the toe kick moves their box height as on a base.
  */
 export function dependenciesFor(key: TraceKey, type: CabinetType): DependencyMap {
-  if (type === 'wall' && (key === 'toe' || key === 'ctop')) return NONE;
-  return DEPENDENCIES[key];
+  switch (type) {
+    case 'wall':
+      return key === 'toe' || key === 'ctop' ? NONE : DEPENDENCIES[key];
+    case 'tall':
+      return key === 'ctop' ? NONE : { ...DEPENDENCIES[key], ...TALL_EXTRA[key] };
+    case 'base':
+      return DEPENDENCIES[key];
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -157,6 +176,8 @@ export function perturb(key: TraceKey, { spec, rules }: TraceCase, step: 1 | -1 
       return withRules({ laminateOversizePerEdge: nudge(rules.laminateOversizePerEdge, step) });
     case 'shelves':
       return withSpec({ shelfCount: spec.shelfCount + 1 });
+    case 'fixed':
+      return withSpec({ fixedShelfCount: (spec.fixedShelfCount ?? 0) + 1 });
     case 'qty':
       return withSpec({ quantity: spec.quantity + 1 });
     case 'ends': {

@@ -87,6 +87,10 @@ export function cabinetSpec(cabinet: CabinetRecord): CabinetSpec {
     finishedEnds: cabinet.finishedEnds,
     quantity: cabinet.quantity,
     ...(cabinet.run ? { run: cabinet.run } : {}),
+    // The engine ignores these on base and wall cabinets.
+    ...(cabinet.fixedShelfCount !== undefined ? { fixedShelfCount: cabinet.fixedShelfCount } : {}),
+    ...(cabinet.midNailer !== undefined ? { midNailer: cabinet.midNailer } : {}),
+    ...(cabinet.splitBack !== undefined ? { splitBack: cabinet.splitBack } : {}),
   };
 }
 

@@ -25,6 +25,10 @@ export type Command =
   | { type: 'setDimension'; cabinetId: string; field: DimensionField; value: Ticks }
   | { type: 'setType'; cabinetId: string; value: CabinetType }
   | { type: 'setShelves'; cabinetId: string; value: number }
+  /** Tall cabinets only. */
+  | { type: 'setFixedShelves'; cabinetId: string; value: number }
+  | { type: 'setMidNailer'; cabinetId: string; value: boolean }
+  | { type: 'setSplitBack'; cabinetId: string; value: boolean }
   | { type: 'setQuantity'; cabinetId: string; value: number }
   | { type: 'setFinishedEnds'; cabinetId: string; value: FinishedEnds }
   | { type: 'renameCabinet'; cabinetId: string; label: string }
@@ -82,7 +86,8 @@ export function applyCommand(content: JobContent, command: Command): CommandResu
         (c) => `Change ${FIELD_NAME[command.field]} on ${named(c)}`,
       );
     case 'setType':
-      // The height stays as typed: a 36″ base becomes a 36″ wall cabinet.
+      // The height stays as typed: a 36″ base becomes a 36″ wall cabinet. The
+      // tall-only values stay too (ignored), so switching back restores them.
       return patchCabinet(
         content,
         command.cabinetId,
@@ -92,6 +97,28 @@ export function applyCommand(content: JobContent, command: Command): CommandResu
     case 'setShelves':
       if (!Number.isInteger(command.value) || command.value < 0) return null;
       return patchCabinet(content, command.cabinetId, () => ({ shelfCount: command.value }), (c) => `Change shelves on ${named(c)}`);
+    case 'setFixedShelves':
+      if (!Number.isInteger(command.value) || command.value < 0) return null;
+      return patchCabinet(
+        content,
+        command.cabinetId,
+        (c) => ((c.fixedShelfCount ?? 0) === command.value ? {} : { fixedShelfCount: command.value }),
+        (c) => `Change fixed shelves on ${named(c)}`,
+      );
+    case 'setMidNailer':
+      return patchCabinet(
+        content,
+        command.cabinetId,
+        (c) => ((c.midNailer ?? false) === command.value ? {} : { midNailer: command.value }),
+        (c) => `${command.value ? 'Add' : 'Remove'} the mid nailer on ${named(c)}`,
+      );
+    case 'setSplitBack':
+      return patchCabinet(
+        content,
+        command.cabinetId,
+        (c) => ((c.splitBack ?? false) === command.value ? {} : { splitBack: command.value }),
+        (c) => `${command.value ? 'Split' : 'Join'} the back on ${named(c)}`,
+      );
     case 'setQuantity':
       if (!Number.isInteger(command.value) || command.value < 1) return null;
       return patchCabinet(content, command.cabinetId, () => ({ quantity: command.value }), (c) => `Change quantity on ${named(c)}`);

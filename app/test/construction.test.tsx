@@ -20,6 +20,7 @@ import { createJobSession, cabinetSpec } from '../src/data/jobSession';
 import type { MemoryStorageClient } from '../src/data/memoryClient';
 import { jobSession } from '../src/data/storage';
 import type { CabinetRecord, JobRecord } from '../src/data/types';
+import { RULES_VERSION } from '../src/data/rules';
 import { RULES_SETTING } from '../src/data/types';
 import { dismissToast, toastStore } from '../src/state/toast';
 import { groupByRun } from '../src/screens/workspace/CabinetList';
@@ -196,7 +197,7 @@ describe('the job session saves a changed construction', () => {
     session.commit((j) => ({ ...j, rules: b }));
     await session.flush();
     expect(save.mock.calls.at(-1)![0].rules).toEqual(b);
-    expect(session.getJob()!.rulesVersion).toBe(2);
+    expect(session.getJob()!.rulesVersion).toBe(RULES_VERSION);
     expect((await db.getJob('j-0014')).rules.method.id).toBe('B');
 
     session.commit((j) => ({ ...j, notes: 'more' }));

@@ -1,6 +1,18 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
-import { boxGeometry, CONSTRUCTION_NAMES, constructionChoiceOf, constructionName, DEFAULT_RULES, runOf, usesRuns } from '@kerfuffle/engine';
+import {
+  boxGeometry,
+  CONSTRUCTION_NAMES,
+  constructionChoiceOf,
+  constructionName,
+  DEFAULT_RULES,
+  fixedShelvesOf,
+  hasCountertop,
+  runOf,
+  shelfSections,
+  standsOnFloor,
+  usesRuns,
+} from '@kerfuffle/engine';
 import type { CabinetType, ConstructionChoice, ConstructionRules, FinishedEnds, MethodSettings, TraceKey } from '@kerfuffle/engine';
 import { Button } from '../../components/Button';
 import { ConstructionPicker } from '../../components/ConstructionPicker';
@@ -13,6 +25,7 @@ import { CheckIcon, PlusIcon } from '../../components/icons';
 import { Segmented } from '../../components/Segmented';
 import { Sheet } from '../../components/Sheet';
 import { Stepper } from '../../components/Stepper';
+import { Switch } from '../../components/Switch';
 import { ViewTitle } from '../../components/ViewTitle';
 import { getStorageClient } from '../../data/client';
 import { jobSession } from '../../data/storage';
@@ -23,7 +36,7 @@ import { cx } from '../../lib/interaction';
 import { routeHref } from '../../routes';
 import { useStore } from '../../state/createStore';
 import { showToast } from '../../state/toast';
-import { duplicateLabels, isDuplicateLabel, TYPE_LABEL } from '../../workspace/cabinets';
+import { CABINET_TYPE_ORDER, duplicateLabels, isDuplicateLabel, TYPE_LABEL } from '../../workspace/cabinets';
 import { issueFor } from '../../workspace/calc';
 import { constructionLocked, diffConstruction, diffText, LOCKED_REASON, methodRows, withConstruction } from '../../workspace/construction';
 import type { Evaluation, FieldKey } from '../../workspace/calc';
@@ -31,7 +44,7 @@ import type { DimensionField } from '../../workspace/commands';
 import { runCommand, undoIfLatest } from '../../workspace/history';
 import { hoverKeyHandlers, requestFocus, setUi, traceKeyOf, useSelectedCabinetId, useUi, workspaceUi } from '../../workspace/ui';
 import { addCabinet } from './CabinetList';
-import { useCabinet, useCabinets, useEvaluation, useRules } from './hooks';
+import { useCabinet, useCabinets, useEvaluation, useRules, useSheetLengthIssues } from './hooks';
 import styles from './Workspace.module.css';
 
 export const FIELD_TRACE: Record<FieldKey, TraceKey | null> = {
@@ -39,6 +52,8 @@ export const FIELD_TRACE: Record<FieldKey, TraceKey | null> = {
   height: 'h',
   depth: 'd',
   shelfCount: 'shelves',
+  fixedShelfCount: 'fixed',
+  splitBack: null,
   quantity: 'qty',
   label: null,
   run: null,
@@ -49,6 +64,8 @@ export const FIELD_NAME: Record<FieldKey, string> = {
   height: 'height',
   depth: 'depth',
   shelfCount: 'shelves',
+  fixedShelfCount: 'fixed shelves',
+  splitBack: 'split back',
   quantity: 'quantity',
   label: 'ID',
   run: 'run',
@@ -110,13 +127,13 @@ function DimensionField({
   );
 }
 
-/** Box height arithmetic: base `H − t − T = Hb`, wall `H = Hb`. Each term traces its dimension. */
+/** Box height arithmetic: base `H − t − T = Hb`, tall `H − t = Hb`, wall `H = Hb`. Each term traces its dimension. */
 function CalcTape({ evaluation, type, rules }: { evaluation: Evaluation; type: CabinetType; rules: ConstructionRules }) {
   const trace = useUi(traceKeyOf);
   const heightOk = !evaluation.issues.some((i) => i.severity === 'error' && i.field === 'height');
   // From the box calculator: method B's sides run past the box to the floor.
   const box = evaluation.valid ? boxGeometry(evaluation.spec, rules).boxHeight : undefined;
-  const toFloor = type === 'base' && rules.method.id === 'B';
+  const toFloor = standsOnFloor(type) && rules.method.id === 'B';
   const term = (key: TraceKey, text: string) => (
     <span className={cx(styles.term, (trace === key || (key === 'box' && trace === 'h')) && styles.termOn)} {...hoverKeyHandlers(key)}>
       {text}
@@ -132,6 +149,10 @@ function CalcTape({ evaluation, type, rules }: { evaluation: Evaluation; type: C
           {term('h', h)} − {term('toe', displayInches(rules.toeKickHeight))} − {term('ctop', displayInches(rules.countertopThickness))} ={' '}
           {term('box', hb)}
         </>
+      ) : type === 'tall' ? (
+        <>
+          {term('h', h)} − {term('toe', displayInches(rules.toeKickHeight))} = {term('box', hb)}
+        </>
       ) : (
         <>
           {term('h', h)} = {term('box', hb)}
@@ -142,7 +163,11 @@ function CalcTape({ evaluation, type, rules }: { evaluation: Evaluation; type: C
           ? toFloor
             ? 'overall − toe kick − countertop; the sides run on to the floor'
             : 'overall − toe kick − countertop'
-          : 'wall cabinets use full height'}
+          : type === 'tall'
+            ? toFloor
+              ? 'overall − toe kick, no countertop; the sides run on to the floor'
+              : 'overall − toe kick; tall cabinets have no countertop'
+            : 'wall cabinets use full height'}
       </span>
     </div>
   );
@@ -233,11 +258,11 @@ function LabelField({ cabinet, warning }: { cabinet: CabinetRecord; warning: str
   );
 }
 
-/** The base cabinets' runs, in the order they first appear. */
+/** The runs of the cabinets on the floor (base and tall), in the order they first appear. */
 function runNames(cabinets: readonly CabinetRecord[]): string[] {
   const names: string[] = [];
   for (const c of cabinets) {
-    const run = c.type === 'base' ? runOf(c) : null;
+    const run = standsOnFloor(c.type) ? runOf(c) : null;
     if (run !== null && !names.includes(run)) names.push(run);
   }
   return names;
@@ -264,13 +289,13 @@ function RunField({ cabinet }: { cabinet: CabinetRecord }) {
   const runs = useMemo(() => runNames(cabinets), [cabinets]);
 
   const name = text.trim();
-  const others = cabinets.filter((c) => c.id !== cabinet.id && c.type === 'base' && name !== '' && runOf(c) === name);
+  const others = cabinets.filter((c) => c.id !== cabinet.id && standsOnFloor(c.type) && name !== '' && runOf(c) === name);
   const message =
     name === ''
       ? 'No run: this cabinet gets its own base.'
       : others.length > 0
         ? `Shares one ladder base with ${others.map((c) => c.label.trim() || 'Unnamed').join(', ')}.`
-        : 'A new run. Give other base cabinets in the same row this name to share its base.';
+        : 'A new run. Give other base and tall cabinets in the same row this name to share its base.';
 
   const commit = () => {
     if (name !== (cabinet.run ?? '').trim()) runCommand({ type: 'setRun', cabinetId: cabinet.id, run: name || null });
@@ -473,12 +498,8 @@ function Construction({ rules, type }: { rules: ConstructionRules; type: Cabinet
 
   const rows: [string, string, TraceKey, GlossaryKey][] = [
     ['Panel thickness', displayInches(rules.panelThickness), 'p', 'panelThickness'],
-    ...(type === 'base'
-      ? ([
-          ['Toe kick', displayInches(rules.toeKickHeight), 'toe', 'toeKick'],
-          ['Countertop', displayInches(rules.countertopThickness), 'ctop', 'countertop'],
-        ] as [string, string, TraceKey, GlossaryKey][])
-      : []),
+    ...(standsOnFloor(type) ? ([['Toe kick', displayInches(rules.toeKickHeight), 'toe', 'toeKick']] as [string, string, TraceKey, GlossaryKey][]) : []),
+    ...(hasCountertop(type) ? ([['Countertop', displayInches(rules.countertopThickness), 'ctop', 'countertop']] as [string, string, TraceKey, GlossaryKey][]) : []),
     ['Shelf clearance, each side', displayInches(rules.shelfClearancePerSide), 'cl', 'shelfClearance'],
     ['Shelf setback from front', displayInches(rules.shelfSetback), 'sb', 'shelfSetback'],
     ['Shelf thickness', displayInches(rules.shelfThickness), 'wide', 'shelfThickness'],
@@ -555,6 +576,108 @@ function Construction({ rules, type }: { rules: ConstructionRules; type: Cabinet
   );
 }
 
+/** "2 + 2": adjustable shelves per section, bottom first. */
+function sectionText(evaluation: Evaluation, rules: ConstructionRules, fixed: number): string {
+  const sections = shelfSections(boxGeometry(evaluation.spec, rules).boxHeight, rules.panelThickness, fixed, evaluation.spec.shelfCount);
+  return sections.map((s) => s.shelves).join(' + ');
+}
+
+/**
+ * Tall cabinets only: fixed shelves, the mid nailer and the split back. Kept
+ * on the record when the type changes, so switching back restores them.
+ */
+function TallOptions({ cabinet, evaluation, rules }: { cabinet: CabinetRecord; evaluation: Evaluation; rules: ConstructionRules }) {
+  const trace = useUi(traceKeyOf);
+  const fixedMsg = useId();
+  const nailerMsg = useId();
+  const splitMsg = useId();
+  const sheetIssues = useSheetLengthIssues(cabinet, evaluation);
+  const fixed = fixedShelvesOf(evaluation.spec);
+  const inset = rules.method.backType !== 'applied';
+
+  const fixedError = issueFor(evaluation.issues, 'fixedShelfCount', 'error');
+  const fixedHint =
+    fixed === 0
+      ? 'One section'
+      : evaluation.valid && evaluation.spec.shelfCount > 0
+        ? `By section, bottom up: ${sectionText(evaluation, rules, fixed)}`
+        : `${fixed + 1} sections, evenly spaced`;
+  const nailerHint = !inset
+    ? 'Applied backs have no nailers'
+    : fixed === 0
+      ? 'Needs a fixed shelf to go under'
+      : cabinet.midNailer
+        ? 'A second nailer, under the lowest fixed shelf'
+        : 'Off: the back is screwed at the top only';
+  const splitError = issueFor(evaluation.issues, 'splitBack', 'error');
+  const splitWarning = sheetIssues.find((i) => i.field === 'splitBack')?.message;
+  const longWarning = sheetIssues.find((i) => i.field === 'height')?.message;
+  const splitHint = cabinet.splitBack ? 'Two pieces, at the lowest shelf' : 'One piece';
+
+  return (
+    <div className={styles.grid3} data-tall-options>
+      <div data-field="fixedShelfCount">
+        <Stepper
+          id={fieldId('fixedShelfCount')}
+          label="Fixed shelves"
+          info={<InfoTip term="fixedShelves" />}
+          symbol="nf"
+          value={cabinet.fixedShelfCount ?? 0}
+          min={0}
+          max={1000}
+          decrementLabel="One fewer fixed shelf"
+          incrementLabel="One more fixed shelf"
+          minReason="No fixed shelves"
+          traced={trace === 'fixed'}
+          onChange={(value) => runCommand({ type: 'setFixedShelves', cabinetId: cabinet.id, value })}
+          {...hoverKeyHandlers('fixed')}
+          {...focusHandlers('fixedShelfCount')}
+        />
+        <MessageLine id={fixedMsg} tone={fixedError ? 'warning' : 'hint'}>
+          {fixedError ?? fixedHint}
+        </MessageLine>
+      </div>
+      <div className={cx(fieldStyles.field, styles.switchField)} data-field="midNailer">
+        <span className={styles.switchHead}>
+          <Switch
+            id="ws-field-midNailer"
+            checked={cabinet.midNailer ?? false}
+            aria-describedby={nailerMsg}
+            onChange={(value) => runCommand({ type: 'setMidNailer', cabinetId: cabinet.id, value })}
+          >
+            Mid nailer
+          </Switch>
+          <InfoTip term="midNailer" />
+        </span>
+        <MessageLine id={nailerMsg} tone="hint">
+          {nailerHint}
+        </MessageLine>
+      </div>
+      <div className={cx(fieldStyles.field, styles.switchField)} data-field="splitBack">
+        <span className={styles.switchHead}>
+          <Switch
+            id={fieldId('splitBack')}
+            checked={cabinet.splitBack ?? false}
+            aria-describedby={splitMsg}
+            onChange={(value) => runCommand({ type: 'setSplitBack', cabinetId: cabinet.id, value })}
+          >
+            Split back
+          </Switch>
+          <InfoTip term="splitBack" />
+        </span>
+        <MessageLine id={splitMsg} tone={splitError || splitWarning ? 'warning' : 'hint'}>
+          {splitError ?? splitWarning ?? splitHint}
+        </MessageLine>
+      </div>
+      {longWarning && (
+        <p className={styles.tallWarning} role="status">
+          <SymbolMark symbol="warning" decorative /> <span className="visually-hidden">Warning:</span> {longWarning}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function EditorFor({ cabinet, rules }: { cabinet: CabinetRecord; rules: ConstructionRules }) {
   const evaluation = useEvaluation(cabinet, rules);
   const editing = useUi((ui) => ui.editing);
@@ -590,10 +713,7 @@ function EditorFor({ cabinet, rules }: { cabinet: CabinetRecord; rules: Construc
         <Segmented
           label="Cabinet type"
           value={cabinet.type}
-          options={[
-            { value: 'base', label: 'Base' },
-            { value: 'wall', label: 'Wall' },
-          ]}
+          options={CABINET_TYPE_ORDER.map((value) => ({ value, label: TYPE_LABEL[value] }))}
           onChange={(value) => runCommand({ type: 'setType', cabinetId: cabinet.id, value })}
         />
       </div>
@@ -650,7 +770,9 @@ function EditorFor({ cabinet, rules }: { cabinet: CabinetRecord; rules: Construc
         <LabelField cabinet={cabinet} warning={issueFor(evaluation.issues, 'label', 'warning')} />
       </div>
 
-      {cabinet.type === 'base' && usesRuns(rules.method) && <RunField cabinet={cabinet} />}
+      {cabinet.type === 'tall' && <TallOptions cabinet={cabinet} evaluation={evaluation} rules={rules} />}
+
+      {standsOnFloor(cabinet.type) && usesRuns(rules.method) && <RunField cabinet={cabinet} />}
 
       <EndsTiles cabinet={cabinet} />
       <Construction rules={rules} type={cabinet.type} />
@@ -673,7 +795,7 @@ export function Editor() {
           <ViewTitle id="ws-ed" mark="2" title="Cabinet editor" sub="NO CABINET" />
           <p className={styles.empty}>Add a cabinet to start entering sizes.</p>
           <div className={styles.emptyActions}>
-            {(['base', 'wall'] as const).map((type) => (
+            {CABINET_TYPE_ORDER.map((type) => (
               <Button
                 key={type}
                 icon={<PlusIcon />}

@@ -61,7 +61,7 @@ describe('validate: cabinet fields', () => {
   });
 
   it('rejects unknown cabinet types and finished-end values', () => {
-    expect(errors(check({ type: 'tall' as CabinetSpec['type'] }))).toContain('type');
+    expect(errors(check({ type: 'corner' as CabinetSpec['type'] }))).toContain('type');
     expect(errors(check({ finishedEnds: 'B' as CabinetSpec['finishedEnds'] }))).toContain('finishedEnds');
   });
 

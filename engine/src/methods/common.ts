@@ -15,6 +15,8 @@ export const FRAMELESS_SLOTS: Readonly<Record<PartRole, MaterialSlot>> = Object.
   nailer: 'box',
   front: 'box',
   shelf: 'shelves',
+  // Structural, so cut from the box stock, not the shelf stock.
+  'fixed-shelf': 'box',
   'kick-board': 'base',
   'base-rail-front': 'base',
   'base-rail-back': 'base',
@@ -27,7 +29,7 @@ export const FRAMELESS_SLOTS: Readonly<Record<PartRole, MaterialSlot>> = Object.
 
 /**
  * Parts whose front edge shows in a frameless cabinet, and so is edge banded:
- * the sides, the top or front stretcher, the bottom and the shelves.
+ * the sides, the top or front stretcher, the bottom, the shelves and fixed shelves.
  */
 export const FRAMELESS_BANDED: ReadonlySet<PartRole> = new Set([
   'side-left',
@@ -36,6 +38,7 @@ export const FRAMELESS_BANDED: ReadonlySet<PartRole> = new Set([
   'stretcher-front',
   'bottom',
   'shelf',
+  'fixed-shelf',
 ]);
 
 /**

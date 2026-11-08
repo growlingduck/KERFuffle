@@ -24,9 +24,11 @@ answer the [construction-method judgment calls](#construction-methods-judgment-c
 | **Length** | The measurement that runs **with the grain**. Up and down for the back, sides, front, and all laminate. Side to side for the top, bottom, and shelves. |
 | **Width** | The measurement across the grain. |
 | **Thickness** | Material thickness. Laminate never shows one; it is too thin to matter. |
-| **Box height** | For a **base** cabinet: overall height − toe kick − countertop. For a **wall** cabinet: the full height. |
+| **Box height** | For a **base** cabinet: overall height − toe kick − countertop. For a **tall** cabinet: overall height − toe kick. For a **wall** cabinet: the full height. |
+| **Tall cabinet** | A pantry, oven, utility or broom cabinet. It stands on the floor like a base cabinet but has no countertop, and fills the base and the wall rows of the wall. See [Tall cabinets](#tall-cabinets). |
+| **Fixed shelf** | A structural shelf in a tall cabinet, fastened like the bottom. Adjustable shelves sit on pins between the fixed ones. |
 | **Construction method** | How the job's cabinets are built: **A** frameless on a separate base, or **B** frameless with an integral toe kick. Chosen once per job. See [Construction methods](#construction-methods). |
-| **Run** | A straight row of base cabinets that stand on one shared base, e.g. "Sink wall". Separate from the room: a room can hold several runs. |
+| **Run** | A straight row of base (and tall) cabinets that stand on one shared base, e.g. "Sink wall". Separate from the room: a room can hold several runs. |
 | **Kick depth** | How far the toe-kick face sits back from the cabinet front. |
 
 Sizes are kept exact to 1/64" internally. Screens and printouts show the
@@ -198,10 +200,10 @@ The shop picks one of two bases per job. **A1 is the default.**
 A ladder base is a front rail and a back rail, **k** tall, with sleepers
 between them. It is built **per run**, not per cabinet:
 
-- The base cabinets that share a run name, in list order, stand on one
-  platform. Its length is their widths added up (a cabinet with quantity 3
+- The base and tall cabinets that share a run name, in list order, stand on
+  one platform. Its length is their widths added up (a cabinet with quantity 3
   counts three times). Wall cabinets never get a base, even if they have a run.
-- A base cabinet with **no run** gets its own platform, its own width long.
+- A base or tall cabinet with **no run** gets its own platform, its own width long.
 - A platform longer than the maximum (default **96"**) is cut into the fewest
   sections that fit. The joints aim for equal sections, but each one moves to
   the nearest **cabinet seam** that keeps every section within the maximum.
@@ -320,6 +322,128 @@ switching back restores them.
 
 ---
 
+## Tall cabinets
+
+A tall cabinet (pantry, oven, utility, broom closet) **stands on the floor**
+like a base cabinet but **has no countertop**. Two facts decide everything
+about a cabinet's type:
+
+| Type | Stands on the floor | Has a countertop | Box height |
+|---|---|---|---|
+| Base | yes | yes | H − k − c |
+| Tall | yes | no | **H − k** |
+| Wall | no | no | H |
+
+The overall height must be more than the toe kick.
+
+The box is built with the same formulas as every other cabinet (back, bottom,
+sides, front, shelves, laminate), using the tall box height. Differences:
+
+- **The top is always a full panel.** Two stretchers are for base cabinets
+  only, under a countertop.
+- **Under the box**, the tall cabinet is treated exactly like a base cabinet:
+  - **A1, ladder base:** it stands on its run's platform with the base
+    cabinets, and counts in the platform length. A tall cabinet with no run
+    gets its own platform. A run that mixes depths gets a base sized for the
+    shallowest, as before.
+  - **A2, legs:** legs and kick clips per tall box, as for base, and a
+    W × k × p kick board.
+  - **B, integral kick:** the sides run the **full overall height H**
+    (there is no countertop to stop under), notched k × kd at the front
+    bottom, with a W − 2p kick board between them. A finished end's laminate
+    runs to the floor too: H + 2" long × D + 2", notched the same way. The
+    front laminate covers the box only.
+
+### Fixed shelves
+
+A tall cabinet can have **fixed shelves**: structural panels fastened like the
+bottom, which keep the sides straight over the height and split the cabinet
+into sections.
+
+- **Length** = W − 2p (between the sides, like the bottom). No shelf clearance.
+- **Width** = from the cabinet front to the face of the back: **D − tb** with
+  an applied back or a rabbet back, **D − i − tb** with a dado back. No setback.
+  (With an applied back this is the same as the bottom.) The back sits in
+  grooves in the sides, top and bottom only; the fixed shelf has **no groove**
+  and stops at the back.
+- **Thickness** = p, the box panels (not the shelf thickness, and the
+  wide-shelf rule does not apply). Cut from the **Box** material.
+- **Where they go:** spaced evenly. The inside of the box is box height − 2p
+  tall; take away p for each fixed shelf and divide the rest equally among
+  the **sections** (n fixed shelves make n + 1 sections). Sections are rounded
+  down to 1/64"; the top section takes what is left over.
+- Every section must be **taller than two panel thicknesses**.
+- **How many to start with:** a new tall cabinet whose **box is taller than
+  72"** (the setting *fixed shelf above*) starts with 1 fixed shelf; otherwise
+  0. You can change the count on any tall cabinet, and changing the height
+  later never changes it.
+- **Adjustable shelves** keep the usual shelf size. They are shared evenly
+  among the sections; when they don't divide evenly, the extra ones go in the
+  lowest sections (5 shelves and 1 fixed shelf: 3 below, 2 above).
+
+### Mid nailer (inset backs)
+
+With an inset back and at least one fixed shelf, a tall cabinet gets a
+**second nailer**, under the lowest fixed shelf, so the back can be screwed at
+mid-height too. It is the same size as the top nailer: **W − 2p** × nailer
+width × p. It can be turned off per cabinet. Applied backs have no nailers.
+
+### Split back
+
+A tall back can be longer than the back material's sheet. A **split back** is
+cut as **two pieces that join at the middle of the lowest fixed shelf**, so
+each piece has half the shelf's thickness to fasten to. It needs at least one
+fixed shelf.
+
+Let **s** = the height of one section, and **J** = p + s + p/2 (the joint,
+measured up from the bottom of the box, rounded down to 1/64").
+
+| Back | Lower piece | Upper piece | Width |
+|---|---|---|---|
+| Applied | **J** | box height − J | W |
+| Inset (dado or rabbet) | J − p + g | box height − p + g − J | W − 2p + 2g |
+
+Each inset piece sits in its own groove at its outer end (the bottom or the
+top); the joint itself is a butt joint behind the shelf. Either way the two
+pieces add up to the one-piece back.
+
+KERFuffle warns when any part of a tall cabinet is longer than the sheet of the
+material it is cut from, and suggests a split back when the part is the back.
+
+### Worked example
+
+Tall 18 W × 84 H × 24 D, 4 adjustable shelves, 1 fixed shelf, left end
+finished, method A1, 3/4" applied back. Box height = 84 − 4 = **80"**.
+Inside = 80 − 1 1/2 = 78 1/2; less the fixed shelf, 77 3/4, so each section
+is **38 7/8"**.
+
+| Part | Length | Width | Thickness | Qty |
+|---|---|---|---|---|
+| Back | 80 | 18 | 3/4 | 1 |
+| Bottom | 16 1/2 | 23 1/4 | 3/4 | 1 |
+| Left side | 80 | 23 1/4 | 3/4 | 1 |
+| Right side | 80 | 23 1/4 | 3/4 | 1 |
+| Top | 16 1/2 | 23 1/4 | 3/4 | 1 |
+| Front (door/laminate size) | 80 | 18 | 3/4 | 1 |
+| Shelf | 16 1/4 | 23 1/8 | 3/4 | 4 (2 in each section) |
+| Fixed shelf | 16 1/2 | 23 1/4 | 3/4 | 1 |
+| Laminate, left side | 82 | 26 | none | 1 |
+| Laminate, front | 82 | 20 | none | 1 |
+
+Its own ladder base (no run): rails 18 × 4 × 3/4, sleepers 19 1/2 × 4 × 3/4
+((18 − 3/4) ÷ 24 = 0.7 → 1, + 1 = **2**), kick skin 18 × 4 × 1/4.
+
+*With a split back:* J = 3/4 + 38 7/8 + 3/8 = **40**, so the back is two
+pieces, 40 × 18 and 80 − 40 = 40 × 18.
+
+*With a 1/4" back in a 1/4" dado set in 3/4":* the back is 80 − 1 1/2 + 1/2 =
+**79** × 16 1/2 + 1/2 = **17**; sides, top and bottom are 24 deep; the fixed
+shelf stops at the back, 24 − 3/4 − 1/4 = **23** wide; shelves are 22 7/8 wide;
+two nailers 16 1/2 × 4. Split, the back is 40 − 3/4 + 1/4 = **39 1/2** and
+80 − 3/4 + 1/4 − 40 = **39 1/2**.
+
+---
+
 ## Settings and where each came from
 
 These are the shop settings. Each one has a default. Jobs will keep their own
@@ -350,6 +474,7 @@ copy, so changing a default later will not change old jobs.
 | Platform length, most (A1) | 96" | Plan §1.3 |
 | Kick skin thickness (A1) | 1/4" | KERFuffle's starting value; please confirm. |
 | Legs per box (A2) | 4, or 6 on boxes over 36" wide | Plan §1.3 |
+| Fixed shelf above (tall cabinets) | A new tall cabinet with a box taller than 72" starts with 1 fixed shelf | Prompt 20; please confirm. Only sets the starting count. |
 
 The toe-kick height above is also the kick height for every method: rail and
 sleeper height (A1), kick board height (A2, B) and notch height (B).
@@ -386,6 +511,10 @@ shop practice until you confirm it.
 | M8 | **B kick board:** between the sides (W − 2p), the same panel stock? | Yes. |
 | M9 | **Inset backs:** groove cut in all four members (sides, top and bottom), top and bottom full depth? Groove 1/4", dado inset 3/4", nailer 4"? | Yes, with those defaults. The nailer is the only one; walls get no second rail at the bottom. |
 | M10 | **Method B back:** stops at the bottom (box height), not at the floor? | Box height, the same as method A. |
+| T1 | **Fixed shelf spacing:** fixed shelves spaced evenly up the inside of a tall box? Or at a set height (e.g. counter height)? | Evenly spaced; the top section takes the 1/64" left over. |
+| T2 | **Fixed shelf depth:** stops at the face of the back, no groove, no setback? | Yes. Banded on its front edge like the bottom. |
+| T3 | **Split back joint:** the two pieces meet at the middle of the lowest fixed shelf? An inset back gets one groove allowance on each piece (at its outer end), not a groove in the shelf? | Yes to both; the pieces add up to the one-piece back. |
+| T4 | **Mid nailer:** one, under the lowest fixed shelf, only with an inset back? | Yes, on by default; can be turned off per cabinet. |
 
 ---
 
@@ -453,5 +582,8 @@ them automatically every time the program is built. Each one is marked:
 | A2, base on legs | Clip-on kick board; 4 legs, or 6 over 36" | unconfirmed |
 | B, base with a finished end | Sides to the floor with the kick notch; full-height notched end laminate; kick board | unconfirmed |
 | Inset back with stretchers | Dado back, full-depth members, nailer, stretchers instead of a top, shelf depth | unconfirmed |
+| Tall cabinets, A1 | Tall box height, fixed shelves (0, 1, 2), split back, inset back with a mid nailer; one ladder base under a run of base and tall cabinets | unconfirmed |
+| Tall cabinets, A2 | Legs and kick board under a tall box | unconfirmed |
+| Tall cabinets, B | Sides and end laminate the full height, notched; kick board | unconfirmed |
 
 The construction-method examples live in `engine/fixtures/methods/`.

@@ -1,10 +1,12 @@
 import {
   applyConstructionChoice,
   boxGeometry,
+  boxHeightFor,
   calculateParts,
   CONSTRUCTION_CHOICES,
   constructionChoiceOf,
   DEFAULT_RULES,
+  defaultFixedShelfCount,
   inches,
   jobParts,
   sleeperCount,
@@ -32,6 +34,7 @@ import type { SawLengthField, SawSettings } from '../../data/sawProfiles';
 import type { BackupSettings, RoundTo } from '../../data/types';
 import { displayInches } from '../../lib/dimensions';
 import type { GlossaryKey } from '../../lib/glossary';
+import { NEW_CABINET } from '../../workspace/cabinets';
 
 /**
  * The Settings screen's working copy: what's saved, what's on screen, and
@@ -49,10 +52,24 @@ export type RuleField =
   | 'shelfThickWidthThreshold'
   | 'shelfClearancePerSide'
   | 'shelfSetback'
-  | 'laminateOversizePerEdge';
+  | 'laminateOversizePerEdge'
+  | 'tallFixedShelfAbove';
 
 /** Detail drawings A–F (interaction-design §8), and G–K for the construction method. */
-export type DetailKey = 'panel' | 'toeKick' | 'countertop' | 'clearance' | 'setback' | 'laminate' | 'wide' | 'construction' | 'back' | 'top' | 'kick' | 'base';
+export type DetailKey =
+  | 'panel'
+  | 'toeKick'
+  | 'countertop'
+  | 'clearance'
+  | 'setback'
+  | 'laminate'
+  | 'wide'
+  | 'construction'
+  | 'back'
+  | 'top'
+  | 'kick'
+  | 'base'
+  | 'tall';
 
 export interface RuleRow {
   field: RuleField;
@@ -90,6 +107,18 @@ export const RULE_GROUPS: readonly RuleGroup[] = [
   {
     label: 'Laminate',
     rows: [{ field: 'laminateOversizePerEdge', label: 'Laminate oversize, each edge', help: 'Extra past every edge, trimmed after gluing.', detail: 'laminate', term: 'laminateOversize' }],
+  },
+  {
+    label: 'Tall cabinets',
+    rows: [
+      {
+        field: 'tallFixedShelfAbove',
+        label: 'Fixed shelf above, box height',
+        help: 'A new tall cabinet with a taller box starts with one fixed shelf. Changes no cabinet you already made.',
+        detail: 'tall',
+        term: 'fixedShelves',
+      },
+    ],
   },
 ];
 
@@ -232,7 +261,17 @@ export const METHOD_ROWS: readonly MethodRow[] = METHOD_GROUPS.flatMap((g) => g.
 export const CONSTRUCTION_ORDER: readonly ({ kind: 'rules'; group: RuleGroup } | { kind: 'method'; group: MethodGroup })[] = (() => {
   const rules = (label: string) => ({ kind: 'rules' as const, group: RULE_GROUPS.find((g) => g.label === label)! });
   const method = (label: MethodGroup['label']) => ({ kind: 'method' as const, group: METHOD_GROUPS.find((g) => g.label === label)! });
-  return [rules('Panels'), rules('Base cabinet height'), method('Back'), method('Top'), method('Toe kick'), method('Base'), rules('Shelves'), rules('Laminate')];
+  return [
+    rules('Panels'),
+    rules('Base cabinet height'),
+    method('Back'),
+    method('Top'),
+    method('Toe kick'),
+    method('Base'),
+    rules('Shelves'),
+    rules('Laminate'),
+    rules('Tall cabinets'),
+  ];
 })();
 const COUNT_KEYS: ReadonlySet<MethodRowKey> = new Set<MethodRowKey>(['legsPerBox', 'legsPerWideBox']);
 export const isCountKey = (key: MethodRowKey): key is MethodCountKey => COUNT_KEYS.has(key);
@@ -645,6 +684,13 @@ export function effectLine(key: DetailKey, rules: ConstructionRules, roundTo: Ro
       const face = p.front;
       const lam = p['laminate-front'];
       return face && lam ? `${show(face.width)} × ${show(face.length)} face → laminate ${show(lam.width)} × ${show(lam.length)}` : null;
+    }
+    case 'tall': {
+      // The new-cabinet height (84″) against the rule.
+      const height = NEW_CABINET.tall.height;
+      const box = boxHeightFor('tall', height, rules);
+      const fixed = defaultFixedShelfCount(height, rules);
+      return `New ${show(height)} tall → box ${show(box)} → ${fixed === 1 ? '1 fixed shelf' : 'no fixed shelf'}`;
     }
     default:
       return methodEffect(key, rules, p, show);

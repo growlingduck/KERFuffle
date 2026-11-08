@@ -33,6 +33,7 @@ describe('Settings draft', () => {
       'shelfClearancePerSide',
       'shelfSetback',
       'laminateOversizePerEdge',
+      'tallFixedShelfAbove',
     ]);
   });
 

@@ -85,7 +85,11 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
   // Like the Rust repo: shop defaults saved before construction methods gain the default method.
   const currentRules = (): ConstructionRules => {
     const stored = copy((settings.get(RULES_SETTING) as ConstructionRules | undefined) ?? BUILTIN_DEFAULT_RULES);
-    return 'method' in stored ? stored : { ...(stored as ConstructionRules), method: copy(BUILTIN_DEFAULT_RULES.method) };
+    const withMethod: ConstructionRules = 'method' in stored ? stored : { ...(stored as ConstructionRules), method: copy(BUILTIN_DEFAULT_RULES.method) };
+    // ...and those saved before tall cabinets gain the fixed-shelf rule.
+    return 'tallFixedShelfAbove' in withMethod
+      ? withMethod
+      : { ...(withMethod as ConstructionRules), tallFixedShelfAbove: BUILTIN_DEFAULT_RULES.tallFixedShelfAbove };
   };
   const blankToNull = (text: string | null | undefined) => (text == null || text.trim() === '' ? null : text);
   const touch = (record: JobRecord): Saved => {
@@ -98,7 +102,7 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
   function checkCabinet(c: CabinetRecord) {
     if (c.id.trim() === '') throw invalid('A cabinet is missing its id.');
     const name = c.label.trim() === '' ? 'A cabinet' : c.label;
-    if (!['base', 'wall'].includes(c.type)) throw invalid(`${name} has an unknown type.`);
+    if (!['base', 'wall', 'tall'].includes(c.type)) throw invalid(`${name} has an unknown type.`);
     if (!['none', 'left', 'right', 'both'].includes(c.finishedEnds)) throw invalid(`${name} has unknown finished ends.`);
     for (const key of ['width', 'height', 'depth'] as const) {
       if (!Number.isInteger(c[key]) || c[key] < 0) throw invalid(`${name} has a negative ${key}.`);
@@ -109,6 +113,10 @@ export function createMemoryClient(options: { now?: () => string } = {}): Memory
     }
     if (!Number.isInteger(c.quantity) || c.quantity < 0 || c.quantity > MAX_QUANTITY) {
       throw invalid(`${name} has a quantity of ${c.quantity}; it must be between 0 and ${MAX_QUANTITY}.`);
+    }
+    const fixed = c.fixedShelfCount ?? 0;
+    if (!Number.isInteger(fixed) || fixed < 0 || fixed > MAX_SHELVES) {
+      throw invalid(`${name} has ${fixed} fixed shelves; the number must be between 0 and ${MAX_SHELVES}.`);
     }
   }
 

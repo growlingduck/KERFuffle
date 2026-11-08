@@ -1,7 +1,8 @@
+import { CABINET_TYPE_FACTS, boxHeightFor, fixedShelvesOf, splitBackJoint } from '../cabinetTypes';
 import { cabinetPart, type PartSize } from '../parts';
 import { backThicknessOf, shelfThicknessFor } from '../rules';
 import type { CabinetSpec, ConstructionRules, Part, PartFeature, PartRole } from '../types';
-import { addTicks, subtractTicks, type Ticks } from '../units';
+import { addTicks, subtractTicks, ticks, type Ticks } from '../units';
 
 /**
  * The shared box calculator. Every method builds the same frameless box; they
@@ -11,12 +12,15 @@ import { addTicks, subtractTicks, type Ticks } from '../units';
  */
 
 export interface BoxGeometry {
-  isBase: boolean;
+  /** Base and tall cabinets: toe kick under the box, and a base (A1, A2) or notched sides (B). */
+  standsOnFloor: boolean;
+  /** Base cabinets only: the box stops under the countertop, and may have stretchers. */
+  hasCountertop: boolean;
   /** Panel thickness. */
   p: Ticks;
   /** Back thickness. */
   tb: Ticks;
-  /** Base: overall − toe kick − countertop. Wall: the full height. */
+  /** Base: overall − toe kick − countertop. Tall: overall − toe kick. Wall: the full height. */
   boxHeight: Ticks;
   /** Box height, or the legacy wall-back height. */
   backHeight: Ticks;
@@ -37,19 +41,21 @@ export function boxGeometry(spec: CabinetSpec, rules: ConstructionRules): BoxGeo
   const m = rules.method;
   const p = rules.panelThickness;
   const tb = backThicknessOf(rules);
-  const isBase = spec.type === 'base';
+  const { standsOnFloor, hasCountertop } = CABINET_TYPE_FACTS[spec.type];
+  const isWall = spec.type === 'wall';
   const baseAllowances = addTicks(rules.toeKickHeight, rules.countertopThickness);
 
-  // Box height: base cabinets lose toe kick and countertop; wall cabinets use
-  // the full height (confirmed by the shop). The legacy flags exist only so the
-  // LEGACY_* presets can reproduce the old wall-cabinet bugs.
-  const boxHeight = isBase ? subtractTicks(spec.height, baseAllowances) : spec.height;
+  // Box height: cabinets on the floor lose the toe kick, base cabinets the
+  // countertop too; wall cabinets use the full height (confirmed by the shop).
+  // The legacy flags exist only so the LEGACY_* presets can reproduce the old
+  // wall-cabinet bugs.
+  const boxHeight = boxHeightFor(spec.type, spec.height, rules);
   const backHeight =
-    !isBase && rules.legacyWallBackDeductsBaseAllowances
+    isWall && rules.legacyWallBackDeductsBaseAllowances
       ? subtractTicks(spec.height, baseAllowances)
       : boxHeight;
   const laminateBaseHeight =
-    !isBase && rules.legacyWallLaminateDeductsBaseAllowances
+    isWall && rules.legacyWallLaminateDeductsBaseAllowances
       ? subtractTicks(spec.height, baseAllowances)
       : boxHeight;
 
@@ -59,7 +65,7 @@ export function boxGeometry(spec: CabinetSpec, rules: ConstructionRules): BoxGeo
     // Applied: full width, behind the sides; the box members stop at it.
     const memberDepth = subtractTicks(spec.depth, tb);
     return {
-      isBase, p, tb, boxHeight, backHeight, laminateBaseHeight, innerWidth,
+      standsOnFloor, hasCountertop, p, tb, boxHeight, backHeight, laminateBaseHeight, innerWidth,
       memberDepth,
       interiorDepth: memberDepth,
       inset,
@@ -73,7 +79,7 @@ export function boxGeometry(spec: CabinetSpec, rules: ConstructionRules): BoxGeo
   const g = m.backGrooveDepth;
   const fromRear = m.backType === 'dado' ? addTicks(m.backDadoInset, tb) : tb;
   return {
-    isBase, p, tb, boxHeight, backHeight, laminateBaseHeight, innerWidth,
+    standsOnFloor, hasCountertop, p, tb, boxHeight, backHeight, laminateBaseHeight, innerWidth,
     memberDepth: spec.depth,
     interiorDepth: subtractTicks(spec.depth, fromRear),
     inset,
@@ -130,22 +136,40 @@ export function boxParts(spec: CabinetSpec, rules: ConstructionRules, options: B
     ...(withFeatures && features ? { features } : {}),
   });
 
-  add('back', panel(g.backLength, g.backWidth, g.tb), 1);
+  // Fixed shelves are tall-cabinet only; the fields are ignored on other types.
+  const fixedShelves = fixedShelvesOf(spec);
+  if (fixedShelves > 0 && spec.splitBack === true) {
+    // Two pieces meeting at the middle of the lowest fixed shelf. An inset
+    // back keeps one groove allowance on each piece, at its outer end.
+    const joint = splitBackJoint(g.boxHeight, p, fixedShelves);
+    const grooveStart = g.inset ? subtractTicks(p, m.backGrooveDepth) : ticks(0);
+    const lower = subtractTicks(joint, grooveStart);
+    const upper = subtractTicks(g.backLength, lower);
+    parts.push({ ...cabinetPart(spec, 'back', panel(lower, g.backWidth, g.tb), 1), name: 'Back, lower' });
+    parts.push({ ...cabinetPart(spec, 'back', panel(upper, g.backWidth, g.tb), 1), name: 'Back, upper' });
+  } else {
+    add('back', panel(g.backLength, g.backWidth, g.tb), 1);
+  }
   add('bottom', panel(g.innerWidth, g.memberDepth, p), 1);
   add('side-left', { ...panel(sideLength, g.memberDepth, p), ...(features ? { features } : {}) }, 1);
   add('side-right', { ...panel(sideLength, g.memberDepth, p), ...(features ? { features } : {}) }, 1);
-  if (g.isBase && m.baseTop === 'stretchers') {
+  // Stretchers are for a box under a countertop; tall and wall boxes always get a full top.
+  if (g.hasCountertop && m.baseTop === 'stretchers') {
     add('stretcher-front', panel(g.innerWidth, m.stretcherWidth, p), 1);
     add('stretcher-back', panel(g.innerWidth, m.stretcherWidth, p), 1);
   } else {
     add('top', panel(g.innerWidth, g.memberDepth, p), 1);
   }
-  // A thin back can't take screws, so an inset back gets a nailer under the top.
-  if (g.inset) add('nailer', panel(g.innerWidth, m.nailerWidth, p), 1);
+  // A thin back can't take screws, so an inset back gets a nailer under the
+  // top, and a tall one with fixed shelves a second under the lowest of them.
+  const midNailer = fixedShelves > 0 && spec.midNailer === true;
+  if (g.inset) add('nailer', panel(g.innerWidth, m.nailerWidth, p), midNailer ? 2 : 1);
   // Front is a reference size for cutting doors or front laminate, not a
   // carcass part. The cut-list layer decides whether to show it.
   add('front', { ...panel(g.boxHeight, spec.width, p), optional: true }, 1);
   add('shelf', panel(shelfLength, shelfWidth, shelfThicknessFor(spec.width, rules)), spec.shelfCount);
+  // Structural, so box stock and thickness, between the sides, stopping at the back.
+  add('fixed-shelf', panel(g.innerWidth, g.interiorDepth, p), fixedShelves);
 
   if (leftFinished) add('laminate-side-left', laminate(endLaminateLength, laminateSideWidth, true), 1);
   if (rightFinished) add('laminate-side-right', laminate(endLaminateLength, laminateSideWidth, true), 1);

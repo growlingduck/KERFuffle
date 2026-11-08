@@ -1,3 +1,4 @@
+import { CABINET_TYPES, fixedShelvesOf, hasCountertop, shelfSections, standsOnFloor } from './cabinetTypes';
 import { boxGeometry } from './methods/box';
 import type { CabinetSpec, ConstructionRules, MethodField, MethodSettings, ValidationField, ValidationIssue } from './types';
 import { backThicknessOf, shelfThicknessFor } from './rules';
@@ -10,7 +11,6 @@ export const PLAUSIBLE_LIMITS = Object.freeze({
   depth: inches(30),
 });
 
-const CABINET_TYPES: readonly string[] = ['base', 'wall'];
 const FINISHED_ENDS: readonly string[] = ['none', 'left', 'right', 'both'];
 const SHELF_COMPARISONS: readonly string[] = ['gt', 'gte'];
 
@@ -34,6 +34,7 @@ export function validate(spec: CabinetSpec, rules: ConstructionRules): Validatio
     ['shelfThickness', 'Shelf thickness'],
     ['wideShelfThickness', 'Wide shelf thickness'],
     ['shelfThickWidthThreshold', 'Wide-shelf width threshold'],
+    ['tallFixedShelfAbove', 'Fixed shelf above'],
   ] as const;
   for (const [field, label] of positiveRuleLengths) {
     if (!isTicks(rules[field])) error(field, `${label} must be a whole number of 1/64ths.`);
@@ -66,8 +67,8 @@ export function validate(spec: CabinetSpec, rules: ConstructionRules): Validatio
   if (spec.id.trim() === '') {
     warning('id', 'Cabinet ID is blank, so its parts will not be labeled with a cabinet.');
   }
-  if (!CABINET_TYPES.includes(spec.type)) {
-    error('type', 'Cabinet type must be base or wall.');
+  if (!(CABINET_TYPES as readonly string[]).includes(spec.type)) {
+    error('type', 'Cabinet type must be base, tall or wall.');
   }
   if (!FINISHED_ENDS.includes(spec.finishedEnds)) {
     error('finishedEnds', 'Finished ends must be none, left, right, or both.');
@@ -91,6 +92,19 @@ export function validate(spec: CabinetSpec, rules: ConstructionRules): Validatio
   }
   if (spec.run !== undefined && spec.run !== null && typeof spec.run !== 'string') {
     error('run', 'Run must be a name, or left blank.');
+  }
+  // The tall-only fields are ignored, and so not checked, on other types.
+  if (spec.type === 'tall') {
+    const fixed = spec.fixedShelfCount ?? 0;
+    if (!Number.isInteger(fixed) || fixed < 0) {
+      error('fixedShelfCount', 'Number of fixed shelves must be a whole number, zero or more.');
+    }
+    for (const field of ['midNailer', 'splitBack'] as const) {
+      if (spec[field] !== undefined && typeof spec[field] !== 'boolean') error(field, 'This must be on or off.');
+    }
+    if (spec.splitBack === true && fixed === 0) {
+      error('splitBack', 'A split back joins at a fixed shelf. Add a fixed shelf, or turn off the split back.');
+    }
   }
 
   // Cross-field checks only make sense once the individual values are sound.
@@ -138,14 +152,15 @@ export function validate(spec: CabinetSpec, rules: ConstructionRules): Validatio
 
   const allowances = addTicks(rules.toeKickHeight, rules.countertopThickness);
   const deductsAllowances =
-    spec.type === 'base' ||
-    rules.legacyWallBackDeductsBaseAllowances ||
-    rules.legacyWallLaminateDeductsBaseAllowances;
+    hasCountertop(spec.type) ||
+    (spec.type === 'wall' && (rules.legacyWallBackDeductsBaseAllowances || rules.legacyWallLaminateDeductsBaseAllowances));
   if (deductsAllowances && spec.height <= allowances) {
     error(
       'height',
       `Height must be more than toe kick plus countertop (${show(allowances)}).`,
     );
+  } else if (standsOnFloor(spec.type) && spec.height <= rules.toeKickHeight) {
+    error('height', `Height must be more than the toe kick (${show(rules.toeKickHeight)}).`);
   }
 
   if (!hasError()) validateMethodFit(spec, rules, error);
@@ -223,8 +238,7 @@ function validateMethodFit(spec: CabinetSpec, rules: ConstructionRules, error: R
   const m = rules.method;
   const p = rules.panelThickness;
   const show = (value: Ticks) => formatDimension(value, { denominator: 64 }).text;
-  const isBase = spec.type === 'base';
-  const { boxHeight, memberDepth, inset } = boxGeometry(spec, rules);
+  const { boxHeight, memberDepth, inset, standsOnFloor: onFloor, hasCountertop: underCountertop } = boxGeometry(spec, rules);
 
   if (inset) {
     if (m.backGrooveDepth >= p) {
@@ -235,11 +249,24 @@ function validateMethodFit(spec: CabinetSpec, rules: ConstructionRules, error: R
       error('method.nailerWidth', `Nailer width must be less than the inside height of the box (${show(subtractTicks(boxHeight, p, p))}).`);
     }
   }
-  if (isBase && m.baseTop === 'stretchers' && addTicks(m.stretcherWidth, m.stretcherWidth) > memberDepth) {
+  if (underCountertop && m.baseTop === 'stretchers' && addTicks(m.stretcherWidth, m.stretcherWidth) > memberDepth) {
     error('method.stretcherWidth', `Two stretchers are wider than the box is deep (${show(memberDepth)}). Use narrower stretchers.`);
   }
-  if (isBase && m.id === 'B' && m.kickDepth >= memberDepth) {
+  if (onFloor && m.id === 'B' && m.kickDepth >= memberDepth) {
     error('method.kickDepth', `Kick depth must be less than the depth of the sides (${show(memberDepth)}).`);
+  }
+
+  // Fixed shelves are spaced evenly; each section must still hold more than two panels.
+  const fixed = fixedShelvesOf(spec);
+  if (fixed > 0) {
+    const least = addTicks(p, p);
+    const sections = shelfSections(boxHeight, p, fixed, 0);
+    if (sections.some((section) => section.height <= least)) {
+      error(
+        'fixedShelfCount',
+        `Too many fixed shelves for this height: each section must be taller than two panel thicknesses (${show(least)}).`,
+      );
+    }
   }
 }
 

@@ -104,7 +104,8 @@ const BACK_WORDS = { applied: 'Applied', dado: 'Inset in a dado', rabbet: 'Inset
 
 /**
  * The method's settings in words, for the rules panels: only the ones this
- * construction uses, and on wall cabinets only the ones walls use. Each with
+ * construction uses, on wall cabinets only the ones walls use, and on tall
+ * cabinets no base top (they always get a full top). Each with
  * the glossary entry that explains it.
  */
 export function methodRows(rules: ConstructionRules, type: CabinetType | 'any' = 'any'): [string, string, GlossaryKey][] {
@@ -114,7 +115,7 @@ export function methodRows(rules: ConstructionRules, type: CabinetType | 'any' =
   const rows: [string, string, GlossaryKey][] = [[`Back`, `${BACK_WORDS[m.backType]}, ${show(backThicknessOf(rules))}`, 'back']];
   if (m.backType !== 'applied') rows.push(['Nailer', show(m.nailerWidth), 'nailer']);
   if (!base) return rows;
-  rows.push(['Base top', m.baseTop === 'full' ? 'Full panel' : `Two ${show(m.stretcherWidth)} stretchers`, 'baseTop']);
+  if (type !== 'tall') rows.push(['Base top', m.baseTop === 'full' ? 'Full panel' : `Two ${show(m.stretcherWidth)} stretchers`, 'baseTop']);
   rows.push(['Kick depth', show(m.kickDepth), 'kickDepth']);
   if (m.id === 'A' && !m.listBase) rows.push(['Base', 'Not on the cut list (job made before construction methods)', 'constructionMethod']);
   else if (m.id === 'A' && m.baseType === 'ladder') {

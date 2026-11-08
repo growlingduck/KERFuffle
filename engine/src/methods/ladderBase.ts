@@ -1,3 +1,4 @@
+import { standsOnFloor } from '../cabinetTypes';
 import { PART_NAMES } from '../parts';
 import type { ConstructionRules, Part, PartRole } from '../types';
 import { formatDimension, subtractTicks, ticks, type Ticks } from '../units';
@@ -33,14 +34,14 @@ interface Platform {
 }
 
 /**
- * Base cabinets grouped into platforms, in list order: one per named run, and
- * one for each base cabinet without a run.
+ * Base and tall cabinets grouped into platforms, in list order: one per named
+ * run, and one for each such cabinet without a run.
  */
 function platforms(cabinets: readonly ListedCabinet[]): Platform[] {
   const out: Platform[] = [];
   const byRun = new Map<string, Platform>();
   for (const { index, cabinet } of cabinets) {
-    if (cabinet.type !== 'base') continue;
+    if (!standsOnFloor(cabinet.type)) continue;
     const run = runOf(cabinet);
     if (run === null) {
       out.push({ run, ref: cabinet.id, cabinetIndex: index, widths: [cabinet.width], depths: [cabinet.depth], count: cabinet.quantity });

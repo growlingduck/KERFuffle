@@ -1,6 +1,7 @@
+import { hasCountertop } from '../cabinetTypes';
 import { cabinetPart } from '../parts';
 import type { CabinetSpec, ConstructionRules, Part, PartFeature, PartRole } from '../types';
-import { subtractTicks } from '../units';
+import { subtractTicks, ticks } from '../units';
 import { boxParts } from './box';
 import { BOX_SETTINGS, FRAMELESS_SLOTS, defaultsFor, framelessBanding } from './common';
 import type { ConstructionMethod } from './types';
@@ -10,7 +11,8 @@ import type { ConstructionMethod } from './types';
  * floor (overall height − countertop) with a notch at the front bottom, kick
  * height × kick depth. The bottom sits above the kick, and a kick board fits
  * between the sides. A finished end's laminate is full height, notched the
- * same way. Wall cabinets are the same as method A.
+ * same way. Tall cabinets are the same, with sides the full overall height.
+ * Wall cabinets are the same as method A.
  */
 
 const SETTINGS = BOX_SETTINGS;
@@ -29,10 +31,10 @@ export function kickNotch(rules: ConstructionRules): PartFeature | null {
   return { kind: 'notch', corner: 'start-front', length: rules.toeKickHeight, width: rules.method.kickDepth };
 }
 
-function baseCabinet(spec: CabinetSpec, rules: ConstructionRules): Part[] {
+function floorCabinet(spec: CabinetSpec, rules: ConstructionRules): Part[] {
   const notch = kickNotch(rules);
   const parts = boxParts(spec, rules, {
-    sideLength: subtractTicks(spec.height, rules.countertopThickness),
+    sideLength: subtractTicks(spec.height, hasCountertop(spec.type) ? rules.countertopThickness : ticks(0)),
     ...(notch ? { sideFeatures: [notch] } : {}),
   });
   if (rules.toeKickHeight > 0) {
@@ -50,7 +52,12 @@ export const INTEGRAL_KICK: ConstructionMethod = Object.freeze({
   summary: 'Base cabinet sides run to the floor, notched for the toe kick.',
   settings: SETTINGS,
   defaults: defaultsFor(SETTINGS),
-  parts: Object.freeze({ base: baseCabinet, wall: (spec: CabinetSpec, rules: ConstructionRules) => boxParts(spec, rules) }),
+  // Tall sides run the full overall height: there is no countertop to stop under.
+  parts: Object.freeze({
+    base: floorCabinet,
+    tall: floorCabinet,
+    wall: (spec: CabinetSpec, rules: ConstructionRules) => boxParts(spec, rules),
+  }),
   visible: VISIBLE,
   slots: FRAMELESS_SLOTS,
   banding: framelessBanding,

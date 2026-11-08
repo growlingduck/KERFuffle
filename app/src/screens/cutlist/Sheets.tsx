@@ -16,6 +16,7 @@ import type { GlossaryKey } from '../../lib/glossary';
 import { cx } from '../../lib/interaction';
 import { useReducedMotion } from '../../motion';
 import styles from './CutList.module.css';
+import { TYPE_LABEL } from '../../workspace/cabinets';
 
 export interface SheetJob {
   name: string;
@@ -99,7 +100,7 @@ function sheetGroups(data: SheetData): SheetGroup[] {
     return {
       id: `cabinet:${s.index}`,
       kind: 'cabinet',
-      title: `${c.id} · ${c.type === 'base' ? 'Base' : 'Wall'}`,
+      title: `${c.id} · ${TYPE_LABEL[c.type]}`,
       sub: c.quantity > 1 ? `${size} · build ${c.quantity}` : size,
       thumb: { width: c.width, height: c.height },
       pieces: s.pieces,
@@ -179,7 +180,7 @@ function CabinetIndex({ data, ui, sheetOf }: { data: SheetData; ui: SheetInterac
       {data.chips.map((chip) => {
         const sheet = chip.blocked ? undefined : sheetOf.get(cabinetGroupId(chip));
         const size = `${displayInches(chip.width)}${chip.quantity > 1 ? ` ×${chip.quantity}` : ''}`;
-        const kind = chip.type === 'base' ? 'Base' : 'Wall';
+        const kind = TYPE_LABEL[chip.type];
         const dims = `${displayInches(chip.width)} × ${displayInches(chip.height)} × ${displayInches(chip.depth)}`;
         const content = (
           <>
@@ -237,7 +238,7 @@ function CabinetTrace({ data, ui }: { data: SheetData; ui: SheetInteraction | nu
         const pinned = ui?.pinnedCabinet === chip.label;
         const hot = !pinned && (ui?.activeCabinet === chip.label || hotRefs.has(chip.label));
         const size = `${displayInches(chip.width)}${chip.quantity > 1 ? ` ×${chip.quantity}` : ''}`;
-        const kind = chip.type === 'base' ? 'Base' : 'Wall';
+        const kind = TYPE_LABEL[chip.type];
         const dims = `${displayInches(chip.width)} × ${displayInches(chip.height)} × ${displayInches(chip.depth)}`;
         const tip = chip.blocked
           ? `${kind} ${dims} · needs a fix, not listed`

@@ -127,6 +127,9 @@ fn add_sample(conn: &Connection, sample: SampleJob, shop: &serde_json::Value, no
             quantity: c.quantity,
             room: None,
             run: if runs { c.run } else { None },
+            fixed_shelf_count: 0,
+            mid_nailer: false,
+            split_back: false,
         };
         write_cabinet(conn, &id, position as i64, &cabinet)?;
     }

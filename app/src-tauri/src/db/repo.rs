@@ -30,7 +30,8 @@ pub const DEFAULTS_CHECKED_SETTING: &str = "defaults_checked";
 const JOB_COLUMNS: &str = "id, number, name, customer, notes, status, rules_json, rules_version, \
                            created_at, updated_at, revision, materials_json, saw_profile_json";
 const CABINET_COLUMNS: &str =
-    "id, label, type, width, height, depth, shelf_count, finished_ends, quantity, room, run";
+    "id, label, type, width, height, depth, shelf_count, finished_ends, quantity, room, run, \
+     fixed_shelf_count, mid_nailer, split_back";
 
 // ---------------------------------------------------------------------------
 // Reading
@@ -82,6 +83,9 @@ struct CabinetRow {
     quantity: i64,
     room: Option<String>,
     run: Option<String>,
+    fixed_shelf_count: i64,
+    mid_nailer: bool,
+    split_back: bool,
 }
 
 fn read_cabinet_row(row: &Row<'_>) -> rusqlite::Result<CabinetRow> {
@@ -97,6 +101,9 @@ fn read_cabinet_row(row: &Row<'_>) -> rusqlite::Result<CabinetRow> {
         quantity: row.get(8)?,
         room: row.get(9)?,
         run: row.get(10)?,
+        fixed_shelf_count: row.get(11)?,
+        mid_nailer: row.get(12)?,
+        split_back: row.get(13)?,
     })
 }
 
@@ -114,6 +121,9 @@ impl CabinetRow {
             quantity: self.quantity,
             room: self.room,
             run: self.run,
+            fixed_shelf_count: self.fixed_shelf_count,
+            mid_nailer: self.mid_nailer,
+            split_back: self.split_back,
         })
     }
 }
@@ -386,13 +396,16 @@ pub(crate) fn write_cabinet(
     }
     conn.execute(
         "INSERT INTO cabinets (id, job_id, position, label, type, width, height, depth,
-                               shelf_count, finished_ends, quantity, room, run)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+                               shelf_count, finished_ends, quantity, room, run,
+                               fixed_shelf_count, mid_nailer, split_back)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
          ON CONFLICT (id) DO UPDATE SET
            position = excluded.position, label = excluded.label, type = excluded.type,
            width = excluded.width, height = excluded.height, depth = excluded.depth,
            shelf_count = excluded.shelf_count, finished_ends = excluded.finished_ends,
-           quantity = excluded.quantity, room = excluded.room, run = excluded.run",
+           quantity = excluded.quantity, room = excluded.room, run = excluded.run,
+           fixed_shelf_count = excluded.fixed_shelf_count, mid_nailer = excluded.mid_nailer,
+           split_back = excluded.split_back",
         params![
             cabinet.id,
             job_id,
@@ -407,6 +420,9 @@ pub(crate) fn write_cabinet(
             cabinet.quantity,
             optional_text(&cabinet.room),
             optional_text(&cabinet.run),
+            cabinet.fixed_shelf_count,
+            cabinet.mid_nailer,
+            cabinet.split_back,
         ],
     )?;
     Ok(())
@@ -438,12 +454,19 @@ pub fn current_rules(conn: &Connection) -> DbResult<serde_json::Value> {
 
 /// Shop defaults saved before construction methods (rules version 1) have no
 /// `method` block. They gain the built-in one, so new jobs made from them get
-/// the default method with the base listed. Jobs keep their own snapshots.
+/// the default method with the base listed. Shop defaults saved before tall
+/// cabinets (version 2) gain the built-in `tallFixedShelfAbove`. Jobs keep
+/// their own snapshots.
 pub fn upgrade_shop_rules(mut rules: serde_json::Value) -> DbResult<serde_json::Value> {
     if let Some(object) = rules.as_object_mut() {
-        if !object.contains_key("method") {
+        let missing = |key: &str| !object.contains_key(key);
+        if missing("method") || missing("tallFixedShelfAbove") {
             let defaults: serde_json::Value = serde_json::from_str(DEFAULT_RULES_JSON)?;
-            object.insert("method".into(), defaults["method"].clone());
+            for key in ["method", "tallFixedShelfAbove"] {
+                if !object.contains_key(key) {
+                    object.insert(key.into(), defaults[key].clone());
+                }
+            }
         }
     }
     Ok(rules)

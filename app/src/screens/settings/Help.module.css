@@ -4,6 +4,12 @@
   margin: 18px 0 8px;
   font: 600 14px var(--font-sans);
 }
+.paragraph {
+  max-width: 72ch;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
 
 /* ---- Your first job: numbered steps ---- */
 .steps {

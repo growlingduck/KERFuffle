@@ -9,15 +9,20 @@ export interface SwitchProps {
   children: ReactNode;
   disabled?: boolean;
   className?: string | undefined;
+  id?: string;
+  /** A message line under the switch. */
+  'aria-describedby'?: string;
   'data-force'?: string;
 }
 
 /** role="switch". The knob slides 16 px and the track fills blue when on. */
-export function Switch({ checked, onChange, children, disabled = false, className, 'data-force': force }: SwitchProps) {
+export function Switch({ checked, onChange, children, disabled = false, className, id, 'aria-describedby': describedBy, 'data-force': force }: SwitchProps) {
   return (
     <button
+      id={id}
       type="button"
       role="switch"
+      aria-describedby={describedBy}
       aria-checked={checked}
       aria-disabled={disabled || undefined}
       className={cx(styles.switch, className)}

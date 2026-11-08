@@ -1,3 +1,4 @@
+import { standsOnFloor } from '../cabinetTypes';
 import { cabinetPart } from '../parts';
 import type { CabinetSpec, ConstructionRules, Part, PartRole } from '../types';
 import { boxParts } from './box';
@@ -35,7 +36,7 @@ const VISIBLE: ReadonlySet<PartRole> = new Set([
 
 const listsBase = (rules: ConstructionRules) => rules.method.listBase && rules.toeKickHeight > 0;
 
-function baseCabinet(spec: CabinetSpec, rules: ConstructionRules): Part[] {
+function floorCabinet(spec: CabinetSpec, rules: ConstructionRules): Part[] {
   const parts = boxParts(spec, rules);
   if (rules.method.baseType === 'legs' && listsBase(rules)) {
     // The clip-on kick board covers the cabinet's full width.
@@ -46,10 +47,10 @@ function baseCabinet(spec: CabinetSpec, rules: ConstructionRules): Part[] {
   return parts;
 }
 
-/** A2: legs per box (more on wide boxes), and a kick clip for each front leg. */
+/** A2: legs per base or tall box (more on wide boxes), and a kick clip for each front leg. */
 function legHardware(spec: CabinetSpec, rules: ConstructionRules): HardwareItem[] {
   const m = rules.method;
-  if (spec.type !== 'base' || m.baseType !== 'legs' || !m.listBase) return [];
+  if (!standsOnFloor(spec.type) || m.baseType !== 'legs' || !m.listBase) return [];
   const legs = spec.width > m.legWidthThreshold ? m.legsPerWideBox : m.legsPerBox;
   return [
     { item: 'leveling-leg', name: 'Leveling leg', cabinetId: spec.id, quantity: legs * spec.quantity },
@@ -63,7 +64,12 @@ export const FRAMELESS_ON_BASE: ConstructionMethod = Object.freeze({
   summary: 'Plain boxes standing on a ladder base or leveling legs.',
   settings: SETTINGS,
   defaults: defaultsFor(SETTINGS),
-  parts: Object.freeze({ base: baseCabinet, wall: (spec: CabinetSpec, rules: ConstructionRules) => boxParts(spec, rules) }),
+  // A tall cabinet stands on the base exactly as a base cabinet does.
+  parts: Object.freeze({
+    base: floorCabinet,
+    tall: floorCabinet,
+    wall: (spec: CabinetSpec, rules: ConstructionRules) => boxParts(spec, rules),
+  }),
   jobParts: (cabinets, rules) =>
     rules.method.baseType === 'ladder' && listsBase(rules) ? ladderBaseParts(cabinets, rules) : { parts: [], issues: [] },
   visible: VISIBLE,

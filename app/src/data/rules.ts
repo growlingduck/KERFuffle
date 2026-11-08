@@ -3,7 +3,7 @@ import type { ConstructionChoice, ConstructionRules, MethodSettings } from '@ker
 import { StorageError } from './errors';
 
 /** Version of the ConstructionRules JSON stored with each job (`RULES_VERSION` in Rust). */
-export const RULES_VERSION = 2;
+export const RULES_VERSION = 3;
 
 type RuleKey = Exclude<keyof ConstructionRules, 'method'>;
 type MethodKey = keyof MethodSettings;
@@ -20,6 +20,8 @@ const ENUM_FIELDS: Readonly<Record<string, readonly string[]>> = {
 const NULLABLE_FIELDS: readonly string[] = ['backThickness'];
 
 const RULE_KEYS = (Object.keys(DEFAULT_RULES) as (keyof ConstructionRules)[]).filter((k): k is RuleKey => k !== 'method');
+/** Rules added in version 3; older snapshots don't have them. */
+const ADDED_IN_3: readonly RuleKey[] = ['tallFixedShelfAbove'];
 const METHOD_KEYS = Object.keys(DEFAULT_METHOD) as MethodKey[];
 
 /**
@@ -30,6 +32,9 @@ const METHOD_KEYS = Object.keys(DEFAULT_METHOD) as MethodKey[];
  * - Version 1 had no construction method. It is upgraded to method A1 with the
  *   base left off (`listBase: false`), which gives exactly the parts it always did.
  * - Version 2 adds the `method` block.
+ * - Version 3 adds `tallFixedShelfAbove`, the tall-cabinet rule. It only sets
+ *   how many fixed shelves a new tall cabinet starts with, and older jobs have
+ *   no tall cabinets, so they get the shop default (72″): no part changes.
  */
 export function parseRules(raw: unknown, version: number): ConstructionRules {
   if (version > RULES_VERSION) {
@@ -42,7 +47,11 @@ export function parseRules(raw: unknown, version: number): ConstructionRules {
     throw corrupt(`rules version ${version}`);
   }
   const source = raw as Record<string, unknown>;
-  const rules = readFields(source, RULE_KEYS, 'rule') as Omit<ConstructionRules, 'method'>;
+  const keys = version < 3 ? RULE_KEYS.filter((k) => !ADDED_IN_3.includes(k)) : RULE_KEYS;
+  const rules = {
+    ...(version < 3 ? { tallFixedShelfAbove: DEFAULT_RULES.tallFixedShelfAbove } : {}),
+    ...readFields(source, keys, 'rule'),
+  } as Omit<ConstructionRules, 'method'>;
   if (version === 1) return upgradeVersion1Rules(rules);
   if (typeof source.method !== 'object' || source.method === null) throw corrupt('rule method is missing');
   const method = readFields(source.method as Record<string, unknown>, METHOD_KEYS, 'method setting') as unknown as MethodSettings;
@@ -52,11 +61,14 @@ export function parseRules(raw: unknown, version: number): ConstructionRules {
 /**
  * Read the shop's default rules. The shop setting has no version of its own:
  * one saved before construction methods has no `method` block, and new jobs
- * made from it get the default method, base listed.
+ * made from it get the default method, base listed. One saved before tall
+ * cabinets has no `tallFixedShelfAbove` and gets the default.
  */
 export function parseShopRules(raw: unknown): ConstructionRules {
   const hasMethod = typeof raw === 'object' && raw !== null && 'method' in raw;
-  if (hasMethod) return parseRules(raw, RULES_VERSION);
+  // Saved before tall cabinets: it gains the default fixed-shelf rule.
+  const hasTall = typeof raw === 'object' && raw !== null && 'tallFixedShelfAbove' in raw;
+  if (hasMethod) return parseRules(raw, hasTall ? RULES_VERSION : 2);
   return { ...parseRules(raw, 1), method: { ...DEFAULT_METHOD } };
 }
 

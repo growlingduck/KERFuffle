@@ -1,0 +1,49 @@
+{
+  "name": "Tall cabinets with an inset 1/4 back in a dado (A1): fixed shelf, mid nailer, split back; stretchers are for base cabinets only",
+  "status": "unconfirmed",
+  "notes": "Box height 84 - 4 = 80. Back 1/4 in a 1/4 deep dado set 3/4 in, so sides, top and bottom run the full 24. One-piece back: 80 - 1 1/2 + 1/2 = 79 long, 16 1/2 + 1/2 = 17 wide. The fixed shelf has no groove and stops at the face of the back: 24 - 3/4 - 1/4 = 23 wide, 16 1/2 long. Shelves stop 1/8 short of the back's face: 23 - 1/8 = 22 7/8. The job's base top is stretchers, but tall cabinets always get a full top. T1: the mid nailer adds a second 16 1/2 x 4 nailer; the split back joins at the middle of the fixed shelf, 3/4 + 38 7/8 + 3/8 = 40 up from the bottom of the box, and each piece keeps one groove allowance: 40 - 3/4 + 1/4 = 39 1/2 and 80 - 3/4 + 1/4 - 40 = 39 1/2 (together 79, the one-piece back). T2 has the mid nailer off and a one-piece back. Each has its own 18 platform with 2 sleepers.",
+  "rules": { "preset": "DEFAULT_RULES", "method": { "backType": "dado", "backThickness": "1/4", "baseTop": "stretchers" } },
+  "cabinets": [
+    { "id": "T1", "type": "tall", "width": "18", "height": "84", "depth": "24", "shelfCount": 4, "finishedEnds": "none", "quantity": 1, "fixedShelfCount": 1, "midNailer": true, "splitBack": true },
+    { "id": "T2", "type": "tall", "width": "18", "height": "84", "depth": "24", "shelfCount": 2, "finishedEnds": "none", "quantity": 1, "fixedShelfCount": 1, "midNailer": false, "splitBack": false }
+  ],
+  "expected": {
+    "cabinetParts": {
+      "T1": [
+        { "role": "back",           "category": "panel",    "name": "Back, lower",     "length": "39 1/2", "width": "17",     "thickness": "1/4", "quantity": 1 },
+        { "role": "back",           "category": "panel",    "name": "Back, upper",     "length": "39 1/2", "width": "17",     "thickness": "1/4", "quantity": 1 },
+        { "role": "bottom",         "category": "panel",    "name": "Bottom",          "length": "16 1/2", "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "side-left",      "category": "panel",    "name": "Left side",       "length": "80",     "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "side-right",     "category": "panel",    "name": "Right side",      "length": "80",     "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "top",            "category": "panel",    "name": "Top",             "length": "16 1/2", "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "nailer",         "category": "panel",    "name": "Nailer",          "length": "16 1/2", "width": "4",      "thickness": "3/4", "quantity": 2 },
+        { "role": "front",          "category": "panel",    "name": "Front (door/laminate size)", "length": "80", "width": "18", "thickness": "3/4", "quantity": 1, "optional": true },
+        { "role": "shelf",          "category": "panel",    "name": "Shelf",           "length": "16 1/4", "width": "22 7/8", "thickness": "3/4", "quantity": 4 },
+        { "role": "fixed-shelf",    "category": "panel",    "name": "Fixed shelf",     "length": "16 1/2", "width": "23",     "thickness": "3/4", "quantity": 1 },
+        { "role": "laminate-front", "category": "laminate", "name": "Laminate, front", "length": "82",     "width": "20",     "thickness": null,  "quantity": 1 }
+      ],
+      "T2": [
+        { "role": "back",           "category": "panel",    "name": "Back",            "length": "79",     "width": "17",     "thickness": "1/4", "quantity": 1 },
+        { "role": "bottom",         "category": "panel",    "name": "Bottom",          "length": "16 1/2", "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "side-left",      "category": "panel",    "name": "Left side",       "length": "80",     "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "side-right",     "category": "panel",    "name": "Right side",      "length": "80",     "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "top",            "category": "panel",    "name": "Top",             "length": "16 1/2", "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "nailer",         "category": "panel",    "name": "Nailer",          "length": "16 1/2", "width": "4",      "thickness": "3/4", "quantity": 1 },
+        { "role": "front",          "category": "panel",    "name": "Front (door/laminate size)", "length": "80", "width": "18", "thickness": "3/4", "quantity": 1, "optional": true },
+        { "role": "shelf",          "category": "panel",    "name": "Shelf",           "length": "16 1/4", "width": "22 7/8", "thickness": "3/4", "quantity": 2 },
+        { "role": "fixed-shelf",    "category": "panel",    "name": "Fixed shelf",     "length": "16 1/2", "width": "23",     "thickness": "3/4", "quantity": 1 },
+        { "role": "laminate-front", "category": "laminate", "name": "Laminate, front", "length": "82",     "width": "20",     "thickness": null,  "quantity": 1 }
+      ]
+    },
+    "jobParts": [
+      { "ref": "T1", "role": "base-rail-front", "category": "panel", "name": "Base rail, front", "length": "18",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "T1", "role": "base-rail-back",  "category": "panel", "name": "Base rail, back",  "length": "18",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "T1", "role": "base-sleeper",    "category": "panel", "name": "Base sleeper",     "length": "19 1/2", "width": "4", "thickness": "3/4", "quantity": 2 },
+      { "ref": "T1", "role": "kick-skin",       "category": "panel", "name": "Kick skin",        "length": "18",     "width": "4", "thickness": "1/4", "quantity": 1 },
+      { "ref": "T2", "role": "base-rail-front", "category": "panel", "name": "Base rail, front", "length": "18",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "T2", "role": "base-rail-back",  "category": "panel", "name": "Base rail, back",  "length": "18",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "T2", "role": "base-sleeper",    "category": "panel", "name": "Base sleeper",     "length": "19 1/2", "width": "4", "thickness": "3/4", "quantity": 2 },
+      { "ref": "T2", "role": "kick-skin",       "category": "panel", "name": "Kick skin",        "length": "18",     "width": "4", "thickness": "1/4", "quantity": 1 }
+    ]
+  }
+}

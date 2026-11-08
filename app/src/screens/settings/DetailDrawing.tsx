@@ -1,4 +1,4 @@
-import { backThicknessOf, boxGeometry, inches, sleeperCount, toInches } from '@kerfuffle/engine';
+import { backThicknessOf, boxGeometry, boxHeightFor, defaultFixedShelfCount, inches, sleeperCount, toInches } from '@kerfuffle/engine';
 import type { ConstructionRules, Ticks } from '@kerfuffle/engine';
 import type { ReactNode } from 'react';
 import { ChainDimension, DimensionLine, HatchDefs, HatchRect, useHatchIds } from '../../components/drawing';
@@ -94,6 +94,12 @@ export const DETAILS: Readonly<Record<DetailKey, DetailInfo>> = {
     title: 'Base',
     scale: 'PLAN FROM ABOVE · NTS',
     text: 'A ladder base runs under a whole run of cabinets, with sleepers close enough to carry them. Leveling legs go under each box, more under wide ones.',
+  },
+  tall: {
+    letter: 'L',
+    title: 'Fixed shelf in a tall cabinet',
+    scale: 'TALL CABINET, 84″ OVERALL · NTS',
+    text: 'A new tall cabinet whose box is taller than this starts with one fixed shelf, halfway up. The count can be changed on any tall cabinet, and changing this never changes one you already made.',
   },
 };
 
@@ -480,6 +486,42 @@ export interface DetailDrawingProps {
   effect: string | null;
 }
 
+/** L: a new 84″ tall cabinet, its box height against the fixed-shelf rule. */
+function TallFixedShelf({ rules, ids, show }: DrawProps) {
+  const height = inches(84);
+  const box = boxHeightFor('tall', height, rules);
+  const fixed = defaultFixedShelfCount(height, rules) > 0;
+  const s = 2.9;
+  const floor = 284;
+  const x0 = 150;
+  const w = 60;
+  const toe = clamp(toInches(rules.toeKickHeight) * s, 0, 40);
+  const boxH = clamp(toInches(box) * s, 20, floor - 16 - toe);
+  const top = floor - toe - boxH;
+  const rule = clamp(toInches(rules.tallFixedShelfAbove) * s, 4, 270);
+  const ruleY = floor - toe - rule;
+  const pw = clamp(toInches(rules.panelThickness) * s, 2, 6);
+  return (
+    <>
+      <path className={styles.centerline} d={`M20 ${floor}H380`} />
+      <HatchRect ids={ids} x={x0} y={top} width={pw} height={boxH} />
+      <HatchRect ids={ids} x={x0 + w - pw} y={top} width={pw} height={boxH} />
+      <rect className={styles.sideFace} x={x0 + pw} y={top} width={w - 2 * pw} height={pw} />
+      <rect className={styles.sideFace} x={x0 + pw} y={floor - toe - pw} width={w - 2 * pw} height={pw} />
+      {fixed && <rect className={styles.hotFace} x={x0 + pw} y={top + boxH / 2 - pw / 2} width={w - 2 * pw} height={pw} />}
+      <path className={styles.centerline} d={`M${x0 - 40} ${ruleY}H${x0 + w + 40}`} strokeDasharray="4 3" />
+      <DimensionLine x1={x0 + w + 30} y1={floor - toe} x2={x0 + w + 30} y2={top} extendFrom={x0 + w} label={show(box)} />
+      <DimensionLine x1={x0 - 30} y1={floor - toe} x2={x0 - 30} y2={ruleY} extendFrom={x0} label={show(rules.tallFixedShelfAbove)} traced />
+      <Note x={x0 + w + 46} y={ruleY - 6}>
+        RULE
+      </Note>
+      <Note x={x0 + w + 56} y={top + boxH / 2 + 4}>
+        {fixed ? 'FIXED SHELF' : 'NO FIXED SHELF'}
+      </Note>
+    </>
+  );
+}
+
 /** The enlarged detail for one rule, drawn from the draft values. */
 export function DetailDrawing({ detail, rules, roundTo, effect }: DetailDrawingProps) {
   const ids = useHatchIds();
@@ -500,6 +542,7 @@ export function DetailDrawing({ detail, rules, roundTo, effect }: DetailDrawingP
       {detail === 'back' && <BackCorner {...props} />}
       {detail === 'top' && <TopSection {...props} />}
       {detail === 'base' && <BasePlan {...props} />}
+      {detail === 'tall' && <TallFixedShelf {...props} />}
     </svg>
   );
 }

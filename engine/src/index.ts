@@ -38,6 +38,18 @@ export {
 export type { RulePresetName } from './rules';
 
 export { PLAUSIBLE_LIMITS, hasErrors, validate } from './validate';
+export {
+  CABINET_TYPES,
+  CABINET_TYPE_FACTS,
+  boxHeightFor,
+  defaultFixedShelfCount,
+  fixedShelvesOf,
+  hasCountertop,
+  shelfSections,
+  splitBackJoint,
+  standsOnFloor,
+} from './cabinetTypes';
+export type { CabinetTypeFacts, ShelfSection } from './cabinetTypes';
 export { PART_NAMES, PART_ORDER, ROLE_ORDER, calculateParts, jobParts, listedJobParts } from './calculate';
 
 export {
@@ -61,7 +73,7 @@ export type {
   MaterialSlot,
 } from './methods';
 
-export { JOB_SLOTS, SLOT_INFO, hardwareSlot, materialIssues, partSlot, slotRule } from './materials';
+export { JOB_SLOTS, SLOT_INFO, hardwareSlot, materialIssues, partSlot, sheetLengthIssues, slotRule } from './materials';
 export type { JobMaterials, JobSlot, Material, MaterialGrain, MaterialIssue, MaterialKind, SlotInfo, SupplySlot } from './materials';
 export { DEFAULT_ESTIMATE_OPTIONS, estimate } from './estimate';
 export type { Estimate, EstimateBasis, EstimateLine, EstimateOptions, EstimateTotal } from './estimate';

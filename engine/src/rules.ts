@@ -50,6 +50,8 @@ export const DEFAULT_RULES: Readonly<ConstructionRules> = Object.freeze({
 
   laminateOversizePerEdge: inches(1),
 
+  tallFixedShelfAbove: inches(72),
+
   legacyWallBackDeductsBaseAllowances: false,
   legacyWallLaminateDeductsBaseAllowances: false,
 

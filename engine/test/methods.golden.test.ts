@@ -86,6 +86,10 @@ function loadCabinet(raw: Json, where: string): CabinetSpec {
     finishedEnds: str(c['finishedEnds'], `${where}.finishedEnds`) as CabinetSpec['finishedEnds'],
     quantity: num(c['quantity'], `${where}.quantity`),
     ...(c['run'] === undefined ? {} : { run: str(c['run'], `${where}.run`) }),
+    // Tall cabinets only.
+    ...(c['fixedShelfCount'] === undefined ? {} : { fixedShelfCount: num(c['fixedShelfCount'], `${where}.fixedShelfCount`) }),
+    ...(c['midNailer'] === undefined ? {} : { midNailer: c['midNailer'] === true }),
+    ...(c['splitBack'] === undefined ? {} : { splitBack: c['splitBack'] === true }),
   };
 }
 

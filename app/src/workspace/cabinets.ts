@@ -1,9 +1,9 @@
-import { inches } from '@kerfuffle/engine';
-import type { CabinetType, FinishedEnds, Ticks } from '@kerfuffle/engine';
+import { DEFAULT_RULES, defaultFixedShelfCount, inches } from '@kerfuffle/engine';
+import type { CabinetType, ConstructionRules, FinishedEnds, Ticks } from '@kerfuffle/engine';
 import type { CabinetRecord } from '../data/types';
 
-/** Label prefix per type: B1, B2… for base cabinets, W1, W2… for wall cabinets. */
-export const LABEL_PREFIX: Record<CabinetType, string> = { base: 'B', wall: 'W' };
+/** Label prefix per type: B1, B2… for base cabinets, T1, T2… for tall, W1, W2… for wall. */
+export const LABEL_PREFIX: Record<CabinetType, string> = { base: 'B', tall: 'T', wall: 'W' };
 
 /** Same label, ignoring case and outer spaces: "b1 " and "B1" collide on the cut list. */
 export function labelKey(label: string): string {
@@ -39,14 +39,26 @@ export function isDuplicateLabel(label: string, dupes: ReadonlySet<string>): boo
 /** Starting sizes for a new cabinet of each type (the prototype's presets). */
 export const NEW_CABINET: Record<CabinetType, { width: Ticks; height: Ticks; depth: Ticks; shelfCount: number }> = {
   base: { width: inches(24), height: inches(36), depth: inches(24), shelfCount: 1 },
+  tall: { width: inches(18), height: inches(84), depth: inches(24), shelfCount: 4 },
   wall: { width: inches(30), height: inches(30), depth: inches(12), shelfCount: 2 },
 };
 
 /** Widths offered in the Add cabinet ▾ preset menu. */
 export const PRESET_WIDTHS: readonly number[] = [12, 15, 18, 24, 30, 36];
 
-export function newCabinet(cabinets: readonly CabinetRecord[], type: CabinetType, width?: Ticks): CabinetRecord {
+/**
+ * A new cabinet with the starting sizes for its type. A tall one starts with
+ * the fixed shelves the job's rule gives its height, and the mid nailer on
+ * (it only applies with an inset back).
+ */
+export function newCabinet(
+  cabinets: readonly CabinetRecord[],
+  type: CabinetType,
+  width?: Ticks,
+  rules: ConstructionRules = DEFAULT_RULES,
+): CabinetRecord {
   const size = NEW_CABINET[type];
+  const tall = type === 'tall' ? { fixedShelfCount: defaultFixedShelfCount(size.height, rules), midNailer: true } : {};
   return {
     id: crypto.randomUUID(),
     label: nextLabel(cabinets, type),
@@ -58,6 +70,7 @@ export function newCabinet(cabinets: readonly CabinetRecord[], type: CabinetType
     finishedEnds: 'none',
     quantity: 1,
     room: null,
+    ...tall,
   };
 }
 
@@ -68,4 +81,7 @@ export const ENDS_TEXT: Record<FinishedEnds, string> = {
   both: 'Both ends finished',
 };
 
-export const TYPE_LABEL: Record<CabinetType, string> = { base: 'Base', wall: 'Wall' };
+export const TYPE_LABEL: Record<CabinetType, string> = { base: 'Base', tall: 'Tall', wall: 'Wall' };
+
+/** The types in the order the app offers them: base, tall, wall. */
+export const CABINET_TYPE_ORDER: readonly CabinetType[] = ['base', 'tall', 'wall'];

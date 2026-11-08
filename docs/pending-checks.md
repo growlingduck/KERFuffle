@@ -128,8 +128,8 @@ the fixture file once you've checked it against a cabinet you've built.
       shelf-thickness warning mixes both.
 - [ ] `reorderCabinet` exists and is tested, but nothing in the UI uses it yet.
 - [ ] No test measures that only the edited row re-renders while typing.
-- [ ] `prompts/README.md` still shows a blank status for 02–07. Mark them done
-      once you're happy with section 1.
+- [ ] Prompts 02–07 are marked Done and moved to `prompts/archive/` because
+      they're built (2026-11-07). The click-throughs in section 1 still apply.
 - [ ] Prompts 02–07 were committed together on the `prompts-02-07` branch, not
       yet merged into `master`.
 - [ ] `npm audit` reports a moderate minimatch advisory inside ESLint (dev only,

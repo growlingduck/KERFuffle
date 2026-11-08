@@ -121,7 +121,7 @@ describe('.kerfjob files', () => {
     const text = await writeJobFile(richJob(), HEADER);
     const cabinet = (doc: Record<string, unknown>) => (doc.cabinets as Record<string, unknown>[])[0]!;
     const bad: [string, (doc: Record<string, unknown>) => void][] = [
-      ['unknown type', (doc) => (cabinet(doc).type = 'tall')],
+      ['unknown type', (doc) => (cabinet(doc).type = 'corner')],
       ['unknown finishedEnds', (doc) => (cabinet(doc).finishedEnds = 'front')],
       ['impossible width', (doc) => (cabinet(doc).width = -64)],
       ['impossible width', (doc) => (cabinet(doc).width = 30.5)],
@@ -159,7 +159,7 @@ describe('.kerfjob files', () => {
     const newer = await readJobFile(await writeJobFile(b, HEADER));
     if (!newer.ok) throw new Error(newer.message);
     expect(newer.job.rules.method.id).toBe('B');
-    expect(newer.job.rulesVersion).toBe(2);
+    expect(newer.job.rulesVersion).toBe(RULES_VERSION);
   });
 
   it('carries the job’s materials and their copies, and round-trips them', async () => {

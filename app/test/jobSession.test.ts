@@ -205,7 +205,7 @@ describe('job session: validation at the boundary', () => {
 
   it('the database refuses impossible data with a plain message', async () => {
     const job = await db.getJob('j-0014');
-    for (const bad of [{ width: ticks(-1) }, { shelfCount: -1 }, { quantity: 1.5 }, { type: 'tall' as never }]) {
+    for (const bad of [{ width: ticks(-1) }, { shelfCount: -1 }, { quantity: 1.5 }, { type: 'corner' as never }]) {
       const error = await db.saveJob({ ...job, cabinets: [testCabinet('c', 'B1', bad)] }).catch(toStorageError);
       expect(error).toBeInstanceOf(StorageError);
       expect(error).toMatchObject({ kind: 'invalid' });
@@ -344,13 +344,31 @@ describe('rules snapshots', () => {
   });
 
   it('parseRules reads version 2 with its construction method, and refuses a damaged one', () => {
-    expect(RULES_VERSION).toBe(2);
     const b = { ...DEFAULT_RULES, method: { ...DEFAULT_METHOD, id: 'B', backThickness: inches(1 / 4) } };
     expect(parseRules(structuredClone(b), 2)).toEqual(b);
     expect(() => parseRules(version1Of(DEFAULT_RULES), 2)).toThrow(/couldn’t be read/);
     expect(() => parseRules({ ...DEFAULT_RULES, method: { ...DEFAULT_METHOD, id: 'C' } }, 2)).toThrow(StorageError);
     expect(() => parseRules({ ...DEFAULT_RULES, method: { ...DEFAULT_METHOD, kickDepth: '3' } }, 2)).toThrow(/couldn’t be read/);
     expect(() => parseRules({ ...DEFAULT_RULES, method: { ...DEFAULT_METHOD, listBase: 1 } }, 2)).toThrow(/couldn’t be read/);
+  });
+
+  it('parseRules reads version 3, and gives a version 2 snapshot the default fixed-shelf rule', () => {
+    expect(RULES_VERSION).toBe(3);
+    const version2: Partial<ConstructionRules> = { ...DEFAULT_RULES, panelThickness: inches(23 / 32) };
+    delete version2.tallFixedShelfAbove;
+    // Older jobs have no tall cabinets, so the rule only matters for ones added later: the shop default.
+    expect(parseRules(structuredClone(version2), 2)).toEqual({ ...DEFAULT_RULES, panelThickness: inches(23 / 32) });
+    expect(parseRules(structuredClone(version1Of(DEFAULT_RULES)), 1).tallFixedShelfAbove).toBe(inches(72));
+    const own = { ...DEFAULT_RULES, tallFixedShelfAbove: inches(80) };
+    expect(parseRules(structuredClone(own), 3)).toEqual(own);
+    // Version 3 must have it.
+    expect(() => parseRules(structuredClone(version2), 3)).toThrow(/couldn’t be read/);
+  });
+
+  it('reads shop defaults saved before tall cabinets with the default fixed-shelf rule', () => {
+    const before: Partial<ConstructionRules> = { ...DEFAULT_RULES, panelThickness: inches(23 / 32) };
+    delete before.tallFixedShelfAbove;
+    expect(parseShopRules(structuredClone(before))).toEqual({ ...DEFAULT_RULES, panelThickness: inches(23 / 32) });
   });
 
   it('reads shop defaults saved before construction methods with the default method, base listed', () => {

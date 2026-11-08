@@ -15,7 +15,7 @@ const MAX_ENTRIES = 4000;
 const cache = new WeakMap<ConstructionRules, Map<string, CalculationResult>>();
 
 function specKey(spec: CabinetSpec): string {
-  return `${spec.id}\u0000${spec.type}|${spec.width}|${spec.height}|${spec.depth}|${spec.shelfCount}|${spec.finishedEnds}|${spec.quantity}`;
+  return `${spec.id}\u0000${spec.type}|${spec.width}|${spec.height}|${spec.depth}|${spec.shelfCount}|${spec.finishedEnds}|${spec.quantity}|${spec.fixedShelfCount ?? 0}|${spec.midNailer === true}|${spec.splitBack === true}`;
 }
 
 export function calculate(spec: CabinetSpec, rules: ConstructionRules): CalculationResult {
@@ -67,7 +67,7 @@ export function evaluateCabinet(cabinet: CabinetRecord, rules: ConstructionRules
   return { spec, parts, issues, valid, byRole: Object.fromEntries(parts.map((p) => [p.role, p])) };
 }
 
-export type FieldKey = DimensionField | 'shelfCount' | 'quantity' | 'label' | 'run';
+export type FieldKey = DimensionField | 'shelfCount' | 'fixedShelfCount' | 'splitBack' | 'quantity' | 'label' | 'run';
 
 /** Where an engine issue is shown: the field the user would change to fix it. */
 export function issueField(issue: ValidationIssue): FieldKey | null {
@@ -76,6 +76,8 @@ export function issueField(issue: ValidationIssue): FieldKey | null {
     case 'height':
     case 'depth':
     case 'shelfCount':
+    case 'fixedShelfCount':
+    case 'splitBack':
     case 'quantity':
       return issue.field;
     case 'id':
@@ -96,7 +98,7 @@ export function issueFor(issues: readonly ValidationIssue[], field: FieldKey, se
 
 /** The first field with an error, in the editor's order. For "Go to width". */
 export function firstInvalidField(issues: readonly ValidationIssue[]): FieldKey | null {
-  const order: FieldKey[] = ['width', 'height', 'depth', 'shelfCount', 'quantity', 'label'];
+  const order: FieldKey[] = ['width', 'height', 'depth', 'shelfCount', 'fixedShelfCount', 'splitBack', 'quantity', 'label'];
   const bad = new Set(issues.filter((i) => i.severity === 'error').map(issueField));
   return order.find((f) => bad.has(f)) ?? (bad.size > 0 ? 'width' : null);
 }

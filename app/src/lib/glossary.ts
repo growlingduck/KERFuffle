@@ -16,11 +16,27 @@ export interface GlossaryEntry {
 export const GLOSSARY = {
   boxHeight: {
     term: 'Height, overall',
-    text: 'Floor to the top of the countertop. A base cabinet’s box is this minus the toe kick and the countertop, as the tape under the sizes works out; the back, sides, front and laminate are cut to box height, and wall cabinets use the full height.',
+    text: 'Floor to the top of the countertop. A base cabinet’s box is this minus the toe kick and the countertop, and a tall cabinet’s minus the toe kick only, as the tape under the sizes works out; the back, sides, front and laminate are cut to box height, and wall cabinets use the full height.',
   },
   run: {
     term: 'Run',
-    text: 'A straight row of base cabinets that stand on one shared ladder base, like “Sink wall”. Cabinets with the same run name share one set of base rails, sleepers and kick skin on the cut list; a base cabinet with no run gets its own.',
+    text: 'A straight row of base and tall cabinets that stand on one shared ladder base, like “Sink wall”. Cabinets with the same run name share one set of base rails, sleepers and kick skin on the cut list; a base or tall cabinet with no run gets its own.',
+  },
+  tallCabinet: {
+    term: 'Tall cabinet',
+    text: 'A pantry, oven or utility cabinet that stands on the floor like a base cabinet, on the same base, and fills both the base and the wall rows of the wall. It has no countertop, so its box is the overall height minus the toe kick, and it always gets a full top.',
+  },
+  fixedShelves: {
+    term: 'Fixed shelves',
+    text: 'Structural shelves in a tall cabinet, fastened like the bottom and spaced evenly up the inside; the adjustable shelves are shared among the sections they make. Each is cut from box stock, the width between the sides long and as deep as the box to the back.',
+  },
+  midNailer: {
+    term: 'Mid nailer',
+    text: 'A second nailer, under the lowest fixed shelf, so an inset back can be screwed at mid-height too. It is the same size as the top nailer and adds one to the cut list; applied backs have no nailers.',
+  },
+  splitBack: {
+    term: 'Split back',
+    text: 'A tall back cut as two pieces that meet at the middle of the lowest fixed shelf, for a back longer than the sheet. The two pieces add up to the one-piece back; it needs at least one fixed shelf.',
   },
   finishedEnds: {
     term: 'Finished ends',
@@ -32,7 +48,7 @@ export const GLOSSARY = {
   },
   toeKick: {
     term: 'Toe kick',
-    text: 'The recess at the floor under a base cabinet. It comes off the overall height to give box height, and sets the height of the base rails, sleepers, kick board or notch.',
+    text: 'The recess at the floor under a base or tall cabinet. It comes off the overall height to give box height, and sets the height of the base rails, sleepers, kick board or notch.',
   },
   countertop: {
     term: 'Countertop',
@@ -64,7 +80,7 @@ export const GLOSSARY = {
   },
   constructionMethod: {
     term: 'Construction method',
-    text: 'How every cabinet in the job is built: on a separate ladder base, on leveling legs, or with the sides run to the floor and notched for the toe kick. It decides which base parts are on the cut list, how long base-cabinet sides are, and whether end laminate runs to the floor.',
+    text: 'How every cabinet in the job is built: on a separate ladder base, on leveling legs, or with the sides run to the floor and notched for the toe kick. It decides which base parts are on the cut list, how long base and tall cabinet sides are, and whether end laminate runs to the floor.',
   },
   ladderBase: {
     term: 'Ladder base',

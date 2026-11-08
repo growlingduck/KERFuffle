@@ -74,6 +74,10 @@ const PLACE_NAMES: Record<StepPlace, string> = {
   cutlist: 'Output',
 };
 
+/** Tall cabinets in one paragraph; docs/quick-start.md says the same. */
+export const TALL_CABINETS_HELP =
+  'Add tall cabinet (in the Add cabinet ▾ menu, or the type switch in the editor) makes a pantry, oven or utility cabinet: 18″ × 84″ × 24″ to start. It stands on the floor like a base cabinet, on the same base or legs, but has no countertop, so its box is the overall height minus the toe kick. Fixed shelves are structural shelves cut from the box stock and spaced evenly up the inside; a new tall cabinet with a box over 72″ starts with one, and the adjustable shelves are shared among the sections they make. With an inset back you can add a mid nailer under the lowest fixed shelf, and a back too long for one sheet can be split in two at that shelf.';
+
 /** The glossary by term, as a reader looks a word up. */
 const TERMS = Object.values(GLOSSARY).sort((a, b) => a.term.localeCompare(b.term));
 const SYMBOL_KEYS = Object.keys(SYMBOLS) as SymbolKey[];
@@ -174,6 +178,9 @@ export function HelpSection() {
           </li>
         ))}
       </ol>
+
+      <h3 className={h.heading}>Tall cabinets and fixed shelves</h3>
+      <p className={h.paragraph}>{TALL_CABINETS_HELP}</p>
 
       <h3 className={h.heading}>Words and symbols</h3>
       <WordsAndSymbols />

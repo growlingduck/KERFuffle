@@ -1,6 +1,7 @@
 import type { Ticks } from './units';
 
-export type CabinetType = 'base' | 'wall';
+/** Base and tall cabinets stand on the floor; only base cabinets have a countertop. */
+export type CabinetType = 'base' | 'wall' | 'tall';
 export type FinishedEnds = 'none' | 'left' | 'right' | 'both';
 
 export interface CabinetSpec {
@@ -24,6 +25,22 @@ export interface CabinetSpec {
    * missing: the cabinet gets its own. Separate from any room grouping.
    */
   run?: string | null;
+  /**
+   * Tall cabinets only: structural shelves at full box depth, fastened like
+   * the bottom. Integer >= 0; missing means 0. Kept but ignored on base and
+   * wall cabinets, so switching back to tall restores it.
+   */
+  fixedShelfCount?: number;
+  /**
+   * Tall cabinets only: a second nailer under the lowest fixed shelf. Used
+   * only with an inset back and at least one fixed shelf. Missing means false.
+   */
+  midNailer?: boolean;
+  /**
+   * Tall cabinets only: the back is cut as two pieces that join at the lowest
+   * fixed shelf (needs one). Missing means false.
+   */
+  splitBack?: boolean;
 }
 
 export type ShelfThickComparison = 'gt' | 'gte';
@@ -113,6 +130,12 @@ export interface ConstructionRules {
   laminateOversizePerEdge: Ticks;
 
   /**
+   * Tall cabinets: a new one whose box is taller than this starts with one
+   * fixed shelf (shop: 72″). Sets the starting count only (rules version 3).
+   */
+  tallFixedShelfAbove: Ticks;
+
+  /**
    * Legacy reproduction only. The spreadsheet subtracted toe kick and
    * countertop from the wall-cabinet back. The shop confirmed this is wrong;
    * keep false except in LEGACY_SHEET_RULES.
@@ -141,6 +164,7 @@ export type PartRole =
   | 'kick-board'
   | 'front'
   | 'shelf'
+  | 'fixed-shelf'
   | 'base-rail-front'
   | 'base-rail-back'
   | 'base-sleeper'

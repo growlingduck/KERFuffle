@@ -1,4 +1,4 @@
-import { hasErrors, listedJobParts, runOf, runRef, traceDependencies } from '@kerfuffle/engine';
+import { hasErrors, listedJobParts, runOf, runRef, standsOnFloor, traceDependencies } from '@kerfuffle/engine';
 import type { CabinetSpec, ConstructionRules, DependencyMap, ListedCabinet, Part, TraceKey, ValidationIssue } from '@kerfuffle/engine';
 import { cabinetSpec } from '../data/jobSession';
 import type { CabinetRecord } from '../data/types';
@@ -50,12 +50,12 @@ function platformParts(listed: readonly ListedCabinet[], rules: ConstructionRule
 export function cabinetBase(cabinets: readonly CabinetRecord[], rules: ConstructionRules, cabinetId: string, evaluation: Evaluation | null): CabinetBase | null {
   const index = cabinets.findIndex((c) => c.id === cabinetId);
   const cabinet = cabinets[index];
-  if (!cabinet || cabinet.type !== 'base' || !evaluation?.valid) return null;
+  if (!cabinet || !standsOnFloor(cabinet.type) || !evaluation?.valid) return null;
   const listed = listedCabinets(cabinets, rules, cabinetId, evaluation.spec);
   const run = runOf(cabinet);
   const { parts, issues } = platformParts(listed, rules, index, run);
   if (parts.length === 0 && issues.length === 0) return null;
-  const members = run === null ? [cabinet] : cabinets.filter((c) => c.type === 'base' && runOf(c) === run);
+  const members = run === null ? [cabinet] : cabinets.filter((c) => standsOnFloor(c.type) && runOf(c) === run);
   return {
     run,
     ref: run === null ? (cabinet.label.trim() || 'Unnamed') : runRef(run),
@@ -84,7 +84,7 @@ export function traceMap(
   });
   const index = cabinets.findIndex((c) => c.id === cabinetId);
   const cabinet = cabinets[index];
-  if (!cabinet || cabinet.type !== 'base') return own;
+  if (!cabinet || !standsOnFloor(cabinet.type)) return own;
   const run = runOf(cabinet);
   const shared = traceDependencies(key, { spec: evaluation.spec, rules }, ({ spec, rules: r }) => {
     if (hasErrors(calculate(spec, r).issues)) return null;

@@ -262,6 +262,35 @@ describe.each(['light', 'dark'] as const)('accessibility (axe), %s theme', { tim
         expect(violations, describeViolations(violations)).toEqual([]);
       });
 
+      it.each([
+        ['an applied back', DEFAULT_RULES],
+        ['an inset back, method B', { ...DEFAULT_RULES, method: { ...DEFAULT_RULES.method, id: 'B', backType: 'dado', backThickness: inches(1 / 4) } }],
+      ] as [string, ConstructionRules][])('has no serious or critical violations on a tall cabinet with fixed shelves and a split back, %s', async (_name, rules) => {
+        await seedDatabase([
+          testJob({
+            rules,
+            cabinets: [
+              testCabinet('c-t1', 'T1', { type: 'tall', width: inches(18), height: inches(84), shelfCount: 4, fixedShelfCount: 1, midNailer: true, splitBack: true, run: 'Pantry' }),
+              testCabinet('c-t2', 'T2', { type: 'tall', width: inches(18), height: inches(84), shelfCount: 4, fixedShelfCount: 0, splitBack: true }),
+            ],
+          }),
+        ]);
+        window.location.hash = '#/jobs/j-0014/workspace';
+        const user = userEvent.setup();
+        const { container } = render(<App />);
+        await screen.findByRole('heading', { name: 'Cabinet T1' });
+        expect(screen.getByRole('switch', { name: 'Split back' })).toBeInTheDocument();
+        await user.hover(screen.getByLabelText(/^Fixed shelves/, { selector: 'input' }));
+        let violations = await seriousViolations(container);
+        expect(violations, describeViolations(violations)).toEqual([]);
+        // T2: a split back with no fixed shelf is an error beside the switch.
+        await user.click(screen.getByRole('button', { name: /^T2/ }));
+        await screen.findByRole('heading', { name: 'Cabinet T2' });
+        expect(screen.getByText(/A split back joins at a fixed shelf/)).toBeInTheDocument();
+        violations = await seriousViolations(container);
+        expect(violations, describeViolations(violations)).toEqual([]);
+      });
+
       it('has no serious or critical violations with the construction locked', async () => {
         const { user, container } = await openWith(DEFAULT_RULES, 'ready');
         await user.click(screen.getByRole('button', { name: /^Construction/ }));

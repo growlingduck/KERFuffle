@@ -25,6 +25,11 @@ import { formatJobNumber, JOB_STATUSES } from './types';
  * trim and the rest), present once the job has one. Older files have none and
  * still import; the job then uses the shop's default profile.
  *
+ * Version 5 added tall cabinets: `type: "tall"`, and on any cabinet
+ * `fixedShelfCount`, `midNailer` and `splitBack` (written only when not 0 /
+ * off, read as those when missing). A version 4 reader refuses the file as
+ * newer instead of failing on the unknown type.
+ *
  * Version 4 added `layouts`: the sheet layouts kept with the job (saved when
  * it was marked Ready to cut or a layout was printed), each with what it was
  * made from: the input hash, the optimizer's version, the mode and the saw
@@ -43,7 +48,7 @@ import { formatJobNumber, JOB_STATUSES } from './types';
 
 export const JOB_FILE_FORMAT = 'kerfuffle-job';
 /** Bump when the file's shape changes; older readers then refuse newer files. */
-export const JOB_FILE_VERSION = 4;
+export const JOB_FILE_VERSION = 5;
 export const JOB_FILE_EXTENSION = 'kerfjob';
 
 export const NEWER_FILE_MESSAGE = 'This job was made by a newer KERFuffle. Update this PC first.';
@@ -116,6 +121,9 @@ export async function writeJobFile(job: JobRecord, header: JobFileHeader): Promi
       quantity: c.quantity,
       room: c.room,
       ...(c.run ? { run: c.run } : {}),
+      ...(c.fixedShelfCount ? { fixedShelfCount: c.fixedShelfCount } : {}),
+      ...(c.midNailer ? { midNailer: true } : {}),
+      ...(c.splitBack ? { splitBack: true } : {}),
     })),
     rules: job.rules,
     rulesVersion: job.rulesVersion,
@@ -188,7 +196,7 @@ function readCabinet(raw: unknown, index: number): CabinetRecord {
   return {
     id,
     label: text(raw, 'label', where),
-    type: oneOf(raw, 'type', ['base', 'wall'] as const, where),
+    type: oneOf(raw, 'type', ['base', 'wall', 'tall'] as const, where),
     width: whole(raw, 'width', where, 0) as CabinetRecord['width'],
     height: whole(raw, 'height', where, 0) as CabinetRecord['height'],
     depth: whole(raw, 'depth', where, 0) as CabinetRecord['depth'],
@@ -197,7 +205,24 @@ function readCabinet(raw: unknown, index: number): CabinetRecord {
     quantity: whole(raw, 'quantity', where, 0, MAX_QUANTITY),
     room: optionalText(raw, 'room', where),
     ...withRun(optionalText(raw, 'run', where)),
+    ...tallOptions(raw, where),
   };
+}
+
+/** Files before version 5 have none of these; a cabinet without them leaves them out. */
+function tallOptions(raw: Record<string, unknown>, where: string): Pick<CabinetRecord, 'fixedShelfCount' | 'midNailer' | 'splitBack'> {
+  const out: Pick<CabinetRecord, 'fixedShelfCount' | 'midNailer' | 'splitBack'> = {};
+  if (raw.fixedShelfCount !== undefined) {
+    const count = whole(raw, 'fixedShelfCount', where, 0, MAX_SHELVES);
+    if (count > 0) out.fixedShelfCount = count;
+  }
+  for (const key of ['midNailer', 'splitBack'] as const) {
+    const value = raw[key];
+    if (value === undefined) continue;
+    if (typeof value !== 'boolean') throw new Refused(`${where} has an unreadable ${key}`);
+    if (value) out[key] = true;
+  }
+  return out;
 }
 
 /**

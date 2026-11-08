@@ -34,6 +34,18 @@ For each cabinet, pick the ends that show (finished ends get laminate), the
 number of shelves, and how many of that cabinet to build. **Add cabinet** (or
 **Ctrl+N** in the Workspace) adds the next one.
 
+### Tall cabinets and fixed shelves
+
+**Add cabinet ▾ → Tall** (or the **Tall** switch in the editor) makes a
+pantry, oven or utility cabinet, 18″ × 84″ × 24″ to start. It stands on the
+floor like a base cabinet, on the same base or legs, but has no countertop, so
+its box is the overall height minus the toe kick. **Fixed shelves** are
+structural shelves cut from the box stock and spaced evenly up the inside; a
+new tall cabinet with a box over 72″ starts with one, and the adjustable
+shelves are shared among the sections they make. With an inset back you can
+add a **mid nailer** under the lowest fixed shelf, and a back too long for one
+sheet can be **split** in two at that shelf.
+
 ## 5. Check the cut list, layouts and estimate
 
 Click **Cut list →** (or the **Output** tab). The **Cut list** lists every part. **Layouts** shows the

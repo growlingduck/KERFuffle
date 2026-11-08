@@ -1,11 +1,11 @@
-import { boxGeometry, toInches } from '@kerfuffle/engine';
+import { boxGeometry, fixedShelvesOf, shelfSections, toInches } from '@kerfuffle/engine';
 import type { CabinetType, ConstructionRules, DependencyMap, FinishedEnds, Part, PartRole, Ticks, TraceKey } from '@kerfuffle/engine';
 import { Centerline, DimensionLine, HatchDefs, SectionMark, useHatchIds } from '../../components/drawing';
 import type { HatchIds } from '../../components/drawing';
 import { displayInches } from '../../lib/dimensions';
 import { cx } from '../../lib/interaction';
 import type { CabinetBase } from '../../workspace/base';
-import { ENDS_TEXT } from '../../workspace/cabinets';
+import { ENDS_TEXT, TYPE_LABEL } from '../../workspace/cabinets';
 import type { Evaluation } from '../../workspace/calc';
 import { hotPartOf, hoverKeyHandlers, hoverPartHandlers, requestFocus, setUi, togglePin, traceKeyOf, useUi } from '../../workspace/ui';
 import styles from './Workspace.module.css';
@@ -20,7 +20,8 @@ const GAP = 120;
 /** Most shelves drawn; past this the drawing would be all shelf. */
 const MAX_DRAWN_SHELVES = 24;
 
-type ShapeKind = 'face' | 'cut' | 'edge' | 'lam';
+/** `solid`: a fixed shelf's front edge, drawn solid so it reads apart from adjustable shelves. */
+type ShapeKind = 'face' | 'cut' | 'edge' | 'lam' | 'solid';
 
 interface Shape {
   key: string;
@@ -61,7 +62,10 @@ export interface DrawingLayout {
   ghosts: Ghost[];
   /** Leveling legs (method A2): bought, not cut. */
   legs: Passive[];
-  base: boolean;
+  /** Base and tall cabinets: toe kick under the box. */
+  floor: boolean;
+  /** Base cabinets: a countertop over the box. */
+  counter: boolean;
   /** Elevation box, countertop and toe kick edges, in SVG units. */
   ox: number;
   oy: number;
@@ -76,6 +80,8 @@ export interface DrawingLayout {
   values: { w: Ticks; h: Ticks; d: Ticks; box: Ticks; toe: Ticks; ctop: Ticks };
   /** Toe-kick height in SVG units (0 on wall cabinets). */
   toeS: number;
+  /** Countertop thickness in SVG units (0 on tall and wall cabinets). */
+  ctopS: number;
 }
 
 /**
@@ -87,6 +93,9 @@ export interface DrawingLayout {
  * or inset back with its nailer, and under a base box either the ladder base
  * (A1: kick skin, rails, sleepers), legs and a clip-on kick board (A2), or
  * sides that run to the floor, notched, with a kick board between them (B).
+ * A tall box stands on the floor like a base box, with no countertop; its fixed
+ * shelves are drawn solid where the engine spaces them, with the adjustable
+ * shelves shared among the sections, and a split back as its two pieces.
  */
 export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules, base: CabinetBase | null = null): DrawingLayout | null {
   const { spec } = evaluation;
@@ -101,7 +110,8 @@ export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules, 
 
   const g = boxGeometry(spec, rules);
   const m = rules.method;
-  const isBase = spec.type === 'base';
+  const onFloor = g.standsOnFloor;
+  const counter = g.hasCountertop;
   const W = toInches(spec.width);
   const H = toInches(spec.height);
   const D = toInches(spec.depth);
@@ -112,9 +122,9 @@ export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules, 
 
   const ws = W * s;
   const ds = D * s;
-  const ctop = isBase ? inch(rules.countertopThickness) : 0;
-  const toe = isBase ? inch(rules.toeKickHeight) : 0;
-  const kick = isBase ? inch(m.kickDepth) : 0;
+  const ctop = counter ? inch(rules.countertopThickness) : 0;
+  const toe = onFloor ? inch(rules.toeKickHeight) : 0;
+  const kick = onFloor ? inch(m.kickDepth) : 0;
   const boxY = OY + ctop;
   const boxH = inch(g.boxHeight);
   // Method B's sides run past the box to the floor.
@@ -139,6 +149,25 @@ export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules, 
   const lidT = lid ? thick(lid) : ps;
   const nailer = parts.nailer;
   if (nailer) add('a-nailer', 'nailer', 'face', OX + ps, boxY + lidT, inch(nailer.length), inch(nailer.width));
+  // Tall: fixed shelves split the box into sections (engine spacing), bottom first.
+  const fixedCount = fixedShelvesOf(spec);
+  const sections = fixedCount > 0 ? shelfSections(g.boxHeight, rules.panelThickness, fixedCount, spec.shelfCount) : null;
+  /** SVG y of a height measured up from the bottom of the box. */
+  const atHeight = (z: number) => boxY + boxH - (z / 64) * s;
+  const fixedShelf = parts['fixed-shelf'];
+  const fixedYs: number[] = [];
+  if (fixedShelf && sections) {
+    const t = thick(fixedShelf);
+    sections.slice(0, -1).forEach((section, i) => {
+      const y = atHeight(section.bottom + section.height) - t;
+      fixedYs.push(y);
+      add(`a-fixed-${i}`, 'fixed-shelf', 'solid', OX + (ws - inch(fixedShelf.length)) / 2, y, inch(fixedShelf.length), t);
+    });
+  }
+  // The mid nailer sits under the lowest fixed shelf.
+  const midNailer = Boolean(nailer && fixedYs.length > 0 && nailer.quantity === 2 * spec.quantity);
+  const midNailerY = fixedYs[0] !== undefined && nailer ? fixedYs[0] + thick(fixedShelf ?? nailer) : 0;
+  if (nailer && midNailer) add('a-nailer-mid', 'nailer', 'face', OX + ps, midNailerY, inch(nailer.length), inch(nailer.width));
   add('a-side-left', 'side-left', 'edge', OX, boxY, ps, sideH);
   add('a-side-right', 'side-right', 'edge', OX + ws - ps, boxY, ps, sideH);
   if (top) add('a-top', 'top', 'edge', OX + (ws - inch(top.length)) / 2, boxY, inch(top.length), thick(top));
@@ -147,7 +176,22 @@ export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules, 
 
   const shelf = parts.shelf;
   const shelfYs: number[] = [];
-  if (shelf) {
+  if (shelf && sections) {
+    // Each section's share, spread evenly inside it.
+    const t = thick(shelf);
+    let drawn = 0;
+    sections.forEach((section, k) => {
+      const top = atHeight(section.bottom + section.height);
+      const h = inch(section.height);
+      const n = Math.min(section.shelves, Math.max(0, MAX_DRAWN_SHELVES - drawn));
+      for (let i = 1; i <= n; i++) {
+        const yc = top + (h * i) / (n + 1);
+        shelfYs.push(yc);
+        add(`a-shelf-${k}-${i}`, 'shelf', 'edge', OX + (ws - inch(shelf.length)) / 2, yc - t / 2, inch(shelf.length), t);
+      }
+      drawn += n;
+    });
+  } else if (shelf) {
     const n = Math.min(spec.shelfCount, MAX_DRAWN_SHELVES);
     const t = thick(shelf);
     for (let i = 1; i <= n; i++) {
@@ -177,25 +221,30 @@ export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules, 
   } else {
     add('b-side', 'side-right', 'face', sx, boxY, sideW, sideH);
   }
-  if (g.inset) {
-    // In a groove in every member: centered on the box, its front face at the interior depth.
-    const len = inch(back.length);
-    add('b-back', 'back', 'cut', sx + interior, boxY + (boxH - len) / 2, thick(back), len);
-  } else {
-    add('b-back', 'back', 'cut', sx + sideW, boxY + boxH - inch(back.length), thick(back), inch(back.length));
-  }
+  // A split back is two pieces, the upper drawn first from the top; together they are the one-piece back.
+  const backs = evaluation.parts.filter((p) => p.role === 'back');
+  const len = backs.reduce((sum, p) => sum + inch(p.length), 0);
+  const backX = g.inset ? sx + interior : sx + sideW;
+  // Inset: in a groove in every member, centered on the box. Applied: up from the bottom of the box.
+  let backY = g.inset ? boxY + (boxH - len) / 2 : boxY + boxH - len;
+  [...backs].reverse().forEach((piece, i) => {
+    add(backs.length === 1 ? 'b-back' : `b-back-${i}`, 'back', 'cut', backX, backY, thick(piece), inch(piece.length));
+    backY += inch(piece.length);
+  });
   if (top) add('b-top', 'top', 'cut', sx, boxY, inch(top.width), thick(top));
   if (stretcher) add('b-stretcher-front', 'stretcher-front', 'cut', sx, boxY, inch(stretcher.width), thick(stretcher));
   const rear = parts['stretcher-back'];
   if (rear) add('b-stretcher-back', 'stretcher-back', 'cut', sx + interior - inch(rear.width), boxY, inch(rear.width), thick(rear));
   if (nailer) add('b-nailer', 'nailer', 'cut', sx + interior - thick(nailer), boxY + lidT, thick(nailer), inch(nailer.width));
+  if (nailer && midNailer) add('b-nailer-mid', 'nailer', 'cut', sx + interior - thick(nailer), midNailerY, thick(nailer), inch(nailer.width));
+  if (fixedShelf) fixedYs.forEach((y, i) => add(`b-fixed-${i}`, 'fixed-shelf', 'cut', sx, y, inch(fixedShelf.width), thick(fixedShelf)));
   add('b-bottom', 'bottom', 'cut', sx, boxY + boxH - thick(bottom), inch(bottom.width), thick(bottom));
   if (shelf) {
     const t = thick(shelf);
     shelfYs.forEach((yc, i) => add(`b-shelf-${i}`, 'shelf', 'cut', sx + inch(rules.shelfSetback), yc - t / 2, inch(shelf.width), t));
   }
 
-  // Under a base box, in section: what the toe kick is made of.
+  // Under a base or tall box, in section: what the toe kick is made of.
   const legs: Passive[] = [];
   if (kickBoard) add('b-kick-board', 'kick-board', 'cut', sx + kick, bot - toe, thick(kickBoard), toe);
   if (kickBoard && m.id === 'A') {
@@ -246,7 +295,8 @@ export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules, 
     shapes,
     ghosts,
     legs,
-    base: isBase,
+    floor: onFloor,
+    counter,
     ox: OX,
     oy: OY,
     ws,
@@ -257,6 +307,7 @@ export function layoutDrawing(evaluation: Evaluation, rules: ConstructionRules, 
     bot,
     sideW,
     toeS: toe,
+    ctopS: ctop,
     values: { w: spec.width, h: spec.height, d: spec.depth, box: g.boxHeight, toe: rules.toeKickHeight, ctop: rules.countertopThickness },
   };
 }
@@ -276,8 +327,10 @@ function methodSentence(type: CabinetType, rules: ConstructionRules): string {
   const out: string[] = [];
   if (m.backType !== 'applied') out.push(`The back is inset in a ${m.backType}, with a nailer under the top.`);
   if (type === 'wall') return out.map((s) => ` ${s}`).join('');
-  if (m.baseTop === 'stretchers') out.push('Two stretchers close the top.');
-  if (m.id === 'B') out.push('The sides run to the floor, notched for the toe kick, with a kick board between them.');
+  // Tall cabinets always get a full top, and have no countertop for the sides to stop under.
+  if (type === 'base' && m.baseTop === 'stretchers') out.push('Two stretchers close the top.');
+  if (m.id === 'B' && type === 'tall') out.push('The sides run the full height to the floor, notched for the toe kick, with a kick board between them.');
+  else if (m.id === 'B') out.push('The sides run to the floor, notched for the toe kick, with a kick board between them.');
   else if (m.listBase && m.baseType === 'ladder') out.push('It stands on a ladder base: kick skin, rails and sleepers.');
   else if (m.listBase) out.push('It stands on leveling legs behind a clip-on kick board.');
   return out.map((s) => ` ${s}`).join('');
@@ -287,10 +340,15 @@ function methodSentence(type: CabinetType, rules: ConstructionRules): string {
 export function drawingLabel(label: string, type: CabinetType, ends: FinishedEnds, evaluation: Evaluation, rules?: ConstructionRules): string {
   const { spec } = evaluation;
   const built = rules ? methodSentence(type, rules) : '';
+  const fixed = fixedShelvesOf(spec);
+  const tall =
+    type === 'tall' && fixed > 0
+      ? ` ${plural(fixed, 'fixed shelf divides', 'fixed shelves divide')} it into ${fixed + 1} sections${spec.splitBack ? ', and the back is in two pieces that meet at the lowest one' : ''}.`
+      : '';
   return (
-    `${type === 'base' ? 'Base' : 'Wall'} cabinet ${label || 'without an ID'}, front elevation and section: ` +
+    `${TYPE_LABEL[type]} cabinet ${label || 'without an ID'}, front elevation and section: ` +
     `${displayInches(spec.width)} wide, ${displayInches(spec.height)} high, ${displayInches(spec.depth)} deep, ` +
-    `${plural(spec.shelfCount, 'shelf', 'shelves')}, ${ENDS_TEXT[ends].toLowerCase()}.${built}`
+    `${plural(spec.shelfCount, fixed > 0 ? 'adjustable shelf' : 'shelf', fixed > 0 ? 'adjustable shelves' : 'shelves')}, ${ENDS_TEXT[ends].toLowerCase()}.${tall}${built}`
   );
 }
 
@@ -371,11 +429,15 @@ export function CabinetDrawing({ evaluation, layout, label, type, ends, rules, d
       data-hot={hot ?? undefined}
     >
       <HatchDefs ids={ids} />
-      {L.base && (
+      {L.counter && (
         <>
           {contextRect('ctop', L.ox - 2, L.oy, L.ws + 4, L.boxY - L.oy)}
-          {contextRect('toe', L.ox + 2, L.bot - L.toeS, L.ws - 4, L.toeS)}
           {contextRect('ctop', L.sx - 2, L.oy, L.ds + 2, L.boxY - L.oy)}
+        </>
+      )}
+      {L.floor && (
+        <>
+          {contextRect('toe', L.ox + 2, L.bot - L.toeS, L.ws - 4, L.toeS)}
           {contextRect('toe', L.sx, L.bot - L.toeS, L.sideW, L.toeS)}
         </>
       )}
@@ -427,11 +489,13 @@ export function CabinetDrawing({ evaluation, layout, label, type, ends, rules, d
           <g data-dim="d">
             <DimensionLine x1={L.sx} y1={dy} x2={L.sx + L.ds} y2={dy} extendFrom={L.bot} label={displayInches(L.values.d)} {...dim('d')} />
           </g>
-          {L.base ? (
+          {L.floor ? (
             <>
-              <g data-dim="ctop">
-                <DimensionLine x1={X1} y1={L.oy} x2={X1} y2={L.boxY} extendFrom={right} label={displayInches(L.values.ctop)} {...dim('ctop')} />
-              </g>
+              {L.counter && (
+                <g data-dim="ctop">
+                  <DimensionLine x1={X1} y1={L.oy} x2={X1} y2={L.boxY} extendFrom={right} label={displayInches(L.values.ctop)} {...dim('ctop')} />
+                </g>
+              )}
               <g data-dim="box">
                 <DimensionLine x1={X1} y1={L.boxY} x2={X1} y2={L.boxY + L.boxH} extendFrom={right} label={displayInches(L.values.box)} {...dim('box')} />
               </g>

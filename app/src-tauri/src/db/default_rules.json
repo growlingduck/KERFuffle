@@ -9,6 +9,7 @@
   "shelfClearancePerSide": 8,
   "shelfSetback": 8,
   "laminateOversizePerEdge": 64,
+  "tallFixedShelfAbove": 4608,
   "legacyWallBackDeductsBaseAllowances": false,
   "legacyWallLaminateDeductsBaseAllowances": false,
   "method": {

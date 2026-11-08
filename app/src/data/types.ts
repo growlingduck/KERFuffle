@@ -40,6 +40,14 @@ export interface CabinetRecord {
    * shares one ladder base per run). Separate from `room`. Missing or null: none.
    */
   run?: string | null;
+  /**
+   * Tall cabinets only (schema version 8): fixed shelves, the mid nailer and
+   * the split back. Kept but ignored on base and wall cabinets, so switching
+   * back to tall restores them. Missing: 0, off, off.
+   */
+  fixedShelfCount?: number;
+  midNailer?: boolean;
+  splitBack?: boolean;
 }
 
 export interface JobRecord {

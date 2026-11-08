@@ -421,12 +421,12 @@ checks, toolpath preview), and free-form nesting.
 
 | # | Prompt | Delivers |
 |---|---|---|
-| 09 | [Construction methods: engine](../prompts/09-construction-methods-engine.md) | Method registry, A1/A2/B, settings, rules v2 + upgrade, run parts, `features`, fixtures, rules doc |
-| 10 | [Construction methods: UI](../prompts/10-construction-methods-ui.md) | New job choice, Settings, run field, drawings, change method in Draft |
-| 11 | [Materials and estimate](../prompts/11-materials-and-estimate.md) | Catalog + form + on hand, slots, group by material, area-based estimate, edge banding, hardware |
-| 12 | [Sheet optimizer: engine](../prompts/12-sheet-optimizer-engine.md) | `nesting/`, saw profiles, three modes, cut tree, sensitivity, worker |
-| 13 | [Layouts: screen and print](../prompts/13-layouts-screen-and-print.md) | Layouts tab, printout, saved layouts, estimate switches to layout counts |
-| 19 | [DXF export](../prompts/19-dxf-export.md) | DXF per sheet from the saved layout |
+| 09 | [Construction methods: engine](../prompts/archive/09-construction-methods-engine.md) | Method registry, A1/A2/B, settings, rules v2 + upgrade, run parts, `features`, fixtures, rules doc |
+| 10 | [Construction methods: UI](../prompts/archive/10-construction-methods-ui.md) | New job choice, Settings, run field, drawings, change method in Draft |
+| 11 | [Materials and estimate](../prompts/archive/11-materials-and-estimate.md) | Catalog + form + on hand, slots, group by material, area-based estimate, edge banding, hardware |
+| 12 | [Sheet optimizer: engine](../prompts/archive/12-sheet-optimizer-engine.md) | `nesting/`, saw profiles, three modes, cut tree, sensitivity, worker |
+| 13 | [Layouts: screen and print](../prompts/archive/13-layouts-screen-and-print.md) | Layouts tab, printout, saved layouts, estimate switches to layout counts |
+| 19 | [DXF export](../prompts/archive/19-dxf-export.md) | DXF per sheet from the saved layout |
 
 **Database:** prompts 09–13 each add a forward migration as needed. All of it
 must be carried by backups and `.kerfjob` transfer, and an older app must refuse

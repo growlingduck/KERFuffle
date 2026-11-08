@@ -4,7 +4,7 @@ import { Sheet } from '../../components/Sheet';
 import { STATUS_INFO } from '../../components/Stamp';
 import { TitleBlock } from '../../components/TitleBlock';
 import { ViewTitle } from '../../components/ViewTitle';
-import { layoutElevation } from '../../lib/elevation';
+import { layoutElevation, typeCounts } from '../../lib/elevation';
 import { cx } from '../../lib/interaction';
 import { routeHref } from '../../routes';
 import { useJobRecord } from '../../state/jobRecords';
@@ -32,6 +32,7 @@ export function JobPreview({ job, onDuplicate }: { job: JobSummary | null; onDup
         // Keyed by job so the swap fades in each time the preview changes.
         <div key={job.id} className={styles.previewBody}>
           <JobElevation name={job.name} layout={layout} />
+          {layout.boxes.length > 0 && <p className={styles.previewKinds}>{typeCounts(layout)}</p>}
           <TitleBlock
             className={styles.previewBlock}
             cells={[

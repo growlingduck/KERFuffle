@@ -30,6 +30,7 @@ const PERTURB: Record<TraceKey, (c: Case) => Case> = {
   ctop: ({ spec, rules }) => ({ spec, rules: { ...rules, countertopThickness: bump(rules.countertopThickness) } }),
   d: ({ spec, rules }) => ({ spec: { ...spec, depth: bump(spec.depth) }, rules }),
   shelves: ({ spec, rules }) => ({ spec: { ...spec, shelfCount: spec.shelfCount + 1 }, rules }),
+  fixed: ({ spec, rules }) => ({ spec: { ...spec, fixedShelfCount: (spec.fixedShelfCount ?? 0) + 1 }, rules }),
   ends: ({ spec, rules }) => ({ spec: { ...spec, finishedEnds: spec.finishedEnds === 'none' ? 'both' : 'none' }, rules }),
   qty: ({ spec, rules }) => ({ spec: { ...spec, quantity: spec.quantity + 1 }, rules }),
   p: ({ spec, rules }) => ({ spec, rules: { ...rules, panelThickness: bump(rules.panelThickness) } }),
@@ -97,6 +98,7 @@ const SAMPLES: [string, Case][] = [
   ['base 42 wide (1″ shelves)', { spec: spec({ width: inches(42), shelfCount: 2 }), rules: DEFAULT_RULES }],
   ['base 18 wide, quantity 3', { spec: spec({ width: inches(18), quantity: 3 }), rules: DEFAULT_RULES }],
   ['wall 30 × 30 × 12', { spec: spec({ type: 'wall', height: inches(30), depth: inches(12), shelfCount: 2 }), rules: DEFAULT_RULES }],
+  ['tall 18 × 84 × 24, 1 fixed shelf', { spec: spec({ type: 'tall', width: inches(18), height: inches(84), shelfCount: 4, fixedShelfCount: 1 }), rules: DEFAULT_RULES }],
 ];
 
 describe('dependency map', () => {
@@ -115,5 +117,12 @@ describe('dependency map', () => {
   it('toe kick and countertop move nothing on a wall cabinet', () => {
     expect(dependenciesFor('toe', 'wall')).toEqual({});
     expect(dependenciesFor('ctop', 'wall')).toEqual({});
+  });
+
+  it('on a tall cabinet the countertop moves nothing and the toe kick moves the box height', () => {
+    expect(dependenciesFor('ctop', 'tall')).toEqual({});
+    expect(dependenciesFor('toe', 'tall')).toEqual(dependenciesFor('box', 'tall'));
+    expect(dependenciesFor('fixed', 'tall')).toEqual({ 'fixed-shelf': ['qty'] });
+    expect(dependenciesFor('fixed', 'base')).toEqual({});
   });
 });

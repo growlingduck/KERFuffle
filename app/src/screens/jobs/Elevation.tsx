@@ -28,7 +28,9 @@ function plural(n: number, word: string): string {
 /** The sentence a screen reader gets for a job's elevation. */
 export function elevationLabel(name: string, layout: ElevationLayout): string {
   if (layout.boxes.length === 0) return `${name} elevation: no cabinets yet.`;
-  const parts = [`${name} elevation: ${plural(layout.baseCount, 'base cabinet')} and ${plural(layout.wallCount, 'wall cabinet')}`];
+  const kinds = [plural(layout.baseCount, 'base cabinet'), ...(layout.tallCount > 0 ? [plural(layout.tallCount, 'tall cabinet')] : []), plural(layout.wallCount, 'wall cabinet')];
+  const listed = `${kinds.slice(0, -1).join(', ')} and ${kinds[kinds.length - 1]}`;
+  const parts = [`${name} elevation: ${listed}`];
   if (layout.baseRun !== null) parts.push(`base run ${feetAndInches(layout.baseRun)}`);
   let text = `${parts.join(', ')}.`;
   if (layout.invalidCount > 0) {
@@ -39,9 +41,9 @@ export function elevationLabel(name: string, layout: ElevationLayout): string {
 }
 
 /**
- * Job preview elevation: wall cabinets hung over base cabinets on a hatched
- * floor line, cabinet labels, and a blue base-run dimension. True proportions
- * (one scale for both axes), not to any drawing scale.
+ * Job preview elevation: wall cabinets hung over base cabinets (tall cabinets
+ * fill both rows) on a hatched floor line, cabinet labels, and a blue base-run
+ * dimension. True proportions (one scale for both axes), not to any drawing scale.
  */
 export function JobElevation({ name, layout }: { name: string; layout: ElevationLayout }) {
   const inchesWide = layout.width / TICKS_PER_INCH;

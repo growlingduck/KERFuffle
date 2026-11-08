@@ -1,0 +1,81 @@
+{
+  "name": "Tall cabinets on a ladder base (A1): 0, 1 and 2 fixed shelves, a split back, and a run of base and tall cabinets",
+  "status": "unconfirmed",
+  "notes": "Tall box height = overall - toe kick: 84 - 4 = 80, 88 - 4 = 84. Applied 3/4 back, so sides, top, bottom and fixed shelves are 24 - 3/4 = 23 1/4 deep. T1 (the worked example): inside 80 - 1 1/2 = 78 1/2, less one fixed shelf 77 3/4, two sections of 38 7/8; fixed shelf 18 - 1 1/2 = 16 1/2 x 23 1/4 x 3/4; 4 adjustable shelves 16 1/4 x 23 1/8, the usual size; left laminate 82 x 26, front 82 x 20. T2 is the same with no fixed shelf. T3: 24 wide, box 84, inside 82 1/2, less two fixed shelves 81, three sections of 27; split back joins at the middle of the lowest fixed shelf, 3/4 + 27 + 3/8 = 28 1/8, so 28 1/8 and 84 - 28 1/8 = 55 7/8, both 24 wide. Every tall cabinet gets a full top. Platforms: T1, T2 and T3 have no run, so each gets its own (18: (18 - 3/4) / 24 = 0.7, 1 gap, 2 sleepers; 24: 23 1/4 / 24 = 0.97, 1 gap, 2 sleepers). Run 'Pantry wall' = B1 30 + T4 24 + B2 36 = 90, one section, (90 - 3/4) / 24 = 3.7, 4 gaps, 5 sleepers 24 - 3 - 1 1/2 = 19 1/2.",
+  "rules": { "preset": "DEFAULT_RULES" },
+  "cabinets": [
+    { "id": "T1", "type": "tall", "width": "18", "height": "84", "depth": "24", "shelfCount": 4, "finishedEnds": "left", "quantity": 1, "fixedShelfCount": 1 },
+    { "id": "T2", "type": "tall", "width": "18", "height": "84", "depth": "24", "shelfCount": 4, "finishedEnds": "none", "quantity": 1, "fixedShelfCount": 0 },
+    { "id": "T3", "type": "tall", "width": "24", "height": "88", "depth": "24", "shelfCount": 3, "finishedEnds": "none", "quantity": 1, "fixedShelfCount": 2, "splitBack": true },
+    { "id": "B1", "type": "base", "width": "30", "height": "36", "depth": "24", "shelfCount": 1, "finishedEnds": "none", "quantity": 1, "run": "Pantry wall" },
+    { "id": "T4", "type": "tall", "width": "24", "height": "84", "depth": "24", "shelfCount": 4, "finishedEnds": "none", "quantity": 1, "fixedShelfCount": 1, "run": "Pantry wall" },
+    { "id": "B2", "type": "base", "width": "36", "height": "36", "depth": "24", "shelfCount": 1, "finishedEnds": "none", "quantity": 1, "run": "Pantry wall" }
+  ],
+  "expected": {
+    "cabinetParts": {
+      "T1": [
+        { "role": "back",               "category": "panel",    "name": "Back",                "length": "80",     "width": "18",     "thickness": "3/4", "quantity": 1 },
+        { "role": "bottom",             "category": "panel",    "name": "Bottom",              "length": "16 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "side-left",          "category": "panel",    "name": "Left side",           "length": "80",     "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "side-right",         "category": "panel",    "name": "Right side",          "length": "80",     "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "top",                "category": "panel",    "name": "Top",                 "length": "16 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "front",              "category": "panel",    "name": "Front (door/laminate size)", "length": "80", "width": "18", "thickness": "3/4", "quantity": 1, "optional": true },
+        { "role": "shelf",              "category": "panel",    "name": "Shelf",               "length": "16 1/4", "width": "23 1/8", "thickness": "3/4", "quantity": 4 },
+        { "role": "fixed-shelf",        "category": "panel",    "name": "Fixed shelf",         "length": "16 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "laminate-side-left", "category": "laminate", "name": "Laminate, left side", "length": "82",     "width": "26",     "thickness": null,  "quantity": 1 },
+        { "role": "laminate-front",     "category": "laminate", "name": "Laminate, front",     "length": "82",     "width": "20",     "thickness": null,  "quantity": 1 }
+      ],
+      "T2": [
+        { "role": "back",           "category": "panel",    "name": "Back",            "length": "80",     "width": "18",     "thickness": "3/4", "quantity": 1 },
+        { "role": "bottom",         "category": "panel",    "name": "Bottom",          "length": "16 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "side-left",      "category": "panel",    "name": "Left side",       "length": "80",     "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "side-right",     "category": "panel",    "name": "Right side",      "length": "80",     "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "top",            "category": "panel",    "name": "Top",             "length": "16 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "front",          "category": "panel",    "name": "Front (door/laminate size)", "length": "80", "width": "18", "thickness": "3/4", "quantity": 1, "optional": true },
+        { "role": "shelf",          "category": "panel",    "name": "Shelf",           "length": "16 1/4", "width": "23 1/8", "thickness": "3/4", "quantity": 4 },
+        { "role": "laminate-front", "category": "laminate", "name": "Laminate, front", "length": "82",     "width": "20",     "thickness": null,  "quantity": 1 }
+      ],
+      "T3": [
+        { "role": "back",           "category": "panel",    "name": "Back, lower",     "length": "28 1/8", "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "back",           "category": "panel",    "name": "Back, upper",     "length": "55 7/8", "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "bottom",         "category": "panel",    "name": "Bottom",          "length": "22 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "side-left",      "category": "panel",    "name": "Left side",       "length": "84",     "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "side-right",     "category": "panel",    "name": "Right side",      "length": "84",     "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "top",            "category": "panel",    "name": "Top",             "length": "22 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "front",          "category": "panel",    "name": "Front (door/laminate size)", "length": "84", "width": "24", "thickness": "3/4", "quantity": 1, "optional": true },
+        { "role": "shelf",          "category": "panel",    "name": "Shelf",           "length": "22 1/4", "width": "23 1/8", "thickness": "3/4", "quantity": 3 },
+        { "role": "fixed-shelf",    "category": "panel",    "name": "Fixed shelf",     "length": "22 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 2 },
+        { "role": "laminate-front", "category": "laminate", "name": "Laminate, front", "length": "86",     "width": "26",     "thickness": null,  "quantity": 1 }
+      ],
+      "T4": [
+        { "role": "back",           "category": "panel",    "name": "Back",            "length": "80",     "width": "24",     "thickness": "3/4", "quantity": 1 },
+        { "role": "bottom",         "category": "panel",    "name": "Bottom",          "length": "22 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "side-left",      "category": "panel",    "name": "Left side",       "length": "80",     "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "side-right",     "category": "panel",    "name": "Right side",      "length": "80",     "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "top",            "category": "panel",    "name": "Top",             "length": "22 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "front",          "category": "panel",    "name": "Front (door/laminate size)", "length": "80", "width": "24", "thickness": "3/4", "quantity": 1, "optional": true },
+        { "role": "shelf",          "category": "panel",    "name": "Shelf",           "length": "22 1/4", "width": "23 1/8", "thickness": "3/4", "quantity": 4 },
+        { "role": "fixed-shelf",    "category": "panel",    "name": "Fixed shelf",     "length": "22 1/2", "width": "23 1/4", "thickness": "3/4", "quantity": 1 },
+        { "role": "laminate-front", "category": "laminate", "name": "Laminate, front", "length": "82",     "width": "26",     "thickness": null,  "quantity": 1 }
+      ]
+    },
+    "jobParts": [
+      { "ref": "T1", "role": "base-rail-front", "category": "panel", "name": "Base rail, front", "length": "18",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "T1", "role": "base-rail-back",  "category": "panel", "name": "Base rail, back",  "length": "18",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "T1", "role": "base-sleeper",    "category": "panel", "name": "Base sleeper",     "length": "19 1/2", "width": "4", "thickness": "3/4", "quantity": 2 },
+      { "ref": "T1", "role": "kick-skin",       "category": "panel", "name": "Kick skin",        "length": "18",     "width": "4", "thickness": "1/4", "quantity": 1 },
+      { "ref": "T2", "role": "base-rail-front", "category": "panel", "name": "Base rail, front", "length": "18",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "T2", "role": "base-rail-back",  "category": "panel", "name": "Base rail, back",  "length": "18",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "T2", "role": "base-sleeper",    "category": "panel", "name": "Base sleeper",     "length": "19 1/2", "width": "4", "thickness": "3/4", "quantity": 2 },
+      { "ref": "T2", "role": "kick-skin",       "category": "panel", "name": "Kick skin",        "length": "18",     "width": "4", "thickness": "1/4", "quantity": 1 },
+      { "ref": "T3", "role": "base-rail-front", "category": "panel", "name": "Base rail, front", "length": "24",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "T3", "role": "base-rail-back",  "category": "panel", "name": "Base rail, back",  "length": "24",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "T3", "role": "base-sleeper",    "category": "panel", "name": "Base sleeper",     "length": "19 1/2", "width": "4", "thickness": "3/4", "quantity": 2 },
+      { "ref": "T3", "role": "kick-skin",       "category": "panel", "name": "Kick skin",        "length": "24",     "width": "4", "thickness": "1/4", "quantity": 1 },
+      { "ref": "Run: Pantry wall", "run": "Pantry wall", "role": "base-rail-front", "category": "panel", "name": "Base rail, front", "length": "90",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "Run: Pantry wall", "run": "Pantry wall", "role": "base-rail-back",  "category": "panel", "name": "Base rail, back",  "length": "90",     "width": "4", "thickness": "3/4", "quantity": 1 },
+      { "ref": "Run: Pantry wall", "run": "Pantry wall", "role": "base-sleeper",    "category": "panel", "name": "Base sleeper",     "length": "19 1/2", "width": "4", "thickness": "3/4", "quantity": 5 },
+      { "ref": "Run: Pantry wall", "run": "Pantry wall", "role": "kick-skin",       "category": "panel", "name": "Kick skin",        "length": "90",     "width": "4", "thickness": "1/4", "quantity": 1 }
+    ]
+  }
+}

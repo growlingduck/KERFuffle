@@ -1,6 +1,7 @@
 import { methodOf, type HardwareItem, type MaterialSlot } from './methods';
 import { backThicknessOf } from './rules';
-import type { ConstructionRules, Part } from './types';
+import { fixedShelvesOf } from './cabinetTypes';
+import type { CabinetSpec, ConstructionRules, Part, ValidationIssue } from './types';
 import { formatDimension, type Ticks } from './units';
 
 /**
@@ -73,7 +74,7 @@ export interface SlotInfo {
 }
 
 export const SLOT_INFO: Readonly<Record<JobSlot, SlotInfo>> = {
-  box: { name: 'Box', parts: 'Sides, top or stretchers, bottom, nailer and fronts', kind: 'sheet' },
+  box: { name: 'Box', parts: 'Sides, top or stretchers, bottom, fixed shelves, nailers and fronts', kind: 'sheet' },
   back: { name: 'Back', parts: 'Backs', kind: 'sheet' },
   shelves: { name: 'Shelves', parts: 'Shelves', kind: 'sheet' },
   'wide-shelves': { name: 'Wide shelves', parts: 'Shelves in wide cabinets', kind: 'sheet' },
@@ -160,4 +161,55 @@ export function materialIssues(
     }
   }
   return issues.sort((a, b) => JOB_SLOTS.indexOf(a.slot) - JOB_SLOTS.indexOf(b.slot));
+}
+
+/**
+ * Warnings for a tall cabinet's parts that are longer than a sheet of the
+ * material they are cut from. Nesting reports these too; this shows them in
+ * the editor. The back gets its own warning, which suggests a split back.
+ * Other cabinet types, and slots without a material, never warn.
+ */
+export function sheetLengthIssues(
+  spec: Pick<CabinetSpec, 'type' | 'fixedShelfCount' | 'splitBack'>,
+  parts: readonly Part[],
+  rules: ConstructionRules,
+  materials: JobMaterials,
+): ValidationIssue[] {
+  if (spec.type !== 'tall') return [];
+  const show = (value: Ticks) => `${formatDimension(value, { inchMark: false }).text}″`;
+  const long: { part: Part; material: Material }[] = [];
+  for (const part of parts) {
+    const material = materials[partSlot(part, rules)];
+    if (material?.length == null || part.length <= material.length) continue;
+    long.push({ part, material });
+  }
+  const issues: ValidationIssue[] = [];
+  const backs = long.filter(({ part }) => part.role === 'back');
+  if (backs.length > 0) {
+    // The longest piece, when the back is split.
+    const { part, material } = backs.reduce((a, b) => (b.part.length > a.part.length ? b : a));
+    const fix =
+      spec.splitBack === true
+        ? 'Split at the lowest fixed shelf, a piece is still too long. Use a longer sheet.'
+        : fixedShelvesOf(spec) > 0
+          ? 'Turn on Split back to cut it in two at the lowest fixed shelf.'
+          : 'Add a fixed shelf and turn on Split back to cut it in two.';
+    issues.push({
+      field: 'splitBack',
+      severity: 'warning',
+      message: `The back is ${show(part.length)} long, longer than a sheet of ${material.name} (${show(material.length!)}). ${fix}`,
+    });
+  }
+  const others = long.filter(({ part }) => part.role !== 'back');
+  if (others.length > 0) {
+    const names = [...new Set(others.map(({ part }) => part.name))];
+    const listed = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]!}`;
+    const sheets = [...new Set(others.map(({ material }) => `${material.name} (${show(material.length!)})`))].join(', ');
+    issues.push({
+      field: 'height',
+      severity: 'warning',
+      message: `${listed} ${names.length === 1 ? 'is' : 'are'} longer than a sheet of ${sheets}. Use a longer sheet, or make the cabinet shorter.`,
+    });
+  }
+  return issues;
 }

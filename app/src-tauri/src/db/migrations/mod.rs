@@ -36,10 +36,11 @@ const MIGRATIONS: &[Migration] = &[
         sql: include_str!("0007_rough_prices.sql"),
         then: Some(fill_rough_prices),
     },
+    Migration { version: 8, name: "tall cabinets", sql: include_str!("0008_tall_cabinets.sql"), then: None },
 ];
 
 /// Must equal the last entry in `MIGRATIONS` (checked by a test).
-pub const LATEST_VERSION: i64 = 7;
+pub const LATEST_VERSION: i64 = 8;
 
 /// The standard materials (plan §3.1), added once when the catalog is created,
 /// without prices (migration 7 adds rough ones). Written as the catalog was at

@@ -12,9 +12,10 @@ pub const MAX_SHELVES: i64 = 1_000;
 pub const MAX_QUANTITY: i64 = 100_000;
 
 /// Version of the `ConstructionRules` JSON shape stored with each job. Version 2
-/// added the construction `method` block; the app upgrades version 1 snapshots
-/// when it reads them (app/src/data/rules.ts), so they are stored unchanged.
-pub const RULES_VERSION: i64 = 2;
+/// added the construction `method` block; version 3 the tall-cabinet rule
+/// `tallFixedShelfAbove`. The app upgrades older snapshots when it reads them
+/// (app/src/data/rules.ts), so they are stored unchanged.
+pub const RULES_VERSION: i64 = 3;
 
 macro_rules! text_enum {
     ($name:ident { $($variant:ident => $text:literal),+ $(,)? }) => {
@@ -50,6 +51,7 @@ text_enum!(JobStatus {
 text_enum!(CabinetType {
     Base => "base",
     Wall => "wall",
+    Tall => "tall",
 });
 
 text_enum!(FinishedEnds {
@@ -79,6 +81,16 @@ pub struct Cabinet {
     /// The run of base cabinets this one stands in (schema version 2). Separate from `room`.
     #[serde(default)]
     pub run: Option<String>,
+    /// Tall cabinets only (schema version 8): structural shelves. Kept, but
+    /// ignored, on base and wall cabinets. Older files and clients send none.
+    #[serde(default)]
+    pub fixed_shelf_count: i64,
+    /// Tall cabinets only: a second nailer under the lowest fixed shelf.
+    #[serde(default)]
+    pub mid_nailer: bool,
+    /// Tall cabinets only: the back cut in two at the lowest fixed shelf.
+    #[serde(default)]
+    pub split_back: bool,
 }
 
 impl Cabinet {
@@ -101,6 +113,12 @@ impl Cabinet {
             return Err(DbError::invalid(format!(
                 "{name} has {} shelves; the number must be between 0 and {MAX_SHELVES}.",
                 self.shelf_count
+            )));
+        }
+        if !(0..=MAX_SHELVES).contains(&self.fixed_shelf_count) {
+            return Err(DbError::invalid(format!(
+                "{name} has {} fixed shelves; the number must be between 0 and {MAX_SHELVES}.",
+                self.fixed_shelf_count
             )));
         }
         if !(0..=MAX_QUANTITY).contains(&self.quantity) {

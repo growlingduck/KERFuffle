@@ -9,13 +9,14 @@ import type { MenuEntry } from '../../components/Menu';
 import { Sheet } from '../../components/Sheet';
 import { SplitButton } from '../../components/SplitButton';
 import { ViewTitle } from '../../components/ViewTitle';
+import { jobSession } from '../../data/storage';
 import type { CabinetRecord } from '../../data/types';
 import { displayInches, INCH } from '../../lib/dimensions';
 import { cx } from '../../lib/interaction';
 import { prefersReducedMotion } from '../../motion';
 import { showToast } from '../../state/toast';
 import { evaluateCabinet } from '../../workspace/calc';
-import { duplicateLabels, ENDS_TEXT, isDuplicateLabel, NEW_CABINET, newCabinet, PRESET_WIDTHS, TYPE_LABEL } from '../../workspace/cabinets';
+import { CABINET_TYPE_ORDER, duplicateLabels, ENDS_TEXT, isDuplicateLabel, NEW_CABINET, newCabinet, PRESET_WIDTHS, TYPE_LABEL } from '../../workspace/cabinets';
 import { removeWithExit, runCommand, undoIfLatest } from '../../workspace/history';
 import { selectCabinet, selectedCabinetId, setUi, useSelectedCabinetId, useUi, workspaceUi } from '../../workspace/ui';
 import { useCabinets, useDraftFor, useRules } from './hooks';
@@ -43,7 +44,9 @@ function focusRow(id: string | null) {
 
 /** Shared by the list buttons and the workspace shortcuts. */
 export function addCabinet(cabinets: readonly CabinetRecord[], type: CabinetType, width?: number) {
-  const cabinet = newCabinet(cabinets, type, width === undefined ? undefined : inches(width));
+  // A tall cabinet's starting fixed shelves come from the job's rule.
+  const rules = jobSession.getJob()?.rules;
+  const cabinet = newCabinet(cabinets, type, width === undefined ? undefined : inches(width), rules);
   if (runCommand({ type: 'addCabinet', cabinet })) sweep(cabinet.id);
 }
 
@@ -160,8 +163,8 @@ export interface CabinetGroup {
 }
 
 /**
- * The list by run: each run in the order it first appears, then base cabinets
- * with no run (each gets its own base), then wall cabinets (no base).
+ * The list by run: each run in the order it first appears, then base and tall
+ * cabinets with no run (each gets its own base), then wall cabinets (no base).
  */
 export function groupByRun(cabinets: readonly CabinetRecord[]): CabinetGroup[] {
   const runs = new Map<string, CabinetRecord[]>();
@@ -190,7 +193,7 @@ export function groupByRun(cabinets: readonly CabinetRecord[]): CabinetGroup[] {
 }
 
 function presetItems(cabinets: readonly CabinetRecord[], rules: ConstructionRules): MenuEntry[] {
-  return (['base', 'wall'] as const).map((type) => {
+  return CABINET_TYPE_ORDER.map((type) => {
     const size = NEW_CABINET[type];
     const h = displayInches(size.height).replace(INCH, '');
     const d = displayInches(size.depth).replace(INCH, '');
@@ -203,7 +206,14 @@ function presetItems(cabinets: readonly CabinetRecord[], rules: ConstructionRule
         label: (
           <span className={styles.preset}>
             <MiniElevation
-              spec={{ type, width: inches(width), height: size.height, shelfCount: size.shelfCount, finishedEnds: 'none' }}
+              spec={{
+                type,
+                width: inches(width),
+                height: size.height,
+                shelfCount: size.shelfCount,
+                finishedEnds: 'none',
+                ...(type === 'tall' ? { fixedShelfCount: newCabinet(cabinets, type, inches(width), rules).fixedShelfCount ?? 0 } : {}),
+              }}
               rules={rules}
               invalid={false}
             />

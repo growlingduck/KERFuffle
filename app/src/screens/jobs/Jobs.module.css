@@ -67,7 +67,7 @@
   background: var(--vellum);
   font-size: 14px;
   line-height: 1.45;
-  color: var(--ink-2);
+  color: var(--muted);
 }
 .checkDefaults p {
   flex: 1 1 360px;
@@ -249,7 +249,7 @@
 }
 .edited {
   white-space: nowrap;
-  color: var(--ink-2);
+  color: var(--muted);
 }
 .actions {
   text-align: right;
@@ -489,7 +489,7 @@
   margin: 0 0 12px;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--ink-2);
+  color: var(--muted);
 }
 .restoreTitle {
   margin-bottom: 6px;
@@ -521,12 +521,20 @@
   font-size: 18px;
   font-weight: 600;
 }
+/* "3 base · 1 tall · 4 wall", under the elevation. */
+.previewKinds {
+  margin: -4px 0 8px;
+  font: 500 11px var(--font-mono);
+  letter-spacing: 0.04em;
+  text-align: center;
+  color: var(--muted);
+}
 .tbStatus {
   font-size: 12px;
 }
 .tbNotes {
   font-size: 13px;
-  color: var(--ink-2);
+  color: var(--muted);
 }
 .status_draft {
   color: var(--status-draft);

@@ -17,7 +17,7 @@ app has the same content under **Help**).
 
 - **Jobs screen:** a library of saved jobs with search, sort, preview, sample
   jobs, export and import.
-- **Workspace:** add and edit base and wall cabinets (sizes, shelves, finished
+- **Workspace:** add and edit base, tall and wall cabinets (sizes, shelves, finished
   ends, quantity), with a drawing and a live parts list. Every edit autosaves,
   and undo/redo cover the whole session.
 - **Cut list:** parts and laminate for the whole job, as print, PDF or CSV.
@@ -38,7 +38,7 @@ app has the same content under **Help**).
 | [app/src-tauri/](app/src-tauri/) | The Tauri 2 (Rust) side: SQLite job storage and migrations (`src/db/`), backups, `.kerfjob` export and import, PDF and CSV output, and the updater (`src/updates.rs`). |
 | [scripts/](scripts/) | `version.mjs` (one version everywhere), `release.mjs` (build a release), `sign.mjs` (code signing). |
 | [docs/](docs/) | Calculation rules, interaction design, wireframes, install, release and CI guides. |
-| [prompts/](prompts/) | The build prompts (01–08) the app was built from, in order. |
+| [prompts/](prompts/) | The build prompts the app was built from, in order. Finished ones are in [prompts/archive/](prompts/archive/). |
 | `legacy/` | The old calculator and spreadsheet, kept for reference. Git-ignored, so it's only on the development PC. |
 
 It's an npm workspace: run every command below from the repo root.
