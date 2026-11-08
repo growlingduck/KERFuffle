@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactNode, Ref } from 'react';
 import { cx, useDismiss } from '../lib/interaction';
 import styles from './Menu.module.css';
@@ -51,8 +51,41 @@ function flatten(entries: readonly MenuEntry[]): MenuItem[] {
   return entries.flatMap((e) => (e.type === 'separator' ? [] : e.type === 'group' ? [...e.items] : [e]));
 }
 
+/** Gap between trigger and menu, and the least room kept to the window edge. */
+const GAP = 6;
+const EDGE = 8;
+
+const px = (n: number | undefined) => (n === undefined ? '' : `${n}px`);
+
 /**
- * Trigger + popover menu. Opens under its trigger with a 4 px drop and fade.
+ * Put the menu by its trigger, in window coordinates. It's position: fixed, so no
+ * scroll container or overflow clips it. Below the trigger unless there's more room
+ * above; aligned to the trigger's start or end edge, and kept inside the window.
+ */
+function place(trigger: DOMRect, menu: HTMLElement, align: 'start' | 'end', matchWidth: boolean): void {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const below = vh - trigger.bottom - GAP - EDGE;
+  const above = trigger.top - GAP - EDGE;
+  const up = menu.scrollHeight > below && above > below;
+  let left = trigger.left;
+  if (!matchWidth) {
+    const width = menu.offsetWidth;
+    const ideal = align === 'end' ? trigger.right - width : trigger.left;
+    left = Math.max(EDGE, Math.min(ideal, vw - EDGE - width));
+  }
+  const s = menu.style;
+  s.top = px(up ? undefined : trigger.bottom + GAP);
+  s.bottom = px(up ? vh - trigger.top + GAP : undefined);
+  s.maxHeight = px(up ? above : below);
+  s.left = px(left);
+  if (matchWidth) s.width = px(trigger.width);
+  menu.dataset.side = up ? 'above' : 'below';
+}
+
+/**
+ * Trigger + popover menu. Opens under its trigger (over it when there's more room
+ * above) with a 4 px drop and fade.
  * ↑/↓/Home/End move between items, Enter/Space choose, Esc, Tab or a click
  * outside close it, and focus returns to the trigger.
  */
@@ -60,6 +93,7 @@ export function Menu({ label, items, trigger, align = 'start', matchWidth = fals
   const [open, setOpen] = useState(defaultOpen);
   const [active, setActive] = useState(-1);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const itemRefs = useRef(new Map<string, HTMLButtonElement>());
   const menuId = useId();
@@ -74,6 +108,26 @@ export function Menu({ label, items, trigger, align = 'start', matchWidth = fals
   }, []);
 
   useDismiss(open, [wrapRef], () => close(true));
+
+  // Placed before paint, and again as the page scrolls or the window resizes, so it stays on its trigger.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const update = () => {
+      const trigger = wrapRef.current;
+      const menu = menuRef.current;
+      if (trigger && menu) place(trigger.getBoundingClientRect(), menu, align, matchWidth);
+    };
+    update();
+    const onScroll = (event: Event) => {
+      if (!menuRef.current?.contains(event.target as Node)) update();
+    };
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [open, align, matchWidth]);
 
   const openWith = (which: 'first' | 'last' | 'checked') => {
     const checked = flat.findIndex((e) => e.checked && !e.disabled);
@@ -182,10 +236,11 @@ export function Menu({ label, items, trigger, align = 'start', matchWidth = fals
       {trigger(triggerProps, open)}
       {open && (
         <div
+          ref={menuRef}
           id={menuId}
           role="menu"
           aria-label={label}
-          className={cx(styles.menu, align === 'end' ? styles.end : styles.start, matchWidth && styles.match)}
+          className={cx(styles.menu, matchWidth && styles.match)}
           style={width ? { width } : undefined}
           onKeyDown={onMenuKey}
         >

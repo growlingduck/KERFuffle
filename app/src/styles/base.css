@@ -146,7 +146,7 @@ textarea {
     background-color: var(--highlighter);
   }
   100% {
-    background-color: rgb(251 231 161 / 0%);
+    background-color: transparent;
   }
 }
 
@@ -197,10 +197,10 @@ textarea {
   body,
   #root {
     height: auto;
-    background: #fff;
+    background: var(--white);
   }
   .paper {
-    background: #fff;
+    background: var(--white);
   }
   [data-screen-only] {
     display: none !important;

@@ -1,14 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import styles from './App.module.css';
 import { ButtonLink } from './components/Button';
 import { IconButton } from './components/IconButton';
-import { CheckIcon, ExportIcon, HelpIcon, KeyboardIcon, LogoMark, RedoIcon, Spinner, UndoIcon } from './components/icons';
+import { CheckIcon, ExportIcon, HelpIcon, KeyboardIcon, LogoMark, MoonIcon, RedoIcon, Spinner, SunIcon, SystemThemeIcon, UndoIcon } from './components/icons';
 import { Menu } from './components/Menu';
 import { Stamp } from './components/Stamp';
 import { ToastHost } from './components/Toast';
 import { Tooltip } from './components/Tooltip';
 import { closeShortcuts, ShortcutsPopover, toggleShortcuts, useShortcutsOpen } from './keyboard/ShortcutsPopover';
+import { JobDetailsDialog } from './screens/jobs/JobDetailsDialog';
 import { useSectionLink } from './screens/settings/sectionLink';
 import { shortcuts, useShortcut } from './keyboard/shortcuts';
 import { changeJobStatus, jobSession, useSaveState } from './data/storage';
@@ -21,6 +22,7 @@ import type { Route, ScreenName } from './routes';
 import { JOB_STATUSES, jobsStore, useJob, useLastJobId } from './state/jobs';
 import type { JobSummary } from './state/jobs';
 import { showToast } from './state/toast';
+import { nextThemeChoice, setThemeChoice, THEME_LABELS, useThemeChoice } from './theme';
 import { markedText, statusLockHint } from './workspace/construction';
 import { redoWithToast, runCommand, undoIfLatest, undoWithToast, useRedoLabel, useUndoLabel } from './workspace/history';
 import { SymbolMark } from './components/InfoTip';
@@ -28,9 +30,15 @@ import { SymbolMark } from './components/InfoTip';
 const TABS: readonly { screen: ScreenName; label: string; key: string }[] = [
   { screen: 'jobs', label: 'Jobs', key: '1' },
   { screen: 'workspace', label: 'Workspace', key: '2' },
-  { screen: 'cutlist', label: 'Cut list', key: '3' },
+  // Cut list, Layouts and Estimate: the pages a job puts out.
+  { screen: 'cutlist', label: 'Output', key: '3' },
   { screen: 'settings', label: 'Settings', key: '4' },
 ];
+
+/** Workspace and Output show a job, so they wait until one has been opened. */
+function needsJob(screen: ScreenName): boolean {
+  return screen === 'workspace' || screen === 'cutlist';
+}
 
 function currentScreen(route: Route): ScreenName | null {
   return route.name === 'gallery' ? null : route.name;
@@ -40,15 +48,31 @@ const savedTime = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2
 
 /** Job · Customer · Status · Saved · Undo/Redo/Export. Only on job screens. */
 function JobCells({ job }: { job: JobSummary }) {
+  const [editing, setEditing] = useState(false);
+  const edit = () => setEditing(true);
   return (
     <div className={styles.cells}>
+      {editing && <JobDetailsDialog job={job} onClose={() => setEditing(false)} />}
       <div className={cx(styles.cell, styles.jobCell)}>
         <span className={styles.cellLabel}>Job</span>
-        <span className={styles.jobName}>{job.name}</span>
+        <Tooltip content="Edit job details" placement="bottom">
+          <button type="button" className={cx(styles.detailsButton, styles.jobName)} aria-label={`Edit job details: ${job.name}`} onClick={edit}>
+            {job.name}
+          </button>
+        </Tooltip>
       </div>
       <div className={styles.cell}>
         <span className={styles.cellLabel}>Customer</span>
-        <span className={styles.customer}>{job.customer}</span>
+        <Tooltip content="Edit job details" placement="bottom">
+          <button
+            type="button"
+            className={cx(styles.detailsButton, styles.customer, !job.customer && styles.addCustomer)}
+            aria-label={`Edit job details. Customer: ${job.customer || 'Add customer'}`}
+            onClick={edit}
+          >
+            {job.customer || 'Add customer'}
+          </button>
+        </Tooltip>
       </div>
       <div className={styles.cell}>
         <span className={styles.cellLabel}>Status</span>
@@ -108,7 +132,7 @@ function HelpCell({ shortcutsRef }: { shortcutsRef: RefObject<HTMLButtonElement 
   return (
     <div className={cx(styles.cell, styles.actionsCell)}>
       <ButtonLink {...help} icon={<HelpIcon />} className={styles.helpLink}>
-        Help
+        <span className={styles.helpText}>Help</span>
       </ButtonLink>
       <IconButton
         ref={shortcutsRef}
@@ -120,7 +144,28 @@ function HelpCell({ shortcutsRef }: { shortcutsRef: RefObject<HTMLButtonElement 
       >
         <KeyboardIcon />
       </IconButton>
+      <ThemeButton />
     </div>
+  );
+}
+
+const THEME_ICONS = { light: SunIcon, dark: MoonIcon, system: SystemThemeIcon } as const;
+
+/** Theme: Light · Dark · System. Each click moves to the next; Settings has the full switch. */
+function ThemeButton() {
+  const choice = useThemeChoice();
+  const next = nextThemeChoice(choice);
+  const Icon = THEME_ICONS[choice];
+  return (
+    <IconButton
+      label={`Theme: ${THEME_LABELS[choice]}`}
+      tooltip={`Theme: ${THEME_LABELS[choice]} · click for ${THEME_LABELS[next]}`}
+      tooltipPlacement="bottom"
+      data-theme-button={choice}
+      onClick={() => setThemeChoice(next)}
+    >
+      <Icon />
+    </IconButton>
   );
 }
 
@@ -252,6 +297,17 @@ export function App() {
   const screen = currentScreen(route);
   const shortcutsOpen = useShortcutsOpen();
   const shortcutsRef = useRef<HTMLButtonElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+
+  // Another screen or job starts at the top. A cleanup runs before the next screen's
+  // layout effects, so Jobs can still put back where its list was scrolled.
+  const scrollKey = `${screen ?? 'gallery'}/${jobId ?? ''}`;
+  useLayoutEffect(() => {
+    const main = mainRef.current;
+    return () => {
+      if (main) main.scrollTop = 0;
+    };
+  }, [scrollKey]);
 
   useEffect(() => shortcuts.attach(window), []);
   useEffect(() => closeShortcuts, []);
@@ -275,16 +331,25 @@ export function App() {
           </span>
         </a>
         <nav aria-label="Sections" className={styles.tabs}>
-          {TABS.map((tab) => (
-            <a
-              key={tab.screen}
-              className={styles.tab}
-              href={routeHref(screenRoute(tab.screen, lastJobId))}
-              aria-current={screen === tab.screen ? 'page' : undefined}
-            >
-              {tab.label}
-            </a>
-          ))}
+          {TABS.map((tab) =>
+            needsJob(tab.screen) && !lastJobId ? (
+              // No job to show yet: grayed out, still focusable so the reason can be read.
+              <Tooltip key={tab.screen} content="Open a job first" placement="bottom" describe>
+                <a className={styles.tab} role="link" aria-disabled="true" tabIndex={0}>
+                  {tab.label}
+                </a>
+              </Tooltip>
+            ) : (
+              <a
+                key={tab.screen}
+                className={styles.tab}
+                href={routeHref(screenRoute(tab.screen, lastJobId))}
+                aria-current={screen === tab.screen ? 'page' : undefined}
+              >
+                {tab.label}
+              </a>
+            ),
+          )}
         </nav>
         <div className={styles.spacer} />
         <UpdateNotice />
@@ -292,7 +357,7 @@ export function App() {
         <HelpCell shortcutsRef={shortcutsRef} />
         <ShortcutsPopover open={shortcutsOpen} onClose={closeShortcuts} anchorRef={shortcutsRef} />
       </header>
-      <main className={styles.main}>
+      <main ref={mainRef} className={styles.main} data-scroll-root>
         <RouteOutlet route={route} />
       </main>
       <ToastHost />

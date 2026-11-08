@@ -203,7 +203,7 @@
   min-width: 28px;
   height: 20px;
   padding: 0 3px;
-  border: 1.25px solid #000;
+  border: 1.25px solid var(--sheet-ink);
   font: 700 11.5px var(--font-cond);
   letter-spacing: 0.04em;
 }
@@ -222,7 +222,7 @@
 }
 .legendSwatch rect {
   fill: none;
-  stroke: #000;
+  stroke: var(--sheet-ink);
   stroke-width: 1;
 }
 
@@ -264,13 +264,13 @@
 
 /* ---- The drawing ---- */
 .sheet {
-  fill: #fff;
-  stroke: #000;
+  fill: var(--white);
+  stroke: var(--sheet-ink);
   stroke-width: 1.5;
 }
 .trimLine {
   fill: none;
-  stroke: #000;
+  stroke: var(--sheet-ink);
   stroke-width: 0.6;
   stroke-dasharray: 4 3;
 }
@@ -278,8 +278,8 @@
   cursor: default;
 }
 .pieceRect {
-  fill: #fff;
-  stroke: #000;
+  fill: var(--white);
+  stroke: var(--sheet-ink);
   stroke-width: 1.2;
   transition:
     fill var(--dur-fast) var(--ease-out),
@@ -287,48 +287,48 @@
 }
 .grainLine {
   fill: none;
-  stroke: #8a8a8a;
+  stroke: var(--line-light);
   stroke-width: 0.6;
   pointer-events: none;
 }
 .hatchLine {
   fill: none;
-  stroke: #000;
+  stroke: var(--sheet-ink);
   stroke-width: 0.7;
 }
 .offcut {
   fill: none;
-  stroke: #000;
+  stroke: var(--sheet-ink);
   stroke-width: 0.6;
 }
 .offcutText {
   font: 400 10px var(--font-mono);
-  fill: #000;
+  fill: var(--sheet-ink);
   paint-order: stroke;
-  stroke: #fff;
+  stroke: var(--white);
   stroke-width: 3px;
 }
 .feature {
-  fill: #fff;
-  stroke: #000;
+  fill: var(--white);
+  stroke: var(--sheet-ink);
   stroke-width: 0.8;
   stroke-dasharray: 2 2;
 }
 .labelGround {
-  fill: #fff;
+  fill: var(--white);
   stroke: none;
 }
 .mark {
   font: 700 12px var(--font-cond);
   letter-spacing: 0.03em;
-  fill: #000;
+  fill: var(--sheet-ink);
   pointer-events: none;
 }
 .size {
   font: 400 10px var(--font-mono);
-  fill: #000;
+  fill: var(--sheet-ink);
   paint-order: stroke;
-  stroke: #fff;
+  stroke: var(--white);
   stroke-width: 3px;
   pointer-events: none;
 }
@@ -342,7 +342,7 @@
   stroke-width: 2;
 }
 .dim line {
-  stroke: #000;
+  stroke: var(--sheet-ink);
   stroke-width: 0.8;
 }
 .dim .ext {
@@ -350,7 +350,7 @@
 }
 .dimText {
   font: 400 10.5px var(--font-mono);
-  fill: #000;
+  fill: var(--sheet-ink);
 }
 .ripNo {
   font-weight: 700;
@@ -404,7 +404,7 @@
   align-items: baseline;
   gap: 2px 12px;
   margin: 0 0 6px;
-  border-bottom: 1.5px solid #000;
+  border-bottom: 1.5px solid var(--sheet-ink);
   font: 700 15px var(--font-cond);
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -430,7 +430,7 @@
 .printStepsTitle {
   margin-bottom: 4px;
   font-size: 11px;
-  border-bottom: 1px solid #000;
+  border-bottom: 1px solid var(--sheet-ink);
 }
 .sequence {
   margin: 0;
@@ -472,8 +472,8 @@
   /* Never the screen's blue: pieces print as drawn. */
   .pieceHot .pieceRect,
   .piecePinned .pieceRect {
-    fill: #fff;
-    stroke: #000;
+    fill: var(--white);
+    stroke: var(--sheet-ink);
     stroke-width: 1.2;
   }
 }

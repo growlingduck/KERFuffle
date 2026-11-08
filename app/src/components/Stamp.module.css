@@ -36,6 +36,6 @@
 @media print {
   .stamp {
     transform: none;
-    color: #000;
+    color: var(--sheet-ink);
   }
 }

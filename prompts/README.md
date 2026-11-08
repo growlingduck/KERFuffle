@@ -25,6 +25,8 @@ one until the checklist passes.
 | 17 | [Next steps](17-next-steps.md) | Cut list button, actionable empty states, Ready-to-cut lock hint | |
 | 18 | [Help and quick start](18-help-and-quick-start.md) | Help section, printable quick start, small clarity fixes | |
 | 19 | [DXF export](19-dxf-export.md) | DXF per sheet pattern | |
+| 20 | [Tall cabinets](20-tall-cabinets.md) | Tall type, fixed shelves, mid nailer, split back | |
+| 21 | [Dark mode](21-dark-mode.md) | Light / Dark / System switch, dark tokens, print stays light | |
 
 Prompts 02–07 share [`docs/interaction-design.md`](../docs/interaction-design.md)
 and the prototypes in [`docs/wireframes/`](../docs/wireframes/).

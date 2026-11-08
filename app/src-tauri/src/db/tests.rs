@@ -904,6 +904,7 @@ fn material(id: &str, kind: MaterialKind, name: &str) -> Material {
         roll_feet: None,
         unit: None,
         price: None,
+        price_estimated: false,
         supplier: None,
         sku: None,
         notes: None,
@@ -919,11 +920,13 @@ fn job_materials(id: &str) -> serde_json::Value {
 }
 
 #[test]
-fn a_new_database_has_the_standard_materials_without_prices() {
+fn a_new_database_has_the_standard_materials_with_rough_prices() {
     let conn = db();
     let all = list_materials(&conn).unwrap();
     assert_eq!(all.len(), 12);
-    assert!(all.iter().all(|m| m.price.is_none() && !m.archived));
+    // Every standard material starts with a rough price, flagged as rough, so the first estimate has a total.
+    assert!(all.iter().all(|m| m.price.is_some_and(|p| p > 0) && m.price_estimated && !m.archived));
+    assert_eq!(all[0].price, Some(7200));
     let birch = &all[0];
     assert_eq!((birch.id.as_str(), birch.name.as_str()), ("std-birch-3-4", "Birch plywood 3/4″"));
     assert_eq!((birch.thickness, birch.length, birch.width, birch.grain), (Some(48), Some(6144), Some(3072), MaterialGrain::Length));
@@ -932,6 +935,43 @@ fn a_new_database_has_the_standard_materials_without_prices() {
     let kinds: Vec<_> = all.iter().map(|m| m.kind.as_str()).collect();
     assert_eq!(kinds.iter().filter(|k| **k == "laminate").count(), 2);
     assert_eq!(kinds.iter().filter(|k| **k == "hardware").count(), 2);
+}
+
+#[test]
+fn migration_7_prices_only_the_standard_materials_the_shop_left_unpriced() {
+    let mut conn = Connection::open_in_memory().unwrap();
+    conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+    migrations::build_through(&conn, 6).unwrap();
+    assert_eq!(schema_version(&conn).unwrap(), 6);
+    conn.execute("UPDATE materials SET price_cents = 6450 WHERE id = 'std-birch-3-4'", []).unwrap();
+    conn.execute(
+        "INSERT INTO materials (position, id, kind, name, archived, created_at, updated_at)
+         VALUES (99, 'shop-oak', 'sheet', 'Oak', 0, '', '')",
+        [],
+    )
+    .unwrap();
+
+    migrate(&mut conn, None).unwrap();
+    assert_eq!(schema(&conn), schema(&db()), "a migrated database must equal a fresh one");
+    let all = list_materials(&conn).unwrap();
+    let by_id = |id: &str| all.iter().find(|m| m.id == id).unwrap().clone();
+    let birch = by_id("std-birch-3-4");
+    assert_eq!((birch.price, birch.price_estimated), (Some(6450), false), "the shop's own price stays");
+    let mdf = by_id("std-mdf-3-4");
+    assert_eq!((mdf.price, mdf.price_estimated), (Some(4800), true));
+    let oak = by_id("shop-oak");
+    assert_eq!((oak.price, oak.price_estimated), (None, false), "only standard materials get a rough price");
+}
+
+#[test]
+fn saving_a_material_keeps_or_clears_its_rough_flag_as_sent_and_never_flags_no_price() {
+    let mut conn = db();
+    let birch = list_materials(&conn).unwrap().into_iter().find(|m| m.id == "std-birch-3-4").unwrap();
+    assert!(birch.price_estimated);
+    let entered = save_material(&mut conn, &Material { price: Some(6900), price_estimated: false, ..birch.clone() }).unwrap();
+    assert_eq!((entered.price, entered.price_estimated), (Some(6900), false));
+    let cleared = save_material(&mut conn, &Material { price: None, price_estimated: true, ..birch }).unwrap();
+    assert_eq!((cleared.price, cleared.price_estimated), (None, false));
 }
 
 #[test]

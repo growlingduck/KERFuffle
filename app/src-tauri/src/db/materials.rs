@@ -12,12 +12,27 @@ use super::repo::now;
 /// in-memory store reads the same file.
 pub const STANDARD_MATERIALS_JSON: &str = include_str!("standard_materials.json");
 
+/// Rough starting prices for the standard materials (Omaha, NE, November 2026),
+/// flagged as rough until the shop enters its own. The in-memory store reads it too.
+pub const ROUGH_PRICES_JSON: &str = include_str!("rough_prices.json");
+
+#[derive(serde::Deserialize)]
+struct RoughPrices {
+    prices: std::collections::BTreeMap<String, i64>,
+}
+
+/// Catalog id → rough price in cents.
+pub fn rough_prices() -> DbResult<Vec<(String, i64)>> {
+    let parsed: RoughPrices = serde_json::from_str(ROUGH_PRICES_JSON)?;
+    Ok(parsed.prices.into_iter().collect())
+}
+
 /// The shop setting that holds the estimate defaults, including the default
 /// material per slot for new jobs.
 pub const ESTIMATE_SETTING: &str = "estimate";
 
 const COLUMNS: &str = "id, kind, name, thickness, length, width, grain, banding_width, roll_feet, unit, \
-                       price_cents, supplier, sku, notes, on_hand, archived, created_at, updated_at";
+                       price_cents, supplier, sku, notes, on_hand, archived, created_at, updated_at, price_estimated";
 
 fn read_row(row: &Row<'_>) -> rusqlite::Result<(Material, String, String)> {
     Ok((
@@ -41,6 +56,7 @@ fn read_row(row: &Row<'_>) -> rusqlite::Result<(Material, String, String)> {
             archived: row.get(15)?,
             created_at: row.get(16)?,
             updated_at: row.get(17)?,
+            price_estimated: row.get(18)?,
         },
         row.get(1)?,
         row.get(6)?,
@@ -73,7 +89,7 @@ pub(crate) fn insert_material(conn: &Connection, material: &Material, position: 
     conn.execute(
         &format!(
             "INSERT INTO materials (position, {COLUMNS})
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?18)"
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?18, ?19)"
         ),
         params![
             position,
@@ -94,6 +110,7 @@ pub(crate) fn insert_material(conn: &Connection, material: &Material, position: 
             m.on_hand,
             m.archived,
             stamp,
+            m.price_estimated,
         ],
     )?;
     Ok(())
@@ -111,7 +128,7 @@ pub fn save_material(conn: &mut Connection, material: &Material) -> DbResult<Mat
         tx.execute(
             "UPDATE materials SET kind = ?2, name = ?3, thickness = ?4, length = ?5, width = ?6, grain = ?7,
                banding_width = ?8, roll_feet = ?9, unit = ?10, price_cents = ?11, supplier = ?12, sku = ?13,
-               notes = ?14, on_hand = ?15, archived = ?16, updated_at = ?17
+               notes = ?14, on_hand = ?15, archived = ?16, updated_at = ?17, price_estimated = ?18
              WHERE id = ?1",
             params![
                 m.id,
@@ -131,6 +148,7 @@ pub fn save_material(conn: &mut Connection, material: &Material) -> DbResult<Mat
                 m.on_hand,
                 m.archived,
                 stamp,
+                m.price_estimated,
             ],
         )?;
     } else {

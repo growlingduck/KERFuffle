@@ -237,7 +237,7 @@
 }
 .miniToe {
   fill: none;
-  stroke: #8e9095;
+  stroke: var(--line-light);
   stroke-width: 0.75px;
   stroke-dasharray: 2 1.5;
 }
@@ -395,7 +395,7 @@
 }
 .endTile:hover {
   border-color: var(--ink);
-  background: #f7f6f1;
+  background: var(--paper-faint);
 }
 .endTile:active {
   transform: translateY(1px);
@@ -606,7 +606,7 @@
   stroke-dasharray: 4 3;
 }
 .placeholderMark path {
-  stroke: #e5b3ae;
+  stroke: var(--red-ring);
 }
 .viewTitles {
   display: flex;
@@ -626,10 +626,10 @@
     stroke 150ms var(--ease-out);
 }
 .shape_edge {
-  fill: #fbfaf6;
+  fill: var(--vellum);
 }
 .shape_face {
-  stroke: #8e9095;
+  stroke: var(--line-light);
   stroke-width: 0.75px;
 }
 .shape_lam {
@@ -664,7 +664,7 @@
 
 /* Countertop band and toe kick: not parts, but they trace their rules. */
 .ctx {
-  fill: #ecebe5;
+  fill: var(--face-muted);
   stroke: var(--muted-2);
   stroke-width: 0.8px;
   cursor: pointer;
@@ -709,7 +709,7 @@
 }
 .ghost[data-on] .ghostRef,
 .ghost[data-on] .ghostLam {
-  fill: rgb(31 79 163 / 6%);
+  fill: color-mix(in srgb, var(--blue) 6%, transparent);
   stroke: var(--blue);
   stroke-width: 1.5px;
 }
@@ -871,7 +871,7 @@
   background: var(--blue-tint-row);
 }
 .partRowPinned {
-  background: #eef3fb;
+  background: var(--blue-tint-faint);
 }
 .partBtn {
   display: inline-flex;
@@ -910,7 +910,7 @@
 .balOn {
   background: var(--blue);
   border-color: var(--blue);
-  color: var(--white);
+  color: var(--on-blue);
 }
 .refName {
   font-style: italic;
@@ -959,7 +959,7 @@
     background-color: var(--highlighter);
   }
   100% {
-    background-color: rgb(251 231 161 / 0%);
+    background-color: transparent;
   }
 }
 @keyframes kf-flash-b {
@@ -967,7 +967,7 @@
     background-color: var(--highlighter);
   }
   100% {
-    background-color: rgb(251 231 161 / 0%);
+    background-color: transparent;
   }
 }
 /* Reduced motion keeps the end state: the highlight shows while the marks do. */

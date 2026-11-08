@@ -1,13 +1,20 @@
+/*
+ * The header never scrolls; .main is the one scroll container on every screen.
+ * Screen toolbars pin with `position: sticky; top: 0` inside it, and the
+ * scrollbar starts under the header instead of beside it.
+ */
 .shell {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* ---- Header title block ---- */
 .header {
   position: relative;
   z-index: 20;
+  flex: none;
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
@@ -86,6 +93,14 @@
 .tab:focus-visible {
   outline-offset: -4px;
 }
+.tab[aria-disabled='true'],
+.tab[aria-disabled='true']:hover {
+  color: var(--disabled-text);
+  cursor: not-allowed;
+}
+.tab[aria-disabled='true']::after {
+  transform: scaleX(0);
+}
 
 .spacer {
   flex: 1 1 20px;
@@ -123,6 +138,29 @@
 }
 .customer {
   font-size: 14px;
+}
+
+/* Job name and customer open Job details. They read as text until hovered. */
+.detailsButton {
+  max-width: 260px;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.detailsButton:hover {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+.addCustomer {
+  color: var(--muted);
+  font-style: italic;
 }
 
 .stampButton {
@@ -170,6 +208,50 @@
 .helpLink {
   white-space: nowrap;
 }
+/*
+ * The header never scrolls away, so it should stay one row. Where the job cells
+ * make it tight, Help shows just its icon (the word stays as its accessible name),
+ * then the logo drops its wordmark. Narrower than that, it wraps.
+ */
+@media (max-width: 1520px) {
+  .header:has(.cells) .helpLink {
+    padding-inline: 10px;
+  }
+  .header:has(.cells) .helpText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+@media (max-width: 1429px) {
+  .header:has(.cells) .wordmark {
+    display: none;
+  }
+}
+/* Then the cells close up a little. */
+@media (max-width: 1349px) {
+  .header:has(.cells) .cell {
+    padding-inline: 10px;
+  }
+}
+@media (max-width: 1319px) {
+  .header:has(.cells) .cell {
+    padding-inline: 7px;
+  }
+}
+/* Tabs tighten first, so the default 1440 px window keeps the wordmark beside Help, Shortcuts and Theme. */
+@media (max-width: 1459px) {
+  .header:has(.cells) .tab {
+    padding-inline: 10px;
+  }
+  .header:has(.cells) .tab::after {
+    left: 10px;
+    right: 10px;
+  }
+}
 
 /* ---- Routed outlet ---- */
 .main {
@@ -177,4 +259,23 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: auto;
+  /* --pinned-h: the screen's pinned toolbar (usePinnedBar). */
+  scroll-padding-top: calc(var(--pinned-h, 0px) + 12px);
+}
+/* A screen is as tall as its content, so a sticky toolbar inside it stays pinned to the bottom. */
+.main > * {
+  flex-shrink: 0;
+}
+
+@media print {
+  .shell {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+  .main {
+    display: block;
+    overflow: visible;
+  }
 }

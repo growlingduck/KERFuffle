@@ -67,23 +67,38 @@ a single job:
 
 ### Tokens
 
-| Token | Value | Use |
-|---|---|---|
-| `ink` | `#1B1D1F` | Text, borders, drawing lines |
-| `ink-2` | `#2B2D30` | Panel borders |
-| `muted` | `#4A4C50` | Secondary text (≥ 7:1 on white) |
-| `muted-2` | `#63656A` | Units, captions (≥ 5.5:1) |
-| `rule` | `#9A9C9F` / `#D9D7CF` / `#E6E4DC` | Input borders / dividers / table rules |
-| `paper` | `#F2F1EB`, grid `#E2E0D7` / `#EBE9E1` | Ground |
-| `vellum` | `#FAF9F5` | Calc tape, drawing backgrounds |
-| `blue` | `#1F4FA3`, hover `#163A7A` | Primary action, selection, traced dimensions |
-| `blue-tint` | `#E3EBF7`, strong `#C9D8F0`, row `#DCE6F6` | Highlight fills |
-| `red` | `#B3261E`, tint `#FDF3F2` | Errors only |
-| `amber` | `#7A4300` text, highlighter `#FBE7A1` | Warnings; "just changed" highlighter |
-| `green` | `#2B6B3F` | Saved, completed |
+| Token | Light | Dark | Use |
+|---|---|---|---|
+| `ink` | `#1B1D1F` | `#E3E8EF` | Text, borders, drawing lines |
+| `ink-2` | `#2B2D30` | `#A9B6C6` | Panel borders |
+| `muted` | `#4A4C50` | `#AAB4C1` | Secondary text (≥ 7:1 on white / on the dark sheet, vellum and paper) |
+| `muted-2` | `#63656A` | `#939EAC` | Units, captions (≥ 5.5:1) |
+| `disabled-text` | `#6F7177` | `#87929F` | Disabled labels (≥ 4.5:1) |
+| `rule` | `#9A9C9F` / `#D9D7CF` / `#E6E4DC` | `#5D6A7B` / `#2C3949` / `#243041` | Input borders / dividers / table rules |
+| `line-light` | `#8E9095` | `#66727F` | Centerlines, grain, hidden edges |
+| `white` | `#FFFFFF` | `#172231` | Sheets, inputs, menus: the surface panels are drawn on |
+| `paper` | `#F2F1EB`, grid `#E2E0D7` / `#EBE9E1` | `#0E1621`, grid `#1D2A3A` / `#152030` | Ground |
+| `vellum` | `#FAF9F5` | `#131C29` | Calc tape, drawing backgrounds |
+| `sheet-ink` | `#000000` | `#E3E8EF` | Rules and text on the printable sheets (pure black on paper) |
+| `blue` | `#1F4FA3`, hover `#163A7A` | `#8FB3F5`, hover `#B5CDFA` | Primary action, selection, traced dimensions |
+| `on-blue` | `#FFFFFF` | `#0E1621` | Text on a solid blue fill |
+| `blue-tint` | `#E3EBF7`, strong `#C9D8F0`, row `#DCE6F6` | `#1C3050`, strong `#284673`, row `#22395E` | Highlight fills |
+| `red` | `#B3261E`, tint `#FDF3F2` | `#FF8F84`, tint `#331A1D` | Errors only |
+| `amber` | `#7A4300` text, highlighter `#FBE7A1` | `#F2B35B` text, highlighter `#5C4712` | Warnings; "just changed" highlighter |
+| `green` | `#2B6B3F` | `#7DD098` | Saved, completed |
 
 Use blue for "this is what you're pointing at or selected" and red only for
 errors. A changed value is shown in highlighter yellow, never red.
+
+**Themes** (prompt 21). Light · Dark · System, chosen in Settings (top) or with
+the header's theme button, and kept per PC, not in shop settings. Dark is a
+blueprint: navy ground, faint grid, sheets one step lighter, pale ink. Every
+token has the same name in both themes, so drawings redraw without a reload.
+Inverted surfaces (toast, tooltip, segmented thumb) invert in dark too: the
+toast becomes a light slip on the dark page. **Printing is always light**:
+under `@media print` the light set wins whatever the theme. All colors live in
+`tokens.css`; `test/themeTokens.test.ts` fails on a hex or rgb() anywhere else
+in `app/src` (the dev gallery excepted).
 
 **Type.** IBM Plex Sans (body), IBM Plex Sans Condensed (all-caps labels, view
 titles, stamps, tabs), IBM Plex Mono with tabular numerals (every dimension).
@@ -336,10 +351,22 @@ a small "Whole-job cut list →" link.
 
 ---
 
-## 7. Cut list (prompt 06)
+## 7. Output: cut list, layouts and estimate (prompt 06)
 
-- **Toolbar**: ← Workspace · List: Merged / By cabinet · switch "Include fronts
-  (door / laminate size)", on by default · Export CSV · Save PDF · **Print…**.
+- **Output** (header tab, Ctrl+3) holds the three pages a job puts out. Under the
+  header, a pinned bar: **sheet tabs** Cut list · Layouts · Estimate, each with a
+  mono line saying what's on it ("43 boxes · 539 pieces", "44 sheets",
+  "$2,340.00"). The selected tab is white and opens into the white options row
+  below, like the tabs of a drawing set: pages of one job, not settings or steps.
+  ←/→ move between tabs. Workspace is the header tab (or Ctrl+L), so there is no
+  back button.
+- **Options row**: the page's own options, then its outputs at the right. Cut
+  list and Estimate: List: Merged / By cabinet · switch "Include fronts
+  (door / laminate size)", on by default. Layouts: Mode · Saw · Material.
+- **Outputs**, the same on every page, at the right of the options row:
+  Export CSV… (Layouts: Export DXF…) · Save PDF… · **Print…** (Ctrl+P). Each
+  opens a dialog, hence the "…". While a page has nothing to put out (Layouts
+  still searching), all three are disabled with the same reason.
 - **Export buttons** change in place: icon → spinner "Saving…" → green check "CSV
   saved", plus a toast naming the file; they go back to rest after 4 s.
 - **Sheet**: a letter page with a 2 px border, zone marks, header (KERFuffle ·
@@ -357,6 +384,9 @@ a small "Whole-job cut list →" link.
 - **Cabinet chips**: hover traces that cabinet (its refs fill blue; rows without
   it fade to 28%). Click pins the filter; **Show all** clears it. Pointing at a
   row lights up the chips of the cabinets it comes from.
+  By cabinet, each cabinet is its own section, so the chips are an **index**
+  instead: each shows the sheet its cabinet starts on ("B7 · sheet 3", printed
+  too), and a click scrolls to that section, focuses it and flashes it once.
 - **Part sketch rail** (screen only, never printed): the pointed-at or pinned
   row drawn to scale with grain lines, a GRAIN arrow along the length, L and W
   dimensions, thickness / qty / mark, and "from B1, B3 ×2". Plus totals: boxes,
@@ -371,6 +401,9 @@ a small "Whole-job cut list →" link.
 ## 8. Settings (prompt 07)
 
 - Section nav: 01 Construction · 02 Display · 03 Backups.
+- **Theme** (prompt 21), above the sections: Light · Dark · System segmented
+  control, System by default. Applies at once; not part of Save, since it is a
+  per-PC viewing preference.
 - **Construction defaults**: one row per rule (label + help, mono input with
   unit, status). Status is "Default 3/4″", "◆ Changed from 3/4″ · **Reset**", or
   "⚠ error". Changed inputs get a 1.5 px ink border.

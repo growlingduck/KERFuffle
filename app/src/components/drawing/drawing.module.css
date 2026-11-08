@@ -92,7 +92,7 @@
 /* ---- Centerline ---- */
 .centerline {
   fill: none;
-  stroke: #8e9095;
+  stroke: var(--line-light);
   stroke-width: 0.75px;
   stroke-dasharray: 10 3 2 3;
 }

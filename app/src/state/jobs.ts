@@ -35,7 +35,9 @@ export type JobsAction =
   | { type: 'job/upserted'; job: JobSummary }
   | { type: 'job/removed'; id: string }
   | { type: 'job/opened'; id: string }
-  | { type: 'job/statusChanged'; id: string; status: JobStatus };
+  | { type: 'job/statusChanged'; id: string; status: JobStatus }
+  /** Name, customer and notes, shown at once while the save is on its way. */
+  | { type: 'job/detailsChanged'; id: string; name: string; customer: string; notes: string };
 
 export function summarize(job: JobListItem | JobRecord): JobSummary {
   return {
@@ -73,6 +75,13 @@ export function jobsReducer(state: JobsState, action: JobsAction): JobsState {
       const job = state.jobs[action.id];
       if (!job || job.status === action.status) return state;
       return { ...state, jobs: { ...state.jobs, [action.id]: { ...job, status: action.status } } };
+    }
+    case 'job/detailsChanged': {
+      const job = state.jobs[action.id];
+      if (!job) return state;
+      const { name, customer, notes } = action;
+      if (job.name === name && job.customer === customer && job.notes === notes) return state;
+      return { ...state, jobs: { ...state.jobs, [action.id]: { ...job, name, customer, notes } } };
     }
   }
 }

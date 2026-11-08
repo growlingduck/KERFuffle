@@ -53,7 +53,7 @@
   border-color: var(--blue);
 }
 .switch[aria-checked='true'] .knob {
-  background: var(--white);
+  background: var(--on-blue);
   transform: translateX(16px);
 }
 .switch[aria-checked='true']:active .knob,

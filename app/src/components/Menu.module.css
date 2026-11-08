@@ -3,11 +3,12 @@
   display: inline-flex;
 }
 
+/* position: fixed, placed by Menu.tsx from the trigger's rect, so no scroll container clips it. */
 .menu {
-  position: absolute;
-  top: calc(100% + 6px);
+  position: fixed;
   z-index: 50;
   min-width: 200px;
+  overflow-y: auto;
   padding: 6px;
   background: var(--white);
   border: 1px solid var(--ink-2);
@@ -15,16 +16,18 @@
   text-align: left;
   animation: kf-pop var(--dur-base) var(--ease-base);
 }
-.start {
-  left: 0;
-}
-.end {
-  right: 0;
-}
 .match {
-  left: 0;
-  right: 0;
   min-width: 0;
+}
+/* Opened upward: rise into place instead of dropping. */
+.menu[data-side='above'] {
+  animation-name: kf-pop-up;
+}
+@keyframes kf-pop-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+  }
 }
 
 .item {
@@ -60,7 +63,7 @@
 .danger:hover,
 .danger:focus-visible {
   background: var(--red-tint);
-  color: #8e1f18;
+  color: var(--red-hover);
 }
 
 .stack {

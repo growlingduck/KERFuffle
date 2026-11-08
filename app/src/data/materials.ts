@@ -1,5 +1,6 @@
 import { DEFAULT_ESTIMATE_OPTIONS, JOB_SLOTS, SLOT_INFO, ticks } from '@kerfuffle/engine';
 import type { EstimateOptions, JobMaterials, JobSlot, Material, MaterialGrain, MaterialKind } from '@kerfuffle/engine';
+import roughPricesJson from '../../src-tauri/src/db/rough_prices.json';
 import standardMaterialsJson from '../../src-tauri/src/db/standard_materials.json';
 import type { JobMaterialsRecord, JobRecord, MaterialRecord, MaterialSnapshot } from './types';
 
@@ -39,6 +40,8 @@ export function normalizeMaterial<T extends Material>(m: T): T {
     rollFeet: m.kind === 'banding' ? m.rollFeet : null,
     unit: m.kind === 'hardware' ? blank(m.unit) : null,
   };
+  // Only a price can be rough.
+  if ('priceEstimated' in out && m.price === null) (out as { priceEstimated: boolean }).priceEstimated = false;
   return out;
 }
 
@@ -57,6 +60,7 @@ const EMPTY: Omit<MaterialRecord, 'id' | 'kind' | 'name'> = {
   rollFeet: null,
   unit: null,
   price: null,
+  priceEstimated: false,
   onHand: null,
   supplier: null,
   sku: null,
@@ -71,10 +75,21 @@ export function blankMaterial(kind: MaterialKind, id: string): MaterialRecord {
   return { ...EMPTY, id, kind, name: '', grain: kind === 'sheet' || kind === 'laminate' ? 'length' : 'none', unit: kind === 'hardware' ? 'each' : null };
 }
 
-/** The catalog a new database starts with (app/src-tauri/src/db/standard_materials.json), without prices. */
-export const STANDARD_MATERIALS: readonly MaterialRecord[] = (standardMaterialsJson as StandardMaterial[]).map((m) =>
-  normalizeMaterial({ ...EMPTY, ...m }),
-);
+/**
+ * Rough starting prices (app/src-tauri/src/db/rough_prices.json): best guesses for the
+ * Omaha, NE area in November 2026, so a new shop sees an estimate right away. Each is
+ * flagged as rough until the shop saves its own price.
+ */
+export const ROUGH_PRICES: Readonly<{ asOf: string; region: string; prices: Readonly<Record<string, number>> }> = roughPricesJson;
+
+/** "Rough starting price (Omaha, NE, Nov 2026)". */
+export const ROUGH_PRICE_NOTE = `Rough starting price (${ROUGH_PRICES.region}, ${new Date(`${ROUGH_PRICES.asOf}T12:00:00`).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })})`;
+
+/** The catalog a new database starts with (app/src-tauri/src/db/standard_materials.json), with rough prices. */
+export const STANDARD_MATERIALS: readonly MaterialRecord[] = (standardMaterialsJson as StandardMaterial[]).map((m) => {
+  const rough = ROUGH_PRICES.prices[m.id];
+  return normalizeMaterial({ ...EMPTY, ...m, ...(rough === undefined ? {} : { price: rough, priceEstimated: true }) });
+});
 
 /** Ids of the standard materials, for the built-in defaults. */
 const STD = {
@@ -155,6 +170,7 @@ export function snapshotMaterial(record: Material, at: string): MaterialSnapshot
     price: rest.price,
     pricedAt: at,
   };
+  if (rest.price !== null && (record as Partial<MaterialRecord>).priceEstimated) copy.priceEstimated = true;
   return copy;
 }
 
@@ -185,8 +201,9 @@ export function engineMaterials(record: JobMaterialsRecord, catalog: readonly Ma
   const stock = new Map(catalog.map((m) => [m.id, m.onHand]));
   const out: Partial<Record<JobSlot, Material>> = {};
   for (const [slot, snap] of Object.entries(record.slots) as [JobSlot, MaterialSnapshot][]) {
-    const material: Material & { pricedAt?: string } = { ...snap, onHand: stock.get(snap.id) ?? null };
+    const material: Material & { pricedAt?: string; priceEstimated?: true } = { ...snap, onHand: stock.get(snap.id) ?? null };
     delete material.pricedAt;
+    delete material.priceEstimated;
     out[slot] = material;
   }
   return out;
@@ -215,16 +232,32 @@ export interface PriceChange {
   to: number | null;
 }
 
-/** Slots (among `slots`) whose catalog price differs from the job's copy. Materials not in this catalog are skipped. */
+/**
+ * Slots (among `slots`) whose catalog price differs from the job's copy, or whose rough
+ * price the shop has since confirmed. Materials not in this catalog are skipped.
+ */
 export function priceChanges(record: JobMaterialsRecord, catalog: readonly MaterialRecord[], slots: readonly JobSlot[]): PriceChange[] {
   const byId = new Map(catalog.map((m) => [m.id, m]));
   const changes: PriceChange[] = [];
   for (const slot of slots) {
     const snap = record.slots[slot];
     const now = snap ? byId.get(snap.id) : undefined;
-    if (snap && now && now.price !== snap.price) changes.push({ slot, id: snap.id, name: snap.name, from: snap.price, to: now.price });
+    const confirmed = snap?.priceEstimated === true && now !== undefined && !now.priceEstimated;
+    if (snap && now && (now.price !== snap.price || confirmed)) changes.push({ slot, id: snap.id, name: snap.name, from: snap.price, to: now.price });
   }
   return changes;
+}
+
+/** Materials (by name, once each) whose price in this job is a rough starting price, among `slots`. */
+export function roughPriced(record: JobMaterialsRecord, slots: readonly JobSlot[]): string[] {
+  return [
+    ...new Set(
+      slots.flatMap((s) => {
+        const snap = record.slots[s];
+        return snap?.priceEstimated ? [snap.name] : [];
+      }),
+    ),
+  ];
 }
 
 /** How many materials (not slots) have a new price. */
@@ -239,7 +272,11 @@ export function withCurrentPrices(record: JobMaterialsRecord, catalog: readonly 
   for (const slot of slots) {
     const snap = next[slot];
     const now = snap ? byId.get(snap.id) : undefined;
-    if (snap && now) next[slot] = { ...snap, price: now.price, pricedAt: at };
+    if (!snap || !now) continue;
+    const updated: MaterialSnapshot = { ...snap, price: now.price, pricedAt: at };
+    delete updated.priceEstimated;
+    if (now.price !== null && now.priceEstimated) updated.priceEstimated = true;
+    next[slot] = updated;
   }
   return { slots: next };
 }
@@ -279,6 +316,7 @@ export function parseJobMaterials(raw: unknown): JobMaterialsRecord | null {
       unit: typeof m.unit === 'string' ? m.unit : null,
       price: m.price ?? null,
       pricedAt: typeof m.pricedAt === 'string' ? m.pricedAt : '',
+      ...(m.priceEstimated === true && m.price != null ? { priceEstimated: true as const } : {}),
     };
   }
   return { slots: out };

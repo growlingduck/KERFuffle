@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { App } from '../src/App';
 import { ESTIMATE_CSV_COLUMNS, estimateCsv } from '../src/cutlist/estimate';
 import { cabinetSpec } from '../src/data/jobSession';
-import { BUILT_IN_ESTIMATE, defaultJobMaterials, engineMaterials, snapshotMaterial, STANDARD_MATERIALS } from '../src/data/materials';
+import { BUILT_IN_ESTIMATE, defaultJobMaterials, engineMaterials, parseJobMaterials, priceChanges, roughPriced, snapshotMaterial, STANDARD_MATERIALS, withCurrentPrices } from '../src/data/materials';
 import type { MemoryStorageClient } from '../src/data/memoryClient';
 import { createJob } from '../src/data/storage';
 import type { CabinetRecord, JobMaterialsRecord, JobRecord, MaterialRecord } from '../src/data/types';
@@ -47,12 +47,18 @@ async function priceTheDefaults() {
   await loadMaterials();
 }
 
+/** The shop has no prices at all (a material it added, or one it cleared). */
+async function unpriceEverything() {
+  for (const m of await db.listMaterials()) await db.saveMaterial({ ...m, price: null, priceEstimated: false });
+  await loadMaterials();
+}
+
 async function openCutList(view: 'cutlist' | 'estimate' = 'cutlist') {
   window.location.hash = '#/jobs/j-0014/cut-list';
   const user = userEvent.setup();
   const rendered = render(<App />);
   await waitFor(() => expect(document.querySelector('[data-sheet="1"]')).not.toBeNull());
-  if (view === 'estimate') await user.click(screen.getByRole('button', { name: 'Estimate' }));
+  if (view === 'estimate') await user.click(screen.getByRole('tab', { name: 'Estimate' }));
   return { user, ...rendered };
 }
 
@@ -68,10 +74,13 @@ const materialRows = () => [...document.querySelectorAll<HTMLElement>('tr[data-m
 const materialRow = (name: string) => materialRows().find((tr) => tr.querySelector('td')?.textContent?.startsWith(name))!;
 
 describe('Settings → Materials', () => {
-  it('starts with the standard materials, none priced, and filters by kind', async () => {
+  it('starts with the standard materials at rough prices, flagged as rough, and filters by kind', async () => {
     const user = await openSettings();
     expect(materialRows()).toHaveLength(12);
-    expect(screen.getAllByText('needs a price')).toHaveLength(12);
+    expect(screen.queryAllByText('needs a price')).toHaveLength(0);
+    expect(materialRows().every((tr) => tr.textContent?.includes('Rough starting price'))).toBe(true);
+    expect(materialRow('Birch plywood 3/4″')).toHaveTextContent('$72.00');
+    expect(document.querySelector('[data-rough-prices]')).toHaveTextContent('Omaha, NE area, November 2026');
     expect(materialRow('Melamine, white 3/4″')).toHaveTextContent('49 × 97');
     expect(materialRow('Melamine, white 3/4″')).toHaveTextContent('None');
     expect(materialRow('Birch plywood 3/4″')).toHaveTextContent('Along length');
@@ -173,11 +182,17 @@ describe('Settings → Materials', () => {
     await user.click(screen.getByRole('button', { name: 'Edit Birch plywood 3/4″' }));
     const edit = screen.getByRole('dialog', { name: 'Edit material' });
     expect(within(edit).queryByRole('button', { name: 'Laminate' })).not.toBeInTheDocument();
+    // A rough price says so, until the shop types its own.
+    expect(edit).toHaveTextContent('Rough starting price (Omaha, NE, Nov 2026)');
+    await user.clear(within(edit).getByLabelText(/^Price/));
     await user.type(within(edit).getByLabelText(/^Price/), '68');
+    expect(edit).not.toHaveTextContent('Rough starting price');
     await user.click(within(edit).getByRole('button', { name: 'Save material' }));
     await waitFor(() => expect(materialRow('Birch plywood 3/4″')).toHaveTextContent('$68.00'));
+    expect(materialRow('Birch plywood 3/4″')).not.toHaveTextContent('Rough');
+    expect((await db.listMaterials()).find((m) => m.id === 'std-birch-3-4')).toMatchObject({ price: 6800, priceEstimated: false });
     // The job keeps its own copy: editing the catalog changes no job.
-    expect((await db.getJob('j-0014')).materials?.slots.box?.price).toBeNull();
+    expect((await db.getJob('j-0014')).materials?.slots.box).toMatchObject({ price: 7200, priceEstimated: true });
 
     await user.click(screen.getByRole('button', { name: 'Archive Melamine, white 3/4″' }));
     await waitFor(() => expect(materialRows()).toHaveLength(11));
@@ -226,6 +241,7 @@ describe('cut list: materials and the estimate', () => {
 
   it('says the total is incomplete while materials need a price', async () => {
     quietLayouts();
+    await unpriceEverything();
     await openCutList('estimate');
     const total = document.querySelector('[data-estimate-total]');
     expect(total).toHaveTextContent('Incomplete: 4 materials need a price');
@@ -324,9 +340,43 @@ describe('cut list: materials and the estimate', () => {
   });
 });
 
+describe('rough starting prices', () => {
+  it('give a new shop a total right away, and the estimate says which prices are rough, on screen and on paper', async () => {
+    quietLayouts();
+    await openCutList('estimate');
+    const total = document.querySelector('[data-estimate-total]')!;
+    expect(total.textContent).toMatch(/^\$[\d,]+\.\d\d$/);
+    const rough = document.querySelector<HTMLElement>('[data-notice="rough-prices"]')!;
+    expect(rough).toHaveTextContent('Rough starting prices (Omaha, NE, Nov 2026) for Birch plywood 3/4″, Plywood 1″ (shelves), HPL laminate 48 × 96 and PVC edge banding 15/16″');
+    expect(within(rough).getByRole('link', { name: 'Enter your prices in Settings → Materials' })).toHaveAttribute('href', '#/settings/materials');
+    const sheet = document.querySelector('[data-sheet]')!;
+    expect(sheet).toHaveTextContent('Rough starting prices (Omaha, NE, Nov 2026) for Birch plywood 3/4″');
+  });
+
+  it('stay flagged in a job’s copy until the shop’s own price is pulled in with Update prices', () => {
+    const at = '2026-11-02T08:00:00.000Z';
+    const birch = std('std-birch-3-4');
+    const record: JobMaterialsRecord = { slots: { box: snapshotMaterial(birch, at) } };
+    expect(record.slots.box).toMatchObject({ price: 7200, priceEstimated: true });
+    expect(roughPriced(record, ['box'])).toEqual(['Birch plywood 3/4″']);
+    // Read back from a job file.
+    expect(parseJobMaterials(JSON.parse(JSON.stringify(record)))?.slots.box?.priceEstimated).toBe(true);
+    // The engine never sees the flag.
+    expect(engineMaterials(record, [birch]).box).not.toHaveProperty('priceEstimated');
+
+    // The shop confirms the same price as its own: that's a change to pull in.
+    const confirmed = [{ ...birch, priceEstimated: false }];
+    expect(priceChanges(record, confirmed, ['box'])).toHaveLength(1);
+    const updated = withCurrentPrices(record, confirmed, ['box'], at);
+    expect(updated.slots.box).toMatchObject({ price: 7200 });
+    expect(updated.slots.box).not.toHaveProperty('priceEstimated');
+    expect(roughPriced(updated, ['box'])).toEqual([]);
+  });
+});
+
 describe('estimate CSV', () => {
   it('is in the cut-list CSV’s format: BOM, a comment row, a header, then a total', () => {
-    const priced: MaterialRecord[] = STANDARD_MATERIALS.map((m) => (m.id === 'std-birch-3-4' ? { ...m, price: 6800 } : m));
+    const priced: MaterialRecord[] = STANDARD_MATERIALS.map((m) => ({ ...m, price: m.id === 'std-birch-3-4' ? 6800 : null, priceEstimated: false }));
     const job: JobRecord = testJob({ cabinets: SAMPLE });
     const materials = engineMaterials(defaultJobMaterials(priced, BUILT_IN_ESTIMATE, '2026-11-02T08:00:00.000Z'), priced);
     const list = buildCutList(job.cabinets.map(cabinetSpec), job.rules, undefined, materials);

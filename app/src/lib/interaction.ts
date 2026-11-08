@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
 const FOCUSABLE = [
@@ -16,6 +16,32 @@ export function focusableIn(root: HTMLElement): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
     (el) => !el.hasAttribute('inert') && !el.closest('[inert]') && el.getAttribute('aria-hidden') !== 'true',
   );
+}
+
+/** The app's one scroll container (App's <main>); the document when rendered without App. */
+export function scrollRoot(): HTMLElement {
+  return document.querySelector<HTMLElement>('[data-scroll-root]') ?? document.documentElement;
+}
+
+/**
+ * A screen's toolbar pinned to the top of the scroll container (position: sticky; top: 0).
+ * Its height goes on the container as --pinned-h, so other sticky things sit under it and
+ * scrolled-to elements aren't hidden behind it (scroll-padding-top).
+ */
+export function usePinnedBar(ref: RefObject<HTMLElement | null>): void {
+  useLayoutEffect(() => {
+    const bar = ref.current;
+    if (!bar) return;
+    const root = scrollRoot();
+    const measure = () => root.style.setProperty('--pinned-h', `${bar.offsetHeight}px`);
+    measure();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(bar);
+    return () => {
+      observer?.disconnect();
+      root.style.removeProperty('--pinned-h');
+    };
+  }, [ref]);
 }
 
 /**

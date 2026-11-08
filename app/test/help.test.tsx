@@ -106,8 +106,8 @@ describe('Settings → Help', () => {
       ['Jobs → New job', '#/jobs/new'],
       ['Workspace', '#/jobs/j-0014/workspace'],
       ['Workspace', '#/jobs/j-0014/workspace'],
-      ['Cut list', '#/jobs/j-0014/cut-list'],
-      ['Cut list', '#/jobs/j-0014/cut-list'],
+      ['Output', '#/jobs/j-0014/cut-list'],
+      ['Output', '#/jobs/j-0014/cut-list'],
     ]);
     // Step 3 gives the accepted formats.
     expect(steps[2]).toHaveTextContent('23 3/4, 23-3/4 or 23.75');
@@ -135,13 +135,13 @@ describe('Settings → Help', () => {
     expect(within(screen.getByRole('navigation', { name: 'Sections' })).getByRole('link', { current: 'page' })).toHaveTextContent('Jobs');
   });
 
-  it('“Workspace” and “Cut list” land on the last job’s screens', async () => {
+  it('“Workspace” and “Output” land on the last job’s screens', async () => {
     await openHelp();
     go(within(help()).getAllByRole('link', { name: 'Workspace' })[0]!.getAttribute('href')!);
     expect(await screen.findByRole('heading', { name: /^Parts · / })).toBeInTheDocument();
     go('#/settings/help');
     await screen.findByRole('heading', { name: 'Help' });
-    go(within(help()).getAllByRole('link', { name: 'Cut list' })[0]!.getAttribute('href')!);
+    go(within(help()).getAllByRole('link', { name: 'Output' })[0]!.getAttribute('href')!);
     expect(await screen.findByRole('toolbar', { name: 'Cut list options' })).toBeInTheDocument();
   });
 

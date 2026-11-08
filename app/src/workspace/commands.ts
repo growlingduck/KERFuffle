@@ -14,7 +14,10 @@ import { constructionLocked, withConstruction } from './construction';
  */
 
 /** The parts of a job the workspace edits. Rules change only with the construction, in a draft. */
-export type JobContent = Pick<JobRecord, 'cabinets' | 'status' | 'rules'>;
+export type JobContent = Pick<JobRecord, 'cabinets' | 'status' | 'rules' | 'name' | 'customer' | 'notes'>;
+
+/** The job's own details, as the Job details dialog edits them. */
+export type JobDetails = Pick<JobRecord, 'name' | 'customer' | 'notes' | 'status'>;
 
 export type DimensionField = 'width' | 'height' | 'depth';
 
@@ -32,7 +35,9 @@ export type Command =
   | { type: 'duplicateCabinet'; cabinetId: string; newId: string }
   | { type: 'removeCabinet'; cabinetId: string }
   | { type: 'reorderCabinet'; cabinetId: string; toIndex: number }
-  | { type: 'setStatus'; status: JobStatus };
+  | { type: 'setStatus'; status: JobStatus }
+  /** Name, customer, notes and status as one step. Blank customer or notes are cleared; a blank name is refused. */
+  | { type: 'setDetails'; details: JobDetails };
 
 export interface CommandResult {
   content: JobContent;
@@ -163,5 +168,44 @@ export function applyCommand(content: JobContent, command: Command): CommandResu
     case 'setStatus':
       if (command.status === content.status) return null;
       return { content: { ...content, status: command.status }, label: `Mark job ${STATUS_INFO[command.status].label.toLowerCase()}` };
+    case 'setDetails': {
+      const details = cleanDetails(command.details);
+      const label = detailsChangeLabel(content, details);
+      return label ? { content: { ...content, ...details }, label } : null;
+    }
+  }
+}
+
+/**
+ * The step's name for changing a job's details, e.g. "Rename job to Kitchen".
+ * Null when nothing would change or the new name is blank. `next` is cleaned.
+ */
+export function detailsChangeLabel(before: JobDetails, next: JobDetails): string | null {
+  if (next.name === '') return null;
+  const changed = (['name', 'customer', 'notes', 'status'] as const).filter((k) => next[k] !== (before[k] ?? null));
+  return changed.length === 0 ? null : detailsLabel(changed, next);
+}
+
+/** Trimmed, with blank customer and notes stored as none. */
+export function cleanDetails(details: JobDetails): JobDetails {
+  return {
+    name: details.name.trim(),
+    customer: details.customer?.trim() || null,
+    notes: details.notes?.trim() || null,
+    status: details.status,
+  };
+}
+
+function detailsLabel(changed: readonly (keyof JobDetails)[], details: JobDetails): string {
+  if (changed.length > 1) return 'Edit job details';
+  switch (changed[0]) {
+    case 'name':
+      return `Rename job to ${details.name}`;
+    case 'customer':
+      return details.customer ? `Change customer to ${details.customer}` : 'Clear the customer';
+    case 'notes':
+      return 'Edit job notes';
+    default:
+      return `Mark job ${STATUS_INFO[details.status].label.toLowerCase()}`;
   }
 }

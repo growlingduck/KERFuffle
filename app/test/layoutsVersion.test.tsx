@@ -60,16 +60,16 @@ describe('a Ready-to-cut job after the optimizer changes', () => {
     const user = userEvent.setup();
     render(<App />);
     await waitFor(() => expect(document.querySelector('[data-sheet="1"]')).not.toBeNull());
-    await user.click(screen.getByRole('button', { name: 'Layouts' }));
+    await user.click(screen.getByRole('tab', { name: 'Layouts' }));
 
     await screen.findByText(/The optimizer has been updated since this layout was saved/);
     expect(document.querySelector('[data-layout-status]')).toHaveTextContent(/^Kept with the job 2026-11-01 · Cost mode/);
     expect(document.querySelectorAll('[data-pattern-id]')).toHaveLength(kept[0]!.layout.patterns.length);
     // The printout and the estimate use the kept layout too.
     expect(document.querySelectorAll('[data-layout-page]').length).toBeGreaterThan(0);
-    await user.click(screen.getByRole('button', { name: 'Estimate' }));
+    await user.click(screen.getByRole('tab', { name: 'Estimate' }));
     expect(document.querySelector(`[data-estimate-line="${kept[0]!.materialId}"]`)).toHaveTextContent(`${kept[0]!.layout.stats.sheets} sheetsfrom layout`);
-    await user.click(screen.getByRole('button', { name: 'Layouts' }));
+    await user.click(screen.getByRole('tab', { name: 'Layouts' }));
     // Nothing was worked out again on its own.
     expect((await db.getJob('j-0014')).layouts).toEqual(kept);
 

@@ -100,6 +100,8 @@ export interface SavedLayoutRecord {
 
 /** One material in the shop's catalog (`Material` in app/src-tauri/src/db/models.rs). */
 export interface MaterialRecord extends Material {
+  /** The price is a rough starting price KERFuffle filled in (Omaha, NE, Nov 2026), not the shop's. */
+  priceEstimated: boolean;
   supplier: string | null;
   sku: string | null;
   notes: string | null;
@@ -116,6 +118,8 @@ export interface MaterialRecord extends Material {
 export interface MaterialSnapshot extends Omit<Material, 'onHand'> {
   /** When the price was copied: 2026-11-02T14:05:00.000Z. */
   pricedAt: string;
+  /** The copied price was a rough starting price, not the shop's. Absent: the shop's own. */
+  priceEstimated?: true;
 }
 
 /** A job's materials (`materials_json` on the job). */

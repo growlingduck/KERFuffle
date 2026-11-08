@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Permissions for the main window. Kept minimal: nothing here reaches the network.",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-set-title", "core:window:allow-destroy", "window-state:default"]
+  "permissions": ["core:default", "core:window:allow-set-title", "core:window:allow-set-theme", "core:window:allow-show", "core:window:allow-destroy", "window-state:default"]
 }

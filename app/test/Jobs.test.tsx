@@ -353,6 +353,28 @@ describe('Archive and status changes', () => {
     await waitFor(async () => expect((await db.getJob('k')).status).toBe('draft'));
   });
 
+  it('Edit details… changes a job that isn’t open, with Undo', async () => {
+    const user = await renderJobs();
+    await openRowMenu(user, 'Laundry room built-ins');
+    await user.click(screen.getByRole('menuitem', { name: 'Edit details…' }));
+    const dialog = screen.getByRole('dialog', { name: 'Job details' });
+    const name = within(dialog).getByLabelText('Job name');
+    await user.clear(name);
+    await user.type(name, 'Kitchen remodel');
+    expect(within(dialog).getByText(/already exists/)).toBeInTheDocument();
+    await user.clear(name);
+    await user.type(name, 'Laundry room{Enter}');
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(row('Laundry room')).toBeInTheDocument();
+    expect(toast()).toHaveTextContent('Rename job to Laundry room');
+    await waitFor(async () => expect((await db.getJob('l')).name).toBe('Laundry room'));
+
+    await user.click(within(toast()).getByRole('button', { name: 'Undo' }));
+    expect(row('Laundry room built-ins')).toBeInTheDocument();
+    await waitFor(async () => expect((await db.getJob('l')).name).toBe('Laundry room built-ins'));
+  });
+
   it('Restore from archive brings a job back as Draft', async () => {
     const user = await renderJobs();
     await user.click(showButton(/^Archived/));
@@ -387,30 +409,27 @@ describe('Keyboard and navigation', () => {
   });
 
   it('coming back from a job restores the filter, sort and scroll position', async () => {
-    const scrollTo = vi.fn();
-    const originalScrollTo = window.scrollTo;
-    window.scrollTo = scrollTo as typeof window.scrollTo;
-    try {
-      const user = await renderJobs();
-      await user.click(showButton(/^All/));
-      await user.click(screen.getByRole('button', { name: 'Job' }));
-      Object.defineProperty(window, 'scrollY', { configurable: true, value: 640 });
-      fireEvent.scroll(window);
+    const user = await renderJobs();
+    // jsdom doesn't scroll; give the app's scroll container a scrollTop that remembers.
+    const main = document.querySelector<HTMLElement>('main[data-scroll-root]')!;
+    let top = 0;
+    Object.defineProperty(main, 'scrollTop', { configurable: true, get: () => top, set: (v: number) => (top = v) });
+    await user.click(showButton(/^All/));
+    await user.click(screen.getByRole('button', { name: 'Job' }));
+    top = 640;
+    fireEvent.scroll(main);
 
-      await user.click(within(row('Kitchen remodel')).getByRole('link', { name: 'Open Kitchen remodel' }));
-      await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Workspace: Kitchen remodel' })).toBeInTheDocument());
-      expect(scrollTo).not.toHaveBeenCalled();
+    await user.click(within(row('Kitchen remodel')).getByRole('link', { name: 'Open Kitchen remodel' }));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Workspace: Kitchen remodel' })).toBeInTheDocument());
+    // Another screen starts at the top.
+    expect(top).toBe(0);
 
-      await user.click(screen.getByRole('link', { name: 'Jobs' }));
-      await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Jobs' })).toBeInTheDocument());
-      expect(showButton(/^All/)).toHaveAttribute('aria-pressed', 'true');
-      expect(screen.getByRole('button', { name: 'Job' }).closest('th')).toHaveAttribute('aria-sort', 'ascending');
-      expect(rowNames()[0]).toBe('Bathroom vanity');
-      expect(scrollTo).toHaveBeenCalledWith(0, 640);
-    } finally {
-      window.scrollTo = originalScrollTo;
-      Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 });
-    }
+    await user.click(screen.getByRole('link', { name: 'Jobs' }));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Jobs' })).toBeInTheDocument());
+    expect(showButton(/^All/)).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Job' }).closest('th')).toHaveAttribute('aria-sort', 'ascending');
+    expect(rowNames()[0]).toBe('Bathroom vanity');
+    expect(top).toBe(640);
   });
 
   it('row Open and Cut list links go to that job', async () => {

@@ -18,7 +18,7 @@ import type { ImportMode, JobRecord } from '../data/types';
 import { formatJobNumber } from '../data/types';
 import { useShortcut, useShortcutScope } from '../keyboard/shortcuts';
 import { layoutElevation } from '../lib/elevation';
-import { cx } from '../lib/interaction';
+import { cx, scrollRoot, usePinnedBar } from '../lib/interaction';
 import { formatEdited } from '../lib/relativeDate';
 import { useReducedMotion } from '../motion';
 import { pickJobFile } from '../platform/files';
@@ -41,6 +41,7 @@ import { Highlight } from './jobs/Highlight';
 import { JobPreview } from './jobs/JobPreview';
 import { boxCount, elevationCabinets } from './jobs/jobMath';
 import styles from './jobs/Jobs.module.css';
+import { JobDetailsDialog } from './jobs/JobDetailsDialog';
 import { NewJobDialog } from './jobs/NewJobDialog';
 import { useJobFileDrop } from './jobs/useJobFileDrop';
 import { markedText, statusLockHint } from '../workspace/construction';
@@ -73,11 +74,12 @@ function useNow(intervalMs = 60_000): Date {
 /** Come back from a job to where the register was scrolled. */
 function useScrollMemory(): void {
   useLayoutEffect(() => {
+    const root = scrollRoot();
     const saved = registerScroll.get();
-    if (saved > 0) window.scrollTo(0, saved);
-    const onScroll = () => registerScroll.set(window.scrollY);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    if (saved > 0) root.scrollTop = saved;
+    const onScroll = () => registerScroll.set(root.scrollTop);
+    root.addEventListener('scroll', onScroll, { passive: true });
+    return () => root.removeEventListener('scroll', onScroll);
   }, []);
 }
 
@@ -120,6 +122,10 @@ export function JobsScreen({ newJob = false }: { newJob?: boolean }) {
   const [freshId, setFreshId] = useState<string | null>(null);
   const [leaving, setLeaving] = useState<ReadonlySet<string>>(() => new Set());
   const [newOpen, setNewOpen] = useState(newJob);
+  /** The job whose Job details dialog is open. */
+  const [detailsId, setDetailsId] = useState<string | null>(null);
+  const detailsJob = detailsId ? jobsById[detailsId] : undefined;
+  const dialogOpen = newOpen || detailsJob !== undefined;
   // The address goes back to plain Jobs, so Back or the same link again doesn't stay stuck on it.
   useEffect(() => {
     if (newJob) replaceRoute({ name: 'jobs' });
@@ -129,6 +135,8 @@ export function JobsScreen({ newJob = false }: { newJob?: boolean }) {
   const defaultsChecked = useDefaultsChecked();
   const searchRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTableSectionElement>(null);
+  const controlsRef = useRef<HTMLDivElement>(null);
+  usePinnedBar(controlsRef);
 
   const all = useMemo(() => Object.values(jobsById), [jobsById]);
   const counts = filterCounts(all);
@@ -175,9 +183,9 @@ export function JobsScreen({ newJob = false }: { newJob?: boolean }) {
     );
   };
 
-  const dragging = useJobFileDrop((file) => void startImport(file), !newOpen && importPlan === null);
+  const dragging = useJobFileDrop((file) => void startImport(file), !dialogOpen && importPlan === null);
   // A .kerfjob double-clicked in Explorer arrives here too.
-  useOpenedJobFile((file) => void startImport(file), !newOpen && importPlan === null);
+  useOpenedJobFile((file) => void startImport(file), !dialogOpen && importPlan === null);
 
   const setStatus = (job: JobSummary, status: JobStatus) => {
     if (status === job.status) return;
@@ -220,7 +228,7 @@ export function JobsScreen({ newJob = false }: { newJob?: boolean }) {
     return row && bodyRef.current?.contains(row) ? (row.dataset.jobId ?? null) : null;
   };
 
-  useShortcut({ id: 'jobs.new', keys: ['Ctrl+N'], scope: 'jobs', label: 'New job', enabled: () => !newOpen, run: () => setNewOpen(true) });
+  useShortcut({ id: 'jobs.new', keys: ['Ctrl+N'], scope: 'jobs', label: 'New job', enabled: () => !dialogOpen, run: () => setNewOpen(true) });
   useShortcut({
     id: 'jobs.duplicate',
     keys: ['Ctrl+D'],
@@ -237,7 +245,7 @@ export function JobsScreen({ newJob = false }: { newJob?: boolean }) {
     keys: ['/'],
     scope: 'jobs',
     label: 'Search jobs',
-    enabled: () => !newOpen,
+    enabled: () => !dialogOpen,
     run: () => {
       searchRef.current?.focus();
       searchRef.current?.select();
@@ -347,7 +355,7 @@ export function JobsScreen({ newJob = false }: { newJob?: boolean }) {
           </div>
         )}
 
-        <div className={styles.controls}>
+        <div ref={controlsRef} className={styles.controls}>
           <div className={styles.search}>
             <label htmlFor="jobs-search" className={cx('cap', styles.controlLabel)}>
               Search
@@ -446,6 +454,7 @@ export function JobsScreen({ newJob = false }: { newJob?: boolean }) {
                     onPeek={() => setPeekId(job.id)}
                     onKeyDown={onRowKeyDown}
                     onDuplicate={() => void duplicate(job)}
+                    onEditDetails={() => setDetailsId(job.id)}
                     onStatus={(status) => setStatus(job, status)}
                   />
                 ))}
@@ -487,6 +496,7 @@ export function JobsScreen({ newJob = false }: { newJob?: boolean }) {
           }}
         />
       )}
+      {detailsJob && <JobDetailsDialog job={detailsJob} onClose={() => setDetailsId(null)} />}
     </div>
   );
 }
@@ -515,10 +525,11 @@ interface JobRowProps {
   onPeek: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => void;
   onDuplicate: () => void;
+  onEditDetails: () => void;
   onStatus: (status: JobStatus) => void;
 }
 
-function JobRow({ job, pattern, now, peeked, fresh, leaving, onPeek, onKeyDown, onDuplicate, onStatus }: JobRowProps) {
+function JobRow({ job, pattern, now, peeked, fresh, leaving, onPeek, onKeyDown, onDuplicate, onEditDetails, onStatus }: JobRowProps) {
   const entry = useJobRecord(job.id, job.revision);
   const record = entry?.job?.id === job.id ? entry.job : undefined;
   const layout = useMemo(() => layoutElevation(elevationCabinets(job, record)), [job, record]);
@@ -528,6 +539,7 @@ function JobRow({ job, pattern, now, peeked, fresh, leaving, onPeek, onKeyDown, 
 
   const items: MenuEntry[] = [
     { id: 'open', label: 'Open', onSelect: () => navigate({ name: 'workspace', jobId: job.id }) },
+    { id: 'details', label: 'Edit details…', onSelect: onEditDetails },
     { id: 'duplicate', label: 'Duplicate', hint: 'Ctrl+D', onSelect: onDuplicate },
     { id: 'export', label: 'Export job file…', onSelect: () => void exportJob(job.id) },
     { type: 'separator', id: 'sep-1' },

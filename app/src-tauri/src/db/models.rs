@@ -354,6 +354,9 @@ pub struct Material {
     /// Cents per sheet, foot (or roll), or item. None: needs a price.
     #[serde(default)]
     pub price: Option<i64>,
+    /// The price is a rough starting price KERFuffle filled in, not the shop's.
+    #[serde(default)]
+    pub price_estimated: bool,
     #[serde(default)]
     pub supplier: Option<String>,
     #[serde(default)]
@@ -400,6 +403,10 @@ impl Material {
         }
         if m.kind != MaterialKind::Hardware {
             m.unit = None;
+        }
+        // Only a price can be rough.
+        if m.price.is_none() {
+            m.price_estimated = false;
         }
         let blank = |text: &mut Option<String>| {
             if text.as_deref().is_some_and(|t| t.trim().is_empty()) {

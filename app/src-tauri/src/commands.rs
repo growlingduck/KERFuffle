@@ -128,7 +128,7 @@ pub async fn write_pending_edit(
 
 #[tauri::command]
 pub async fn recover_pending_edits(state: State<'_, DbState>) -> Result<Vec<RecoveredJob>, DbError> {
-    state.with(|conn| db::recover_pending_edits(conn))
+    state.with(db::recover_pending_edits)
 }
 
 #[tauri::command]
@@ -159,13 +159,13 @@ pub async fn dev_load_sample_jobs(state: State<'_, DbState>) -> Result<Vec<Job>,
     if !cfg!(debug_assertions) {
         return Err(DbError::invalid("Sample jobs are only available in development builds."));
     }
-    state.with(|conn| db::load_sample_jobs(conn))
+    state.with(db::load_sample_jobs)
 }
 
 /// Every build: add the example job (db/samples.rs), with the next job number and the shop's defaults.
 #[tauri::command]
 pub async fn add_example_job(state: State<'_, DbState>) -> Result<Job, DbError> {
-    state.with(|conn| db::add_example_job(conn))
+    state.with(db::add_example_job)
 }
 
 #[tauri::command]

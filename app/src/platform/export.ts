@@ -99,6 +99,57 @@ export async function saveJobFile(fileName: string, contents: string, onStart: (
   return describe(path);
 }
 
+export interface ExportFile {
+  name: string;
+  contents: string;
+}
+
+export interface SavedFolder {
+  /** How many files were written. */
+  count: number;
+  /** Folder name shown in the toast. Null for browser downloads. */
+  folder: string | null;
+  /** The first file, for Show in folder (Explorer opens the folder with it selected). Null for downloads. */
+  path: string | null;
+  /** The job's DXFs from an earlier export that this one replaced, removed from the folder. */
+  removed: string[];
+  /** Such files that couldn't be removed (open in another program). */
+  notRemoved: string[];
+}
+
+/**
+ * Save several files into one folder (the DXFs, one per sheet pattern). The
+ * folder dialog starts in `Documents\KERFuffle\{folderName}`. `onStart` runs
+ * once a folder is picked. Resolves null when cancelled. In a browser each
+ * file is downloaded.
+ *
+ * `staleDxfOf` (the job part of the DXF names, dxfJobPart) clears that job's
+ * DXFs from an earlier export out of the folder, so no old pattern is left to cut.
+ */
+export async function saveFolder(
+  folderName: string,
+  files: readonly ExportFile[],
+  onStart: () => void = () => {},
+  staleDxfOf: string | null = null,
+): Promise<SavedFolder | null> {
+  if (!isTauri()) {
+    onStart();
+    for (const f of files) download(f.name, f.contents, 'application/dxf');
+    return { count: files.length, folder: null, path: null, removed: [], notRemoved: [] };
+  }
+  const dir = await call<string | null>('choose_export_folder', { folderName });
+  if (!dir) return null;
+  onStart();
+  const written = await call<{ paths: string[]; removed: string[]; notRemoved: string[] }>('write_export_files', { dir, files, staleDxfOf });
+  return {
+    count: written.paths.length,
+    folder: dir.split(/[\\/]/).filter(Boolean).at(-1) ?? dir,
+    path: written.paths[0] ?? null,
+    removed: written.removed,
+    notRemoved: written.notRemoved,
+  };
+}
+
 export type PdfResult = { kind: 'saved'; file: SavedFile } | { kind: 'cancelled' } | { kind: 'printDialog' };
 
 /**

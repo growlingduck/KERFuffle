@@ -8,7 +8,7 @@ import type { MemoryStorageClient } from '../src/data/memoryClient';
 import { jobSession } from '../src/data/storage';
 import type { CabinetRecord, JobRecord } from '../src/data/types';
 import { parseHash, routeHref } from '../src/routes';
-import { materialsStore } from '../src/state/materials';
+import { loadMaterials, materialsStore } from '../src/state/materials';
 import { dismissToast, toastStore } from '../src/state/toast';
 import { quietLayouts, testCabinet, testJob, useTestDatabase as seedDatabase } from './storage';
 
@@ -47,7 +47,7 @@ async function openWorkspace(cabinets: CabinetRecord[], job: Partial<JobRecord> 
 async function openCutList(job: Partial<JobRecord> = {}, view?: 'Layouts' | 'Estimate') {
   const user = await open('#/jobs/j-0014/cut-list', job);
   await screen.findByRole('toolbar', { name: 'Cut list options' });
-  if (view) await user.click(screen.getByRole('button', { name: view }));
+  if (view) await user.click(screen.getByRole('tab', { name: view }));
   return user;
 }
 
@@ -122,7 +122,7 @@ describe('cut list: empty and blocked views name what is missing', () => {
     expect(slots).toHaveTextContent('No cabinets to choose materials for yet.');
     expect(within(slots).getByRole('link', { name: 'Back to the workspace' })).toHaveAttribute('href', '#/jobs/j-0014/workspace');
 
-    await user.click(screen.getByRole('button', { name: 'Layouts' }));
+    await user.click(screen.getByRole('tab', { name: 'Layouts' }));
     expect(document.querySelector('[data-layout-status]')).toHaveTextContent('Nothing to lay out yet: this job has no cabinets.');
     const action = document.querySelector<HTMLElement>('[data-layout-empty="no-cabinets"]')!;
     expect(within(action).getByRole('link', { name: 'Back to the workspace' })).toHaveAttribute('href', '#/jobs/j-0014/workspace');
@@ -147,7 +147,7 @@ describe('cut list: empty and blocked views name what is missing', () => {
     expect(missing).toHaveTextContent('The materials catalog is empty');
     expect(within(missing).getByRole('link', { name: 'Add materials in Settings → Materials' })).toHaveAttribute('href', '#/settings/materials');
 
-    await user.click(screen.getByRole('button', { name: 'Layouts' }));
+    await user.click(screen.getByRole('tab', { name: 'Layouts' }));
     const action = document.querySelector<HTMLElement>('[data-layout-empty="no-material"]')!;
     expect(within(action).getByRole('link', { name: 'Add materials in Settings → Materials' })).toHaveAttribute('href', '#/settings/materials');
   });
@@ -180,9 +180,13 @@ describe('cut list: empty and blocked views name what is missing', () => {
 
   it('an estimate with no prices names the materials that have none', async () => {
     const user = await openCutList({ cabinets: [B1] });
+    // The standard materials start with rough prices; take Birch's away.
+    const birchRecord = (await db.listMaterials()).find((m) => m.id === 'std-birch-3-4')!;
+    await db.saveMaterial({ ...birchRecord, price: null, priceEstimated: false });
+    await act(() => loadMaterials());
     // Not on the cut list itself: it doesn't need prices.
     expect(notice('no-price')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Estimate' }));
+    await user.click(screen.getByRole('tab', { name: 'Estimate' }));
     const unpriced = notice('no-price')!;
     const birch = STANDARD_MATERIALS.find((m) => m.id === 'std-birch-3-4')!;
     expect(unpriced).toHaveTextContent(`No price for ${birch.name}`);

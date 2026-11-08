@@ -9,8 +9,9 @@ import { Sheet } from '../../components/Sheet';
 import { Stepper } from '../../components/Stepper';
 import { Switch } from '../../components/Switch';
 import { ViewTitle } from '../../components/ViewTitle';
+import { Tooltip } from '../../components/Tooltip';
 import { toStorageError } from '../../data/errors';
-import { blankMaterial, BUILT_IN_ESTIMATE, choicesFor, formatMoney, GRAIN_NAMES, KIND_NAMES, MATERIAL_KINDS, MAX_WASTE_PERCENT, priceUnit } from '../../data/materials';
+import { blankMaterial, BUILT_IN_ESTIMATE, choicesFor, formatMoney, GRAIN_NAMES, KIND_NAMES, MATERIAL_KINDS, MAX_WASTE_PERCENT, priceUnit, ROUGH_PRICE_NOTE, ROUGH_PRICES } from '../../data/materials';
 import type { MaterialRecord } from '../../data/types';
 import { displayInches, exactInches } from '../../lib/dimensions';
 import { cx } from '../../lib/interaction';
@@ -104,6 +105,13 @@ export function MaterialsSection({ draft, dispatch }: MaterialsSectionProps) {
           Each job keeps a copy of its materials and prices. <strong>Editing a material here never changes a job</strong>; use Update prices on a
           job’s cut list to pull in new prices.
         </p>
+        {catalog.some((m) => m.priceEstimated && !m.archived) && (
+          <p className={s.roughBanner} data-rough-prices>
+            <span className={s.roughTag}>Rough</span> prices are best guesses KERFuffle filled in ({ROUGH_PRICES.region} area,{' '}
+            {new Date(`${ROUGH_PRICES.asOf}T12:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}) so estimates have a total
+            right away. Replace them with your supplier’s prices; estimates say when they use one.
+          </p>
+        )}
       </div>
 
       <div className={s.materialBar}>
@@ -170,6 +178,13 @@ export function MaterialsSection({ draft, dispatch }: MaterialsSectionProps) {
                     </span>
                   ) : (
                     <>
+                      {m.priceEstimated && (
+                        <Tooltip content={`${ROUGH_PRICE_NOTE}. Edit to enter your supplier’s price.`} describe>
+                          <span className={s.roughTag} tabIndex={0}>
+                            Rough<span className="visually-hidden"> starting price</span>
+                          </span>
+                        </Tooltip>
+                      )}{' '}
                       {formatMoney(m.price)} <span className={s.materialSub}>{priceUnit(m)}</span>
                     </>
                   )}

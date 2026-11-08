@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useReducer, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react';
 import type { Dispatch, ReactNode } from 'react';
 import { backThicknessOf, CONSTRUCTION_NAMES, constructionChoiceOf, inches } from '@kerfuffle/engine';
 import type { ShelfThickComparison, Ticks } from '@kerfuffle/engine';
@@ -10,6 +10,8 @@ import { DimensionInput } from '../components/DimensionInput';
 import { Sheet } from '../components/Sheet';
 import { Stepper } from '../components/Stepper';
 import { ViewTitle } from '../components/ViewTitle';
+import { Segmented } from '../components/Segmented';
+import { setThemeChoice, THEME_CHOICES, THEME_LABELS, useThemeChoice } from '../theme';
 import { backupsStore, estimateBackupBytes, formatBytes, saveBackupSettings, useBackups } from '../data/backups';
 import { getStorageClient } from '../data/client';
 import { confirmDefaults } from '../data/storage';
@@ -43,6 +45,7 @@ import type {
   DraftAction,
   FieldIssues,
   MethodChoiceRow,
+  MethodGroup,
   MethodLengthKey,
   MethodRow,
   RuleRow,
@@ -62,11 +65,10 @@ import {
   hasRuleErrors,
   isCountKey,
   MAX_KEEP,
-  METHOD_GROUPS,
+  CONSTRUCTION_ORDER,
   methodDiffers,
   methodField,
   MIN_KEEP,
-  RULE_GROUPS,
   ruleIssues,
   rulesChanged,
   sawChanged,
@@ -96,6 +98,28 @@ const SAMPLES: readonly [string, Ticks][] = [
 const NO_FILE_SYSTEM = 'Only in the desktop app';
 
 type Load = { kind: 'loading' } | { kind: 'ready' } | { kind: 'failed'; message: string };
+
+/**
+ * Light · Dark · System. Takes effect at once and is kept on this PC only, so it
+ * is not part of the draft, Save, backups or job files.
+ */
+function ThemeRow() {
+  const choice = useThemeChoice();
+  return (
+    <div className={s.themeRow}>
+      <span className={cx('cap', s.themeLabel)}>
+        Theme
+      </span>
+      <Segmented
+        label="Theme"
+        options={THEME_CHOICES.map((value) => ({ value, label: THEME_LABELS[value] }))}
+        value={choice}
+        onChange={setThemeChoice}
+      />
+      <span className={s.themeNote}>{choice === 'system' ? 'Follows Windows. ' : ''}This PC only.</span>
+    </div>
+  );
+}
 
 /** Shop settings (interaction-design §8): construction defaults, display, backups, about. Opens at `section` when a link names one. */
 export function SettingsScreen({ section }: { section?: SettingsSection | undefined }) {
@@ -367,34 +391,45 @@ function SettingsBody({ draft, dispatch, issues, openAt, children }: BodyProps) 
       </nav>
 
       <div className={s.main}>
-        <Sheet id="construction" className={s.section} aria-labelledby="set-construction">
+        <ThemeRow />
+
+        <Sheet id="construction"className={s.section} aria-labelledby="set-construction">
           <div className={s.sectionHead}>
             <ViewTitle id="set-construction" mark="1" title="Construction defaults" sub="USED BY NEW JOBS" />
             <p className={s.banner}>
               New jobs copy these. <strong>Existing jobs keep their own copy</strong>, so changing a default never changes a cut list you already made.
             </p>
           </div>
-          {RULE_GROUPS.map((group) => (
-            <div key={group.label} role="group" aria-label={group.label}>
-              <div className={cx('cap', s.groupLabel)} aria-hidden="true">
-                {group.label}
+          {/* The way the cabinets are built first, then the box from the outside in, then what goes inside it. */}
+          <MethodPicker draft={draft} dispatch={dispatch} issues={issues} active={active} point={point} focusOn={focusOn} />
+          {CONSTRUCTION_ORDER.map((item) =>
+            item.kind === 'rules' ? (
+              <div key={item.group.label} role="group" aria-label={item.group.label}>
+                <div className={cx('cap', s.groupLabel)} aria-hidden="true">
+                  {item.group.label}
+                </div>
+                {item.group.rows.map((row) => (
+                  <Fragment key={row.field}>
+                    <RuleRowView
+                      row={row}
+                      draft={draft}
+                      dispatch={dispatch}
+                      issues={issues}
+                      hot={active === row.detail}
+                      pointer={point(row.detail)}
+                      focusHandlers={focusOn(row.detail)}
+                    />
+                    {/* Where wide shelves start: next to the width it compares against. */}
+                    {row.field === 'shelfThickWidthThreshold' && (
+                      <ComparisonRow draft={draft} dispatch={dispatch} hot={active === 'wide'} pointer={point('wide')} focusHandlers={focusOn('wide')} />
+                    )}
+                  </Fragment>
+                ))}
               </div>
-              {group.rows.map((row) => (
-                <RuleRowView
-                  key={row.field}
-                  row={row}
-                  draft={draft}
-                  dispatch={dispatch}
-                  issues={issues}
-                  hot={active === row.detail}
-                  pointer={point(row.detail)}
-                  focusHandlers={focusOn(row.detail)}
-                />
-              ))}
-            </div>
-          ))}
-          <ComparisonRow draft={draft} dispatch={dispatch} hot={active === 'wide'} pointer={point('wide')} focusHandlers={focusOn('wide')} />
-          <MethodSettingsView draft={draft} dispatch={dispatch} issues={issues} active={active} point={point} focusOn={focusOn} />
+            ) : (
+              <MethodGroupView key={item.group.label} group={item.group} draft={draft} dispatch={dispatch} issues={issues} active={active} point={point} focusOn={focusOn} />
+            ),
+          )}
         </Sheet>
 
         <MaterialsSection draft={draft} dispatch={dispatch} />
@@ -536,19 +571,19 @@ function ComparisonRow({
 }: Pick<RowProps, 'draft' | 'dispatch' | 'hot' | 'pointer' | 'focusHandlers'>) {
   const at = displayInches(draft.current.rules.shelfThickWidthThreshold);
   const options: [ShelfThickComparison, string][] = [
-    ['gte', `${at} and wider (shop rule)`],
-    ['gt', `Wider than ${at} (old spreadsheet)`],
+    ['gte', `${at} and wider`],
+    ['gt', `Wider than ${at}`],
   ];
   const value = draft.current.rules.shelfThickComparison;
   const fallback = BUILT_IN_RULES.shelfThickComparison;
   const legendId = useId();
   return (
-    <div className={cx(s.row, s.rowLast, s.choiceRow)} data-hot={hot || undefined} style={{ display: 'block' }} {...pointer}>
+    <div className={cx(s.row, s.choiceRow)} data-hot={hot || undefined} style={{ display: 'block' }} {...pointer}>
       <fieldset className={s.choices} aria-labelledby={legendId}>
         <ChoiceLegend id={legendId} term="wideShelves">
           Wide shelves start at
         </ChoiceLegend>
-        <p className={s.choiceHelp}>Shop decision Q1: a cabinet exactly at the width gets the wide shelf.</p>
+        <p className={s.choiceHelp}>Whether a cabinet exactly at the wide-shelf width gets the wide shelf.</p>
         {options.map(([option, label]) => (
           <Choice
             key={option}
@@ -563,7 +598,7 @@ function ComparisonRow({
       {value !== fallback && (
         <div className={s.status}>
           <span className={s.diamond} aria-hidden="true" />
-          <span>Changed from the shop rule</span>
+          <span>Changed from {options.find(([option]) => option === fallback)?.[1].toLowerCase()}</span>
           <button type="button" className={s.link} onClick={() => dispatch({ type: 'comparison', value: fallback })}>
             Reset
           </button>
@@ -605,44 +640,48 @@ interface MethodViewProps {
   focusOn: (key: DetailKey) => RowProps['focusHandlers'];
 }
 
-/**
- * The construction method: the default for new jobs, and every method setting
- * (plan §1.3), grouped. Settings a construction doesn't use are hidden while
- * it's the default, and keep their values.
- */
-function MethodSettingsView({ draft, dispatch, issues, active, point, focusOn }: MethodViewProps) {
-  const method = draft.current.rules.method;
-  const choice = constructionChoiceOf(method);
+/** The construction method new jobs start with. It decides which method settings below are shown. */
+function MethodPicker({ draft, dispatch, issues, active, point, focusOn }: MethodViewProps) {
+  const choice = constructionChoiceOf(draft.current.rules.method);
   const builtIn = constructionChoiceOf(BUILT_IN_RULES.method);
   const pickerIssues = [...(issues['method.id'] ?? []), ...(issues['method.baseType'] ?? [])];
   return (
-    <div className={s.methodSection}>
-      <div role="group" aria-label="Construction method">
-        <div className={cx('cap', s.groupLabel)} aria-hidden="true">
-          Construction method
-        </div>
-        <div className={cx(s.row, s.choiceRow)} data-hot={active === 'construction' || undefined} style={{ display: 'block' }} {...point('construction')} {...focusOn('construction')}>
-          <ConstructionPicker
-            legend="Default for new jobs"
-            hint="The New job dialog starts with this. Each job keeps its own, and a draft job can change it. Sizes below are checked on a 30″ × 34 1/2″ × 24″ base built every way."
-            value={choice}
-            onChange={(next) => dispatch({ type: 'construction', choice: next })}
-          />
-          {pickerIssues.map((issue) => (
-            <div key={issue.message} className={s.noteError}>
-              <SymbolMark symbol="needsFix" /> {issue.message}
-            </div>
-          ))}
-          <DefaultStatus
-            modified={methodDiffers(draft.current.rules, 'construction')}
-            def={CONSTRUCTION_NAMES[builtIn].short}
-            label="the default construction"
-            onReset={() => dispatch({ type: 'methodReset', field: 'construction' })}
-          />
-        </div>
+    <div role="group" aria-label="Construction method">
+      <div className={cx('cap', s.groupLabel)} aria-hidden="true">
+        Construction method
       </div>
-      {METHOD_GROUPS.filter((group) => group.shown(method)).map((group) => (
-        <div key={group.label} role="group" aria-label={group.label}>
+      <div className={cx(s.row, s.choiceRow)} data-hot={active === 'construction' || undefined} style={{ display: 'block' }} {...point('construction')} {...focusOn('construction')}>
+        <ConstructionPicker
+          legend="Default for new jobs"
+          hint="The New job dialog starts with this. Each job keeps its own, and a draft job can change it. Sizes below are checked on a 30″ × 34 1/2″ × 24″ base built every way."
+          value={choice}
+          onChange={(next) => dispatch({ type: 'construction', choice: next })}
+        />
+        {pickerIssues.map((issue) => (
+          <div key={issue.message} className={s.noteError}>
+            <SymbolMark symbol="needsFix" /> {issue.message}
+          </div>
+        ))}
+        <DefaultStatus
+          modified={methodDiffers(draft.current.rules, 'construction')}
+          def={CONSTRUCTION_NAMES[builtIn].short}
+          label="the default construction"
+          onReset={() => dispatch({ type: 'methodReset', field: 'construction' })}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One group of method settings. Settings the default construction doesn't use
+ * are hidden while it's the default, and keep their values.
+ */
+function MethodGroupView({ group, draft, dispatch, issues, active, point, focusOn }: MethodViewProps & { group: MethodGroup }) {
+  const method = draft.current.rules.method;
+  if (!group.shown(method)) return null;
+  return (
+        <div role="group" aria-label={group.label}>
           <div className={cx('cap', s.groupLabel)} aria-hidden="true">
             {group.label}
           </div>
@@ -684,8 +723,6 @@ function MethodSettingsView({ draft, dispatch, issues, active, point, focusOn }:
               ),
             )}
         </div>
-      ))}
-    </div>
   );
 }
 

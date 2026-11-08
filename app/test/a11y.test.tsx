@@ -4,8 +4,10 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import axe from 'axe-core';
 import type { Result } from 'axe-core';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { App } from '../src/App';
+import { resetRegisterView } from '../src/state/register';
+import { setThemeChoice } from '../src/theme';
 import { loadShopSettings } from '../src/data/storage';
 import Gallery from '../src/dev/Gallery';
 import { testCabinet, testJob, useTestDatabase } from './storage';
@@ -22,9 +24,20 @@ function describeViolations(violations: Result[]): string {
 }
 
 // axe takes a couple of seconds per screen alone, and several times that while the whole suite runs in parallel.
-describe('accessibility (axe)', { timeout: 20_000 }, () => {
+// Every check runs in both themes. Contrast in each theme is test/contrast.test.ts (jsdom can't measure it).
+describe.each(['light', 'dark'] as const)('accessibility (axe), %s theme', { timeout: 20_000 }, (theme) => {
   beforeEach(async () => {
+    setThemeChoice(theme);
+    // The Jobs filter and search are kept for the session; each test starts from All.
+    resetRegisterView();
     await useTestDatabase();
+  });
+  afterEach(() => {
+    setThemeChoice('system');
+  });
+
+  it('renders in the theme under test', () => {
+    expect(document.documentElement.dataset.theme).toBe(theme);
   });
 
   it('the component gallery has no serious or critical violations', async () => {
@@ -38,7 +51,7 @@ describe('accessibility (axe)', { timeout: 20_000 }, () => {
     const user = userEvent.setup();
     const { container } = render(<App />);
     await act(async () => {});
-    await user.click(screen.getByRole('button', { name: 'Layouts' }));
+    await user.click(screen.getByRole('tab', { name: 'Layouts' }));
     await waitFor(() => expect(document.querySelector('[data-layout-status]')?.textContent).not.toMatch(/Laying out|Searching/), { timeout: 15_000 });
     await user.click(within(document.querySelector<HTMLElement>('[data-pattern-id]')!).getAllByRole('button')[0]!);
     const violations = await seriousViolations(container);
@@ -61,7 +74,7 @@ describe('accessibility (axe)', { timeout: 20_000 }, () => {
     await act(async () => {});
     expect(document.querySelector('[data-notice="no-cabinets"]')).not.toBeNull();
     for (const view of ['Cut list', 'Layouts', 'Estimate']) {
-      await user.click(screen.getByRole('button', { name: view }));
+      await user.click(screen.getByRole('tab', { name: view }));
       const violations = await seriousViolations(container);
       expect(violations, `${view}:\n${describeViolations(violations)}`).toEqual([]);
     }

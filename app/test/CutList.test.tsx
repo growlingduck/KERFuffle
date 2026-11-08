@@ -115,6 +115,25 @@ describe('cut list screen', () => {
     expect([...b3.querySelectorAll<HTMLElement>('tr[data-mark]')].map((tr) => tr.dataset.mark)).toEqual(['P5', 'P14', 'P4', 'P4', 'P14', 'P5', 'P15', 'L3', 'L4']);
   });
 
+  it('by cabinet, the chips are an index: each names its sheet and goes to its cabinet', async () => {
+    const { user } = await openCutList();
+    await user.click(screen.getByRole('button', { name: 'By cabinet' }));
+    const chip = await waitFor(() => {
+      const found = within(sheet()).getByRole('button', { name: /^B3/ });
+      expect(found).toHaveTextContent(/sheet \d+/);
+      return found;
+    });
+    // Nothing to trace or pin: each cabinet already has its own section.
+    expect(chip).not.toHaveAttribute('aria-pressed');
+    fireEvent.pointerEnter(chip);
+    expect(document.querySelector('[data-dimmed]')).toBeNull();
+
+    await user.click(chip);
+    const b3 = within(sheet()).getByRole('region', { name: 'B3 · Base' });
+    expect(b3).toHaveFocus();
+    expect(b3).toHaveAttribute('data-flash');
+  });
+
   it('traces a cabinet from its chip and pins it', async () => {
     const { user } = await openCutList();
     const chip = within(sheet()).getByRole('button', { name: /^B2/ });
@@ -163,7 +182,7 @@ describe('cut list screen', () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     const { user } = await openCutList();
 
-    await user.click(screen.getByRole('button', { name: 'Export CSV' }));
+    await user.click(screen.getByRole('button', { name: 'Export CSV…' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'CSV saved' })).toBeInTheDocument());
     expect(click).toHaveBeenCalledOnce();
     expect(screen.getByText('Downloaded “Kitchen remodel – cut list.csv”')).toBeInTheDocument();

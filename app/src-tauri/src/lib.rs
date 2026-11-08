@@ -15,8 +15,14 @@ pub fn run() {
         // First, so a second launch (double-clicking a .kerfjob while the app is
         // open) hands its file to this window instead of opening another.
         .plugin(tauri_plugin_single_instance::init(opened_files::on_second_instance))
-        // Restores the main window's size and position, saved on close.
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        // Restores the main window's size and position, saved on close. Not its
+        // visibility: the window starts hidden and the page shows it after its
+        // first themed paint, so a dark theme never flashes white (see show_fallback).
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(tauri_plugin_window_state::StateFlags::all() & !tauri_plugin_window_state::StateFlags::VISIBLE)
+                .build(),
+        )
         // Save, open and folder dialogs, opened from Rust only (export.rs, backups.rs).
         .plugin(tauri_plugin_dialog::init())
         // Release builds check for updates once a day; see updates.rs.
@@ -35,6 +41,7 @@ pub fn run() {
             app.manage(updates);
             app.manage(opened);
             updates::start(app.handle());
+            show_fallback(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -71,6 +78,8 @@ pub fn run() {
             backups::import_job,
             export::choose_export_path,
             export::write_export_file,
+            export::choose_export_folder,
+            export::write_export_files,
             export::print_to_pdf,
             export::show_print_dialog,
             export::reveal_in_folder,
@@ -85,6 +94,20 @@ pub fn run() {
         // The close guard has already flushed autosave by the time the app exits.
         if let tauri::RunEvent::Exit = event {
             updates::install_on_exit(app);
+        }
+    });
+}
+
+/// The main window starts hidden (tauri.conf.json) and the page shows it once it
+/// has painted (platform/window.ts). If the page never gets that far, show it
+/// anyway, so a broken page can't leave the app running with no window.
+fn show_fallback(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(4));
+        if let Some(window) = app.get_webview_window("main") {
+            if !window.is_visible().unwrap_or(false) {
+                let _ = window.show();
+            }
         }
     });
 }

@@ -9,6 +9,8 @@ export type { LayoutInput } from './layout';
 export { layoutKey, materialInputKeys } from './hash';
 export { sensitivity, SENSITIVITY_LIMITS } from './sensitivity';
 export type { AllowanceRisk, FragileStrip, LightSheet, NearMiss, Sensitivity, SensitivityAllowance } from './sensitivity';
+export { DXF_LAYERS, drillLayer, layoutToDxf, partOutline, pocketLayer } from './dxf';
+export type { DxfOptions, DxfPoint, DxfUnits } from './dxf';
 export { LAYOUT_MODES } from './types';
 export type {
   Cut,

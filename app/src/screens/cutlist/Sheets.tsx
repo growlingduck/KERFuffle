@@ -14,6 +14,7 @@ import type { JobStatus } from '../../data/types';
 import { displayInches } from '../../lib/dimensions';
 import type { GlossaryKey } from '../../lib/glossary';
 import { cx } from '../../lib/interaction';
+import { useReducedMotion } from '../../motion';
 import styles from './CutList.module.css';
 
 export interface SheetJob {
@@ -150,7 +151,80 @@ export function Zones() {
   );
 }
 
-function CabinetChips({ data, ui }: { data: SheetData; ui: SheetInteraction | null }) {
+/** The section a by-cabinet chip stands for. Sections are keyed by job position, so repeated labels stay apart. */
+const cabinetGroupId = (chip: CabinetChip) => `cabinet:${chip.index}`;
+
+/** Bring a cabinet's section into view on its sheet, focus it, and flash it once. */
+function goToGroup(groupId: string, reduced: boolean): void {
+  const section = document.querySelector<HTMLElement>(`article[data-sheet] section[data-group="${groupId}"]`);
+  if (!section) return;
+  section.scrollIntoView?.({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
+  section.focus({ preventScroll: true });
+  section.removeAttribute('data-flash');
+  void section.offsetWidth; // restart the animation on a second click
+  section.setAttribute('data-flash', '');
+  section.addEventListener('animationend', () => section.removeAttribute('data-flash'), { once: true });
+}
+
+/**
+ * By cabinet, each cabinet is its own section, often on another sheet, so the chips
+ * are an index: each says which sheet its cabinet is on, and a click goes there.
+ * (Tracing a cabinet across the list only makes sense merged.)
+ */
+function CabinetIndex({ data, ui, sheetOf }: { data: SheetData; ui: SheetInteraction | null; sheetOf: ReadonlyMap<string, number> }) {
+  const reduced = useReducedMotion();
+  return (
+    <div className={styles.intro}>
+      <span className={cx('cap', styles.introLabel)}>Cabinets</span>
+      {data.chips.map((chip) => {
+        const sheet = chip.blocked ? undefined : sheetOf.get(cabinetGroupId(chip));
+        const size = `${displayInches(chip.width)}${chip.quantity > 1 ? ` ×${chip.quantity}` : ''}`;
+        const kind = chip.type === 'base' ? 'Base' : 'Wall';
+        const dims = `${displayInches(chip.width)} × ${displayInches(chip.height)} × ${displayInches(chip.depth)}`;
+        const content = (
+          <>
+            {chip.label}
+            <span className={styles.chipSize}>{size}</span>
+            {/* Always there, at a fixed width, so the chips measure the same before the sheets are counted. */}
+            {!chip.blocked && <span className={styles.chipSheet}>{sheet === undefined ? '' : `sheet ${sheet}`}</span>}
+            {chip.blocked && <span className="visually-hidden"> (needs a fix, not listed)</span>}
+          </>
+        );
+        if (!ui) {
+          return (
+            <span key={chip.index} className={cx(styles.chip, chip.blocked && styles.chipBlocked)}>
+              {content}
+            </span>
+          );
+        }
+        const tip = chip.blocked ? `${kind} ${dims} · needs a fix, not listed` : `${kind} ${dims} · click to go to it`;
+        return (
+          <Tooltip key={chip.index} content={tip} placement="bottom" describe>
+            <button
+              type="button"
+              className={cx(styles.chip, chip.blocked && styles.chipBlocked)}
+              aria-disabled={chip.blocked || undefined}
+              data-cabinet={chip.label}
+              onClick={() => {
+                if (!chip.blocked) goToGroup(cabinetGroupId(chip), reduced);
+              }}
+            >
+              {content}
+            </button>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+}
+
+function CabinetChips({ data, ui, sheetOf }: { data: SheetData; ui: SheetInteraction | null; sheetOf: ReadonlyMap<string, number> }) {
+  if (data.list.options.mode !== 'merged') return <CabinetIndex data={data} ui={ui} sheetOf={sheetOf} />;
+  return <CabinetTrace data={data} ui={ui} />;
+}
+
+/** Merged: point at a chip to trace that cabinet's parts through the list; click to pin it. */
+function CabinetTrace({ data, ui }: { data: SheetData; ui: SheetInteraction | null }) {
   const hotRow = ui?.hotRow ?? null;
   const hotRefs = useMemo(() => {
     const line = hotRow ? data.list.lines.find((l) => l.key === hotRow) : undefined;
@@ -312,7 +386,6 @@ function GroupPiece({
   ui: SheetInteraction | null;
 }) {
   const merged = group.kind === 'merged';
-  const dim = !merged && ui?.activeCabinet != null && ui.activeCabinet !== group.cabinet;
   const thumb = group.thumb;
   let rect: { x: number; y: number; w: number; h: number } | null = null;
   if (thumb) {
@@ -320,12 +393,18 @@ function GroupPiece({
     rect = { w: thumb.width * m, h: thumb.height * m, x: (22 - thumb.width * m) / 2, y: 27 - thumb.height * m };
   }
   return (
-    <section className={cx(styles.group, dim && styles.dim)} data-group={group.id} data-dimmed={dim || undefined} aria-label={`${group.title}${cont ? ', continued' : ''}`}>
+    <section
+      className={styles.group}
+      data-group={group.id}
+      // By cabinet, the chip index focuses a cabinet's section (on its first sheet).
+      tabIndex={ui && !merged && !cont ? -1 : undefined}
+      aria-label={`${group.title}${cont ? ', continued' : ''}`}
+    >
       <div className={styles.groupHead} data-measure="head">
         <div className={styles.groupTitle}>
           {rect && (
             <svg className={styles.thumb} width="22" height="28" viewBox="0 0 22 28" aria-hidden="true">
-              <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} fill="none" stroke="#000" strokeWidth="1.2" />
+              <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} fill="none" style={{ stroke: 'var(--sheet-ink)' }} strokeWidth="1.2" />
             </svg>
           )}
           <h2>
@@ -387,11 +466,13 @@ interface FrameProps {
   sheet: number;
   sheets: number;
   ui: SheetInteraction | null;
+  /** Group id → the sheet it starts on (for the by-cabinet index). */
+  sheetOf: ReadonlyMap<string, number>;
   measure?: boolean;
 }
 
 /** One printed sheet: border, header, body, notes and title block. */
-const Frame = memo(function Frame({ data, groups, pieces, sheet, sheets, ui, measure = false }: FrameProps) {
+const Frame = memo(function Frame({ data, groups, pieces, sheet, sheets, ui, sheetOf, measure = false }: FrameProps) {
   const { job, list } = data;
   const excludes = blockedText(list.blocked);
   const last = sheet === sheets;
@@ -403,7 +484,7 @@ const Frame = memo(function Frame({ data, groups, pieces, sheet, sheets, ui, mea
     body = (
       <>
         <div data-measure="intro">
-          <CabinetChips data={data} ui={null} />
+          <CabinetChips data={data} ui={null} sheetOf={sheetOf} />
         </div>
         {groups.map((g) => (
           <GroupPiece key={g.id} group={g} lines={g.lines} cont={false} ui={null} />
@@ -412,7 +493,7 @@ const Frame = memo(function Frame({ data, groups, pieces, sheet, sheets, ui, mea
     );
   } else {
     body = pieces.map((piece) => {
-      if (piece.kind === 'intro') return <CabinetChips key="intro" data={data} ui={ui} />;
+      if (piece.kind === 'intro') return <CabinetChips key="intro" data={data} ui={ui} sheetOf={sheetOf} />;
       const group = byId.get(piece.groupId);
       if (!group) return null;
       const wanted = new Set(piece.rowKeys);
@@ -590,6 +671,14 @@ export function Sheets({ data, ui, onPaginated }: SheetsProps) {
     { pieces: [{ kind: 'intro' }, ...groups.map((g) => ({ kind: 'group' as const, groupId: g.id, cont: false, rowKeys: g.lines.map(rowId) }))] },
   ];
 
+  const sheetOf = useMemo(() => {
+    const first = new Map<string, number>();
+    layout?.forEach((page, i) => {
+      for (const piece of page.pieces) if (piece.kind === 'group' && !first.has(piece.groupId)) first.set(piece.groupId, i + 1);
+    });
+    return first;
+  }, [layout]);
+
   const onPaginatedRef = useRef(onPaginated);
   useLayoutEffect(() => {
     onPaginatedRef.current = onPaginated;
@@ -603,10 +692,10 @@ export function Sheets({ data, ui, onPaginated }: SheetsProps) {
     <div className={styles.pages} style={pageStyle} data-sheets={pages.length}>
       <style>{`@page { size: ${data.page.widthIn}in ${data.page.heightIn}in; margin: 0; }`}</style>
       <div ref={measureRef} style={{ display: 'contents' }}>
-        <Frame data={data} groups={groups} pieces="all" sheet={1} sheets={1} ui={null} measure />
+        <Frame data={data} groups={groups} pieces="all" sheet={1} sheets={1} ui={null} sheetOf={sheetOf} measure />
       </div>
       {pages.map((page, i) => (
-        <Frame key={i} data={data} groups={groups} pieces={page.pieces} sheet={i + 1} sheets={pages.length} ui={ui} />
+        <Frame key={i} data={data} groups={groups} pieces={page.pieces} sheet={i + 1} sheets={pages.length} ui={ui} sheetOf={sheetOf} />
       ))}
     </div>
   );

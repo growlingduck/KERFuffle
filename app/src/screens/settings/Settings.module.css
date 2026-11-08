@@ -76,6 +76,21 @@
   flex-direction: column;
   gap: 22px;
 }
+/* Theme: a viewing preference above the shop settings, not a section of them. */
+.themeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.themeLabel {
+  font-size: 12px;
+  color: var(--muted);
+}
+.themeNote {
+  font-size: 13px;
+  color: var(--muted);
+}
 .section {
   scroll-margin-top: 16px;
 }
@@ -114,7 +129,7 @@
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 .row:hover {
-  background: #f7f6f1;
+  background: var(--paper-faint);
 }
 .row[data-hot] {
   background: var(--blue-tint-faint);
@@ -439,18 +454,18 @@
   stroke-width: 1.6px;
 }
 .mutedFace {
-  fill: #ecebe5;
+  fill: var(--face-muted);
   stroke: var(--muted-2);
   stroke-width: 1px;
 }
 .dashedFace {
-  fill: #f7f6f1;
+  fill: var(--paper-faint);
   stroke: var(--muted-2);
   stroke-width: 1px;
   stroke-dasharray: 4 3;
 }
 .laminate {
-  fill: rgb(31 79 163 / 6%);
+  fill: color-mix(in srgb, var(--blue) 6%, transparent);
   stroke: var(--blue);
   stroke-width: 1.5px;
   stroke-dasharray: 6 4;
@@ -482,13 +497,6 @@
 .floorHatch {
   stroke: var(--rule-input);
   stroke-width: 0.8px;
-}
-
-/* The construction method, below the shop rules. */
-.methodSection {
-  margin-top: 18px;
-  padding-top: 4px;
-  border-top: 1.5px solid var(--ink);
 }
 
 .loading {
@@ -554,6 +562,41 @@
   color: var(--amber);
   font-family: var(--font-sans);
   font-size: 13px;
+}
+/* A rough starting price KERFuffle filled in: a small dashed amber tag, like a pencilled figure. */
+.roughTag {
+  display: inline-block;
+  padding: 0 5px;
+  border: 1px dashed var(--amber);
+  border-radius: 2px;
+  color: var(--amber);
+  font: 600 9.5px/16px var(--font-cond);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+.roughBanner {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px dashed var(--amber);
+  background: var(--white);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.roughNote {
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.roughConfirm {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
 .materialActions {
   white-space: nowrap;

@@ -1,6 +1,6 @@
 # Pending checks
 
-Things built so far (prompts 01–17) that still need you to look at them, try
+Things built so far (prompts 01–21) that still need you to look at them, try
 them, or make a call. Tick them off or delete lines as you go. Last updated
 2026-11-02.
 
@@ -459,3 +459,91 @@ Choices made. Keep or change?
       profile chosen for this job" in the cut list rail until one is picked.
 - [ ] **Choice to confirm:** the "No price for …" notice shows on the Estimate
       view only, not on the cut list or layouts.
+
+## 16. DXF export (prompt 19)
+
+- [ ] **Try in the desktop app:** Layouts → **Export DXF… → Inches…**. The
+      folder dialog should open in `Documents\KERFuffle\{Job} – DXF`, write one
+      file per pattern, show "DXF saved ✓", and **Show in folder** should open
+      Explorer on the first file. Cancelling shouldn't leave an empty folder
+      behind. The Rust commands are unit-tested, but this has never run in the
+      real window.
+- [ ] **Re-export after the job shrinks:** export, delete a cabinet so there
+      are fewer patterns, export into the same folder. The old higher-numbered
+      `– pattern N.dxf` files should be gone and the toast should say "Removed
+      … older DXF". With one of them open in another program, the toast should
+      name it and say to delete it before cutting.
+- [ ] **Open a file in your CAM software.** It was checked in LibreCAD 2.2.1.6
+      and in dxf-viewer 1.0.50 in a browser, not yet in the software the shop
+      would cut with.
+- [ ] **Choice to confirm:** the DXF is drawn the way the printout looks (y
+      flipped), so its origin is the sheet corner at the bottom left of the
+      printed drawing. Some CAM setups want the origin at another corner.
+- [ ] **Choice to confirm:** file names keep the job's and material's own
+      characters (e.g. `3-4″`, `–`), like the other exports. Older CAM software
+      sometimes needs plain-ASCII names.
+- [ ] **Choice to confirm:** a pattern cut for several cabinets labels each
+      piece with up to three of them ("B1, B3 +2").
+
+## 17. Pinned header and scrolling
+
+- [ ] **Header stays put:** on every screen the app header no longer scrolls
+      away; only the area under it scrolls. The Cut list toolbar and the Jobs
+      search row pin under it. Check it in the real window, including print.
+- [ ] **Menus aren't cut off:** the ⋯ menu on the bottom job row opens
+      upward, whole. Every menu (status, presets, DXF units) now places itself
+      by its button and stays inside the window.
+- [ ] **Choice to confirm:** with a job open and the window under 1520 px wide,
+      Help shows just its ? icon; under 1460 px the tabs tighten, under
+      1430 px the logo drops the "KERFuffle" word, and under 1350 px the cells
+      close up, so the header (now with the Theme button) stays one row down
+      to 1260 px. Narrower than that, it still wraps to two rows.
+- [ ] **Choice to confirm:** switching screens or jobs now starts at the top
+      (Jobs still comes back to where its list was). Before, the old scroll
+      position carried over by accident.
+- [ ] **Output tab** (was "Cut list"): Cut list · Layouts · Estimate are sheet
+      tabs with a summary line ("43 boxes · 539 pieces", "44 sheets", the
+      estimate total). The ‹ Workspace button is gone (header tab or Ctrl+L).
+- [ ] **Same outputs on every page:** Export CSV… (Layouts: Export DXF…) ·
+      Save PDF… · Print…, in that order. "Print layouts…" is now just "Print…".
+- [ ] **By cabinet, the cabinet chips are an index:** each shows its sheet
+      number (also on paper) and a click goes to that cabinet. Hover tracing and
+      pinning stay in Merged only.
+
+## 18. Rough starting prices (schema v7)
+
+- [ ] **Check the rough prices** against your suppliers. They are best guesses
+      for the Omaha, NE area, Nov 2026 (no store publishes Omaha prices online),
+      in `app/src-tauri/src/db/rough_prices.json`: birch 3/4″ $72, 1/2″ $58,
+      1/4″ $35; prefinished maple $110; melamine $52; MDF $48; 1″ ply $115;
+      HPL 4×8 $95, 5×12 $230; banding $0.11/ft; leg $3.00; kick clip $0.75.
+- [ ] **Your own database:** opening it in the new version runs migration 7,
+      which puts rough prices only on standard materials you left unpriced.
+      Jobs you already made keep their copies; Update prices pulls the new ones in.
+- [ ] **Choice to confirm:** the estimate printout names materials still at a
+      rough price in its notes. Good for a shop, maybe not for a customer copy.
+
+## 19. Dark mode (prompt 21)
+
+- [ ] **Look at it in the real window**: header button (sun · moon · half
+      circle) cycles Light → Dark → System; Settings has the same three at the
+      top. Dark is a navy "blueprint" ground with pale ink, not inverted paper.
+- [ ] **Title bar follows the theme**: the app calls the window's `setTheme`
+      (light, dark, or the OS for System). Seen dark on a dark Windows with
+      System; Light and Dark chosen against the OS weren't checked in the window.
+- [ ] **No white flash on start**: the window now starts hidden and shows
+      itself once the page has painted its paper (about 0.6 s in `tauri dev`;
+      checked with Windows in dark mode). If the page fails, it shows anyway
+      after 4 s. Check an installed build too.
+- [ ] **Window position after a restart**: during that check the window opened
+      maximized on the main display (as saved), then sat on the second display
+      2 s later. Probably moved by hand; confirm it reopens where you left it.
+- [ ] **Printing is always light**: cut list, layouts, estimate and quick
+      start PDFs come out the same in all three themes (checked in headless
+      Edge). Try Print… and Save PDF… in the desktop app while in Dark.
+- [ ] **Choice to confirm:** the theme is kept per PC (like "Include fronts"),
+      not in shop settings, so backups and .kerfjob files don't carry it.
+- [ ] **Choice to confirm:** there's no app menu, so the "Theme item" is the
+      header button. No keyboard shortcut was added.
+- [ ] **Small print change:** grain lines on the layouts printout and the
+      DRAFT stamp's gray went from #8A8A8A / #8A8C90 to the shared #8E9095.

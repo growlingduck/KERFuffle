@@ -1,20 +1,29 @@
 /*
  * KERFuffle design tokens. Source of truth: docs/interaction-design.md §2 (visual
  * language) and §3 (motion). Every color, font, radius and duration used by the
- * app comes from here; components never hard-code them.
+ * app comes from here; components never hard-code them (test/themeTokens.test.ts).
+ *
+ * Themes: the light set is on :root. The dark set (a blueprint ground, not
+ * inverted paper) uses the same names and is written twice, for an explicit
+ * choice (data-theme="dark", set by src/theme.ts and the inline script in
+ * index.html) and for System (the media query). Printing always uses the light
+ * set. test/themeTokens.test.ts keeps the copies in step.
  */
 :root {
+  color-scheme: light;
+
   /* ---- Ink and neutrals ---- */
   --ink: #1b1d1f; /* text, borders, drawing lines */
   --ink-2: #2b2d30; /* panel borders */
-  --muted: #4a4c50; /* secondary text, >= 7:1 on white */
-  --muted-2: #63656a; /* units, captions, >= 5.5:1 */
+  --muted: #4a4c50; /* secondary text, >= 7:1 on white (8.6), paper (7.6) */
+  --muted-2: #63656a; /* units, captions, >= 5.5:1 on white (5.8), vellum (5.5) */
   --hover-border: #5e6066; /* control border on hover (prototype) */
   --disabled-text: #6f7177; /* disabled labels; 4.9:1 on white so they stay readable */
   --rule-input: #9a9c9f; /* input borders */
   --rule-divider: #d9d7cf; /* dividers */
   --rule-table: #e6e4dc; /* table rules */
-  --white: #ffffff;
+  --line-light: #8e9095; /* thin secondary drawing lines: centerlines, grain, hidden edges */
+  --white: #ffffff; /* sheets, inputs, menus: the surface panels are drawn on */
 
   /* ---- Ground ---- */
   --paper: #f2f1eb;
@@ -22,29 +31,43 @@
   --paper-grid-minor: #ebe9e1;
   --paper-hover: #eeede7; /* button hover fill */
   --paper-press: #e3e1d8; /* button pressed fill */
+  --paper-faint: #f7f6f1; /* row hover, light faces in diagrams */
+  --face-muted: #ecebe5; /* countertop band and other context faces in drawings */
   --vellum: #faf9f5; /* calc tape, drawing backgrounds */
 
+  /* ---- Printable sheets: pure black so laser printers never dither the ink ---- */
+  --sheet-ink: #000000;
+  --shadow-sheet:
+    0 1px 0 #bdbcb5,
+    0 12px 30px rgb(27 29 31 / 12%);
+
   /* ---- Blue: selection, primary action, traced dimensions ---- */
-  --blue: #1f4fa3;
+  --blue: #1f4fa3; /* 7.7:1 on white */
   --blue-hover: #163a7a;
+  --on-blue: #ffffff; /* text and glyphs on a solid blue fill */
   --blue-tint: #e3ebf7;
   --blue-tint-strong: #c9d8f0;
   --blue-tint-row: #dce6f6;
   --blue-tint-faint: #f1f5fb; /* selected row background */
-  --blue-on-dark: #7fa2dc; /* outlines and bars on the dark toast */
-  --blue-dark-hover: #2b3a55;
+  --blue-on-dark: #7fa2dc; /* outlines and bars on the toast */
+  --blue-dark-hover: #2b3a55; /* button hover on the toast */
 
   /* ---- Red: errors only ---- */
   --red: #b3261e;
+  --red-hover: #8e1f18; /* destructive menu item under the pointer */
   --red-tint: #fdf3f2;
   --red-ring: #f3c9c5;
 
   /* ---- Amber: warnings and the "just changed" highlighter ---- */
   --amber: #7a4300;
+  --amber-tint: #fdf8ea; /* warning note background */
   --highlighter: #fbe7a1;
 
   /* ---- Green: saved, completed ---- */
   --green: #2b6b3f;
+  --green-deep: #1d4f2c; /* text on the green tints */
+  --green-tint: #eef5f0;
+  --green-tint-strong: #e3efe7;
 
   /* ---- Status stamp colors (glyph + text always accompany them) ---- */
   --status-draft: var(--muted);
@@ -88,6 +111,220 @@
   --delay-tip: 400ms; /* hover intent before a tooltip */
   --ease-out: ease-out;
   --ease-base: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/*
+ * Dark: a blueprint ground. Navy paper with a faint grid, sheets one step
+ * lighter, pale ink. Ratios are measured against the dark paper, vellum and
+ * white (sheet surface). Keep this block and the System copy below identical.
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* ---- Ink and neutrals ---- */
+  --ink: #e3e8ef; /* 13.0:1 on white, 14.8 on paper */
+  --ink-2: #a9b6c6; /* panel borders */
+  --muted: #aab4c1; /* secondary text, >= 7:1: white 7.6, vellum 8.2, paper 8.7 */
+  --muted-2: #939eac; /* units, captions, >= 5.5:1: white 5.9, vellum 6.3, paper 6.7 */
+  --hover-border: #8995a5;
+  --disabled-text: #87929f; /* >= 4.5:1: white 5.1, vellum 5.4, paper 5.8 */
+  --rule-input: #5d6a7b; /* 2.9:1 on white, as light's 2.8 */
+  --rule-divider: #2c3949;
+  --rule-table: #243041;
+  --line-light: #66727f; /* 3.3:1 on white, as light's 3.2: present, never loud */
+  --white: #172231; /* the sheet surface: one step up from the paper */
+
+  /* ---- Ground ---- */
+  --paper: #0e1621;
+  --paper-grid-major: #1d2a3a;
+  --paper-grid-minor: #152030;
+  --paper-hover: #202c3d;
+  --paper-press: #2a3749;
+  --paper-faint: #1b2737;
+  --face-muted: #222e3e;
+  --vellum: #131c29;
+
+  /* ---- Printable sheets, on screen ---- */
+  --sheet-ink: #e3e8ef;
+  --shadow-sheet:
+    0 1px 0 #2c3949,
+    0 12px 30px rgb(0 0 0 / 40%);
+
+  /* ---- Blue ---- */
+  --blue: #8fb3f5; /* 7.6:1 on white, 6.3 on blue-tint */
+  --blue-hover: #b5cdfa;
+  --on-blue: #0e1621; /* 8.6:1 on blue */
+  --blue-tint: #1c3050;
+  --blue-tint-strong: #284673;
+  --blue-tint-row: #22395e;
+  --blue-tint-faint: #19283f;
+  --blue-on-dark: #1f4fa3; /* the toast is light here: dark blue outlines */
+  --blue-dark-hover: #c9d6ea;
+
+  /* ---- Red ---- */
+  --red: #ff8f84; /* 7.3:1 on white, 7.3 on red-tint */
+  --red-hover: #ffb8b0;
+  --red-tint: #331a1d;
+  --red-ring: #6e3434;
+
+  /* ---- Amber ---- */
+  --amber: #f2b35b; /* 8.7:1 on white, 4.8 on the highlighter */
+  --amber-tint: #2a2215;
+  --highlighter: #5c4712; /* ink on it 7.2:1, so the changed value stays readable */
+
+  /* ---- Green ---- */
+  --green: #7dd098; /* 8.7:1 on white */
+  --green-deep: #a6e3b8;
+  --green-tint: #15291d;
+  --green-tint-strong: #1c3726;
+
+  /* ---- Shadows ---- */
+  --shadow-pop: 0 10px 28px rgb(0 0 0 / 50%);
+  --shadow-toast: 0 10px 28px rgb(0 0 0 / 60%);
+  --scrim: rgb(0 0 0 / 55%);
+}
+
+/* System: the same dark set when the OS asks for it and no explicit light choice. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    /* ---- Ink and neutrals ---- */
+    --ink: #e3e8ef;
+    --ink-2: #a9b6c6;
+    --muted: #aab4c1;
+    --muted-2: #939eac;
+    --hover-border: #8995a5;
+    --disabled-text: #87929f;
+    --rule-input: #5d6a7b;
+    --rule-divider: #2c3949;
+    --rule-table: #243041;
+    --line-light: #66727f;
+    --white: #172231;
+
+    /* ---- Ground ---- */
+    --paper: #0e1621;
+    --paper-grid-major: #1d2a3a;
+    --paper-grid-minor: #152030;
+    --paper-hover: #202c3d;
+    --paper-press: #2a3749;
+    --paper-faint: #1b2737;
+    --face-muted: #222e3e;
+    --vellum: #131c29;
+
+    /* ---- Printable sheets, on screen ---- */
+    --sheet-ink: #e3e8ef;
+    --shadow-sheet:
+      0 1px 0 #2c3949,
+      0 12px 30px rgb(0 0 0 / 40%);
+
+    /* ---- Blue ---- */
+    --blue: #8fb3f5;
+    --blue-hover: #b5cdfa;
+    --on-blue: #0e1621;
+    --blue-tint: #1c3050;
+    --blue-tint-strong: #284673;
+    --blue-tint-row: #22395e;
+    --blue-tint-faint: #19283f;
+    --blue-on-dark: #1f4fa3;
+    --blue-dark-hover: #c9d6ea;
+
+    /* ---- Red ---- */
+    --red: #ff8f84;
+    --red-hover: #ffb8b0;
+    --red-tint: #331a1d;
+    --red-ring: #6e3434;
+
+    /* ---- Amber ---- */
+    --amber: #f2b35b;
+    --amber-tint: #2a2215;
+    --highlighter: #5c4712;
+
+    /* ---- Green ---- */
+    --green: #7dd098;
+    --green-deep: #a6e3b8;
+    --green-tint: #15291d;
+    --green-tint-strong: #1c3726;
+
+    /* ---- Shadows ---- */
+    --shadow-pop: 0 10px 28px rgb(0 0 0 / 50%);
+    --shadow-toast: 0 10px 28px rgb(0 0 0 / 60%);
+    --scrim: rgb(0 0 0 / 55%);
+  }
+}
+
+/*
+ * Print is always light, whatever the theme: the light set again, under a
+ * selector that outranks both dark blocks (:is() takes its argument's
+ * specificity, and this block comes last). The PDF export prints through the
+ * same media, so it is light too.
+ */
+@media print {
+  :root:is([data-theme], :not([data-theme])) {
+    color-scheme: light;
+
+    /* ---- Ink and neutrals ---- */
+    --ink: #1b1d1f;
+    --ink-2: #2b2d30;
+    --muted: #4a4c50;
+    --muted-2: #63656a;
+    --hover-border: #5e6066;
+    --disabled-text: #6f7177;
+    --rule-input: #9a9c9f;
+    --rule-divider: #d9d7cf;
+    --rule-table: #e6e4dc;
+    --line-light: #8e9095;
+    --white: #ffffff;
+
+    /* ---- Ground ---- */
+    --paper: #f2f1eb;
+    --paper-grid-major: #e2e0d7;
+    --paper-grid-minor: #ebe9e1;
+    --paper-hover: #eeede7;
+    --paper-press: #e3e1d8;
+    --paper-faint: #f7f6f1;
+    --face-muted: #ecebe5;
+    --vellum: #faf9f5;
+
+    /* ---- Printable sheets ---- */
+    --sheet-ink: #000000;
+    --shadow-sheet:
+      0 1px 0 #bdbcb5,
+      0 12px 30px rgb(27 29 31 / 12%);
+
+    /* ---- Blue ---- */
+    --blue: #1f4fa3;
+    --blue-hover: #163a7a;
+    --on-blue: #ffffff;
+    --blue-tint: #e3ebf7;
+    --blue-tint-strong: #c9d8f0;
+    --blue-tint-row: #dce6f6;
+    --blue-tint-faint: #f1f5fb;
+    --blue-on-dark: #7fa2dc;
+    --blue-dark-hover: #2b3a55;
+
+    /* ---- Red ---- */
+    --red: #b3261e;
+    --red-hover: #8e1f18;
+    --red-tint: #fdf3f2;
+    --red-ring: #f3c9c5;
+
+    /* ---- Amber ---- */
+    --amber: #7a4300;
+    --amber-tint: #fdf8ea;
+    --highlighter: #fbe7a1;
+
+    /* ---- Green ---- */
+    --green: #2b6b3f;
+    --green-deep: #1d4f2c;
+    --green-tint: #eef5f0;
+    --green-tint-strong: #e3efe7;
+
+    /* ---- Shadows ---- */
+    --shadow-pop: 0 10px 28px rgb(27 29 31 / 20%);
+    --shadow-toast: 0 10px 28px rgb(27 29 31 / 30%);
+    --scrim: rgb(27 29 31 / 38%);
+  }
 }
 
 /*

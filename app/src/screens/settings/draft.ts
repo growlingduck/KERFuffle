@@ -63,10 +63,15 @@ export interface RuleRow {
   term: GlossaryKey;
 }
 
-export const RULE_GROUPS: readonly { label: string; rows: readonly RuleRow[] }[] = [
+export interface RuleGroup {
+  label: string;
+  rows: readonly RuleRow[];
+}
+
+export const RULE_GROUPS: readonly RuleGroup[] = [
   { label: 'Panels', rows: [{ field: 'panelThickness', label: 'Panel thickness', help: 'Backs, sides, top, bottom and front.', detail: 'panel', term: 'panelThickness' }] },
   {
-    label: 'Base allowances',
+    label: 'Base cabinet height',
     rows: [
       { field: 'toeKickHeight', label: 'Toe-kick height', help: 'Base cabinets only.', detail: 'toeKick', term: 'toeKick' },
       { field: 'countertopThickness', label: 'Countertop thickness', help: 'Base cabinets only.', detail: 'countertop', term: 'countertop' },
@@ -218,6 +223,17 @@ export const METHOD_GROUPS: readonly MethodGroup[] = [
 ];
 
 export const METHOD_ROWS: readonly MethodRow[] = METHOD_GROUPS.flatMap((g) => g.rows);
+
+/**
+ * The order of Construction defaults, after the construction method: the box
+ * from the outside in (panels, height, back, top, toe kick, base), then what
+ * goes inside it (shelves) and on it (laminate).
+ */
+export const CONSTRUCTION_ORDER: readonly ({ kind: 'rules'; group: RuleGroup } | { kind: 'method'; group: MethodGroup })[] = (() => {
+  const rules = (label: string) => ({ kind: 'rules' as const, group: RULE_GROUPS.find((g) => g.label === label)! });
+  const method = (label: MethodGroup['label']) => ({ kind: 'method' as const, group: METHOD_GROUPS.find((g) => g.label === label)! });
+  return [rules('Panels'), rules('Base cabinet height'), method('Back'), method('Top'), method('Toe kick'), method('Base'), rules('Shelves'), rules('Laminate')];
+})();
 const COUNT_KEYS: ReadonlySet<MethodRowKey> = new Set<MethodRowKey>(['legsPerBox', 'legsPerWideBox']);
 export const isCountKey = (key: MethodRowKey): key is MethodCountKey => COUNT_KEYS.has(key);
 export const methodField = (key: MethodLengthKey): MethodDraftField => `method.${key}`;

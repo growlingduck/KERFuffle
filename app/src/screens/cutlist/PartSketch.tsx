@@ -49,7 +49,7 @@ function Drawing({ line }: { line: CutListLine }) {
         strokeWidth={laminate ? 1.4 : 1.6}
         strokeDasharray={laminate ? '6 3' : undefined}
       />
-      <path d={grain} fill="none" stroke="#8e9095" strokeWidth="0.8" />
+      <path d={grain} fill="none" style={{ stroke: 'var(--line-light)' }} strokeWidth="0.8" />
       <path d={arrow} fill="none" stroke="var(--blue)" strokeWidth="1.5" />
       <text x={x + w / 2} y={ay - 9} textAnchor="middle" fill="var(--blue)" style={{ font: '600 9px var(--font-cond)', letterSpacing: '0.1em' }}>
         GRAIN
@@ -77,12 +77,14 @@ export interface PartSketchProps {
   line: CutListLine | null | undefined;
   source: SketchSource;
   totals: CutListTotals;
+  /** Listed by cabinet: the cabinet chips go to a cabinet rather than trace it. */
+  byCabinet?: boolean;
   /** More panels, after the totals. */
   children?: ReactNode;
 }
 
 /** Screen-only rail beside the sheets: the part sketch, the job totals, then any other panels. */
-export function PartSketch({ line, source, totals, children }: PartSketchProps) {
+export function PartSketch({ line, source, totals, byCabinet = false, children }: PartSketchProps) {
   return (
     <aside className={styles.rail} aria-label={line === undefined ? 'Totals and materials' : 'Part sketch, totals and materials'}>
       {line !== undefined && <div className={styles.railPanel}>
@@ -120,8 +122,11 @@ export function PartSketch({ line, source, totals, children }: PartSketchProps) 
           </>
         )}
         <p className={styles.railHelp}>
-          Point at a row to sketch it; click to keep it here. Point at a cabinet to trace its parts; click to show only that
-          cabinet. Screen only: never printed.
+          Point at a row to sketch it; click to keep it here.{' '}
+          {byCabinet
+            ? 'Click a cabinet at the top to go to its parts.'
+            : 'Point at a cabinet to trace its parts; click to show only that cabinet.'}{' '}
+          Screen only: never printed.
         </p>
       </div>}
       <div className={styles.railPanel}>

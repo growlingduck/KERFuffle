@@ -5,7 +5,7 @@ import { Button } from '../../components/Button';
 import { Dialog } from '../../components/Dialog';
 import { DimensionInput } from '../../components/DimensionInput';
 import { Segmented } from '../../components/Segmented';
-import { KIND_NAMES, MATERIAL_KINDS, moneyInput, normalizeRecord, parseMoney } from '../../data/materials';
+import { KIND_NAMES, MATERIAL_KINDS, moneyInput, normalizeRecord, parseMoney, ROUGH_PRICE_NOTE } from '../../data/materials';
 import type { MaterialRecord } from '../../data/types';
 import { cx } from '../../lib/interaction';
 import s from './Settings.module.css';
@@ -63,6 +63,8 @@ export function MaterialForm({ initial, adding, onClose, onSave }: MaterialFormP
   const id = useId();
   const [m, setM] = useState<MaterialRecord>(() => withKind(initial, initial.kind));
   const [priceText, setPriceText] = useState(moneyInput(initial.price));
+  // A rough starting price stays flagged until the shop types its own price or confirms this one.
+  const [rough, setRough] = useState(initial.priceEstimated);
   const [onHandText, setOnHandText] = useState(initial.onHand === null ? '' : String(initial.onHand));
   const [rollText, setRollText] = useState(initial.rollFeet === null ? '' : String(initial.rollFeet));
   const [byRoll, setByRoll] = useState(initial.rollFeet !== null);
@@ -107,6 +109,7 @@ export function MaterialForm({ initial, adding, onClose, onSave }: MaterialFormP
         normalizeRecord({
           ...m,
           price: price.cents,
+          priceEstimated: rough && price.cents !== null,
           onHand,
           rollFeet: m.kind === 'banding' && byRoll ? roll : null,
         }),
@@ -286,13 +289,26 @@ export function MaterialForm({ initial, adding, onClose, onSave }: MaterialFormP
             placeholder="$0.00"
             aria-invalid={show(errors.price) ? true : undefined}
             aria-describedby={`${id}-price-msg`}
-            onChange={(e) => setPriceText(e.target.value)}
+            onChange={(e) => {
+              setPriceText(e.target.value);
+              setRough(false);
+            }}
           />
           <div id={`${id}-price-msg`} className={s.formMsg}>
-            {show(errors.price) && (
+            {show(errors.price) ? (
               <>
                 <SymbolMark symbol="needsFix" /> {errors.price}
               </>
+            ) : (
+              rough && (
+                <span className={s.roughNote}>
+                  <span className={s.roughTag}>Rough</span> {ROUGH_PRICE_NOTE}. Type your supplier’s price, or{' '}
+                  <button type="button" className={s.roughConfirm} onClick={() => setRough(false)}>
+                    keep it as yours
+                  </button>
+                  .
+                </span>
+              )
             )}
           </div>
         </div>

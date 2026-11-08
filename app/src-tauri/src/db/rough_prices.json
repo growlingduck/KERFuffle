@@ -1,0 +1,19 @@
+{
+  "about": "Rough starting prices for the standard materials, so a new shop sees an estimate right away. Best guesses for the Omaha, Nebraska area (big-box and lumberyard), November 2026, in cents per sheet, per foot (banding) or each. Every one is flagged as a rough price until the shop enters its own.",
+  "asOf": "2026-11-07",
+  "region": "Omaha, NE",
+  "prices": {
+    "std-birch-3-4": 7200,
+    "std-birch-1-2": 5800,
+    "std-birch-1-4": 3500,
+    "std-maple-prefinished-3-4": 11000,
+    "std-melamine-white-3-4": 5200,
+    "std-mdf-3-4": 4800,
+    "std-plywood-1": 11500,
+    "std-hpl-48x96": 9500,
+    "std-hpl-60x144": 23000,
+    "std-pvc-banding-15-16": 11,
+    "std-leveling-leg": 300,
+    "std-kick-clip": 75
+  }
+}

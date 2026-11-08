@@ -11,11 +11,90 @@
 }
 
 /* ---- Toolbar (screen only) ---- */
+/*
+ * Pinned under the app header while the sheets scroll (usePinnedBar): the page
+ * tabs, then the options and outputs for the page showing.
+ */
 .toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--paper);
+}
+
+/*
+ * Sheet tabs, like the tabs on a drawing set: the selected one is white and
+ * opens into the white options row under it, so they read as pages of one job.
+ */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 24px 0;
+  border-bottom: 1px solid var(--ink);
+}
+.tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 150px;
+  margin-bottom: -1px;
+  padding: 7px 16px 8px;
+  border: 1px solid var(--rule-divider);
+  border-bottom-color: var(--ink);
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+  background: var(--paper);
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.tab:hover {
+  background: var(--white);
+  color: var(--ink);
+}
+.tab[aria-selected='true'] {
+  border-color: var(--ink);
+  border-bottom-color: var(--white);
+  background: var(--white);
+  color: var(--ink);
+  cursor: default;
+}
+/* A 3 px rule along the top of the page that's showing. */
+.tab[aria-selected='true']::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: -1px;
+  height: 3px;
+  background: var(--blue);
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+}
+.tab:focus-visible {
+  outline-offset: -4px;
+}
+.tabName {
+  font: 600 13px var(--font-cond);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.tabSum {
+  font: 500 11px var(--font-mono);
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.options {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px 18px;
+  gap: 10px 18px;
   padding: 10px 24px;
   background: var(--white);
   border-bottom: 2px solid var(--ink);
@@ -41,12 +120,12 @@
 
 .done {
   border-color: var(--green);
-  color: #1d4f2c;
-  background: #eef5f0;
+  color: var(--green-deep);
+  background: var(--green-tint);
 }
 .done:hover {
   border-color: var(--green);
-  background: #e3efe7;
+  background: var(--green-tint-strong);
 }
 
 .notices {
@@ -114,10 +193,8 @@
   height: var(--page-h);
   padding: 0.42in 0.42in 0.38in;
   background: var(--white);
-  color: #000;
-  box-shadow:
-    0 1px 0 #bdbcb5,
-    0 12px 30px rgb(27 29 31 / 12%);
+  color: var(--sheet-ink);
+  box-shadow: var(--shadow-sheet);
 }
 
 .measure {
@@ -134,7 +211,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  border: 2px solid #000;
+  border: 2px solid var(--sheet-ink);
   padding: 16px 22px 14px;
 }
 
@@ -142,12 +219,12 @@
   position: absolute;
   font: 600 10px var(--font-cond);
   letter-spacing: 0.08em;
-  color: #000;
+  color: var(--sheet-ink);
 }
 .tickH,
 .tickV {
   position: absolute;
-  background: #000;
+  background: var(--sheet-ink);
 }
 .tickH {
   top: -9px;
@@ -166,7 +243,7 @@
   align-items: flex-end;
   gap: 24px;
   padding-bottom: 8px;
-  border-bottom: 3px solid #000;
+  border-bottom: 3px solid var(--sheet-ink);
 }
 .kicker {
   font-size: 11px;
@@ -194,7 +271,7 @@
 .excludes {
   margin-top: 8px;
   padding: 5px 8px;
-  border: 1.5px solid #000;
+  border: 1.5px solid var(--sheet-ink);
   font: 700 13px var(--font-sans);
 }
 
@@ -250,7 +327,7 @@
 .chipPinned {
   background: var(--blue);
   border-color: var(--blue);
-  color: var(--white);
+  color: var(--on-blue);
 }
 .chipPinned:hover {
   border-color: var(--blue-hover);
@@ -261,6 +338,28 @@
 }
 .chipShowAll {
   border-style: dashed;
+}
+/* By cabinet: which sheet the cabinet is on. Fixed width ("sheet 99"), so pagination never shifts. */
+.chipSheet {
+  box-sizing: content-box;
+  min-width: 8ch;
+  padding-left: 6px;
+  border-left: 1px solid var(--rule-divider);
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0;
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* By cabinet: the section a chip went to flashes once. */
+.group[data-flash] {
+  animation: kf-sweep var(--dur-slow) var(--ease-out);
+}
+.group:focus {
+  outline: none;
+}
+.group:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 4px;
 }
 
 /* ---- Groups ---- */
@@ -274,7 +373,7 @@
   gap: 12px;
   padding-top: 20px;
   padding-bottom: 3px;
-  border-bottom: 1px solid #000;
+  border-bottom: 1px solid var(--sheet-ink);
 }
 .groupTitle {
   display: flex;
@@ -318,7 +417,7 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
-  border-bottom: 2px solid #000;
+  border-bottom: 2px solid var(--sheet-ink);
 }
 .tbl td {
   padding: 5px 6px;
@@ -393,7 +492,7 @@
   background: var(--blue-tint-row);
 }
 .rowPinned {
-  background: #eef3fb;
+  background: var(--blue-tint-faint);
 }
 .dim {
   opacity: 0.28;
@@ -404,7 +503,7 @@
   width: 14px;
   height: 14px;
   margin-top: 2px;
-  border: 1.5px solid #000;
+  border: 1.5px solid var(--sheet-ink);
 }
 
 .markBtn {
@@ -421,7 +520,7 @@
   min-width: 30px;
   height: 20px;
   padding: 0 3px;
-  border: 1.25px solid #000;
+  border: 1.25px solid var(--sheet-ink);
   font: 700 11.5px var(--font-cond);
   letter-spacing: 0.04em;
 }
@@ -439,13 +538,13 @@
   padding: 0 2px;
   border-radius: 2px;
   background: var(--blue);
-  color: var(--white);
+  color: var(--on-blue);
 }
 .grainIcon {
   display: block;
   margin: 3px auto 0;
   fill: none;
-  stroke: #000;
+  stroke: var(--sheet-ink);
   stroke-width: 1.5px;
 }
 
@@ -468,7 +567,7 @@
 .notesTitle {
   display: inline-block;
   margin-bottom: 4px;
-  border-bottom: 1px solid #000;
+  border-bottom: 1px solid var(--sheet-ink);
   font-size: 11px;
 }
 .notes ol {
@@ -483,7 +582,7 @@
   border-width: 1.5px;
 }
 .titleBlock dt {
-  color: #000;
+  color: var(--sheet-ink);
 }
 .sheetNo {
   font: 700 16px var(--font-mono);
@@ -498,8 +597,8 @@
   bottom: 3px;
   left: 50%;
   padding: 0 10px;
-  border: 3px double #8a8c90;
-  color: #8a8c90;
+  border: 3px double var(--line-light);
+  color: var(--line-light);
   font: 700 17px/1.15 var(--font-cond);
   letter-spacing: 0.24em;
   transform: translateX(-50%) rotate(-3deg);
@@ -509,7 +608,7 @@
 /* ---- Part sketch rail (screen only) ---- */
 .rail {
   position: sticky;
-  top: 16px;
+  top: calc(var(--pinned-h, 0px) + 16px);
   flex: 0 1 330px;
   min-width: 280px;
   display: flex;
@@ -652,14 +751,14 @@
     opacity: 1 !important;
   }
   .tbl td {
-    border-bottom-color: #000;
+    border-bottom-color: var(--sheet-ink);
   }
   .markBtn[aria-pressed='true'] .pm {
     box-shadow: none;
   }
   .refHot {
     background: none;
-    color: #000;
+    color: var(--sheet-ink);
     padding: 0;
   }
   .chip,
@@ -667,16 +766,16 @@
   .chipPinned {
     min-height: 0;
     padding: 2px 6px;
-    border: 1px solid #000;
+    border: 1px solid var(--sheet-ink);
     background: none;
-    color: #000;
+    color: var(--sheet-ink);
   }
   .chipShowAll {
     display: none;
   }
   .introLabel,
   .cont {
-    color: #000;
+    color: var(--sheet-ink);
   }
 }
 
@@ -736,6 +835,11 @@
   display: block;
   color: var(--amber);
 }
+/* A rough starting price, not the shop's (Settings → Materials). */
+.roughPrice {
+  font-family: var(--font-sans);
+  color: var(--amber);
+}
 .prices {
   display: flex;
   flex-wrap: wrap;
@@ -746,15 +850,6 @@
   padding-top: 10px;
   border-top: 1px dashed var(--rule-divider);
   font-size: 13px;
-}
-.viewLabel {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.viewLabel > span {
-  font-size: 11px;
-  color: var(--muted);
 }
 
 /* ---- Estimate sheet ---- */
@@ -783,7 +878,7 @@
 }
 .estSub {
   font: 400 11px var(--font-sans);
-  color: #000;
+  color: var(--sheet-ink);
 }
 .estWarn {
   font-size: 11px;
@@ -798,7 +893,7 @@
 .estTotal td {
   white-space: normal;
   padding-top: 8px;
-  border-top: 2px solid #000;
+  border-top: 2px solid var(--sheet-ink);
   font-weight: 700;
   text-align: right;
 }

@@ -270,6 +270,6 @@ export const SCOPE_TITLES: Record<string, string> = {
   job: 'Job',
   jobs: 'Jobs',
   workspace: 'Workspace',
-  cutlist: 'Cut list',
+  cutlist: 'Output',
   settings: 'Settings',
 };

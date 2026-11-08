@@ -15,7 +15,7 @@ import { backgroundRunner } from './runner';
 
 /**
  * Keeping layouts with a job (plan §2.6). A layout is kept when the job is
- * marked Ready to cut, and when it's printed or saved as PDF. Keeping one
+ * marked Ready to cut, and when it's printed, saved as PDF or exported as DXF. Keeping one
  * isn't an edit: the job's revision stays as it is.
  */
 

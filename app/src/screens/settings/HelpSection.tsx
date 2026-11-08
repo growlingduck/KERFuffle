@@ -36,7 +36,7 @@ interface Step {
 const FIRST_JOB: readonly Step[] = [
   {
     title: 'Check shop defaults',
-    text: 'Panel thickness, toe kick, countertop and how cabinets are built. New jobs copy them; a job you already made keeps its own.',
+    text: 'How cabinets are built, panel thickness, toe kick and countertop. New jobs copy them; a job you already made keeps its own.',
     place: 'defaults',
   },
   {
@@ -61,7 +61,7 @@ const FIRST_JOB: readonly Step[] = [
   },
   {
     title: 'Print or save as PDF',
-    text: 'Print… (Ctrl+P) or Save PDF prints what’s showing: the cut list, the layouts or the estimate.',
+    text: 'Print… (Ctrl+P) or Save PDF… puts out what’s showing: the cut list, the layouts or the estimate. Export CSV… saves the cut list or estimate for a spreadsheet; on Layouts, Export DXF… saves each sheet pattern as a DXF for CAD or CNC software.',
     place: 'cutlist',
   },
 ];
@@ -71,7 +71,7 @@ const PLACE_NAMES: Record<StepPlace, string> = {
   defaults: 'Settings → Construction',
   newJob: 'Jobs → New job',
   workspace: 'Workspace',
-  cutlist: 'Cut list',
+  cutlist: 'Output',
 };
 
 /** The glossary by term, as a reader looks a word up. */

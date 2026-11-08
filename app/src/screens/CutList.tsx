@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildCutList, constructionName, estimate as estimateJob, JOB_SLOTS, LAYOUT_MODES, materialInputKeys, SLOT_INFO } from '@kerfuffle/engine';
-import type { CutListMode, CutListOptions, CutListSortKey, Estimate, JobSlot, LayoutMode, LayoutStats, Sensitivity } from '@kerfuffle/engine';
-import { Button, ButtonLink } from '../components/Button';
-import { CheckIcon, ChevronLeftIcon, ImportIcon, PrintIcon } from '../components/icons';
+import type { CutListMode, CutListOptions, CutListSortKey, DxfUnits, Estimate, JobSlot, LayoutMode, LayoutStats, MaterialLayout, Sensitivity } from '@kerfuffle/engine';
+import { Button } from '../components/Button';
+import { CheckIcon, ImportIcon, PrintIcon } from '../components/icons';
+import { Menu } from '../components/Menu';
 import { Segmented } from '../components/Segmented';
 import { InfoTip } from '../components/InfoTip';
 import { Switch } from '../components/Switch';
 import { cutListCsv } from '../cutlist/csv';
-import { estimateCsv, slotsText } from '../cutlist/estimate';
+import { DXF_UNIT_NAMES, dxfFiles, staleNote } from '../cutlist/dxf';
+import { estimateCsv, roughPricesText, slotsText } from '../cutlist/estimate';
 import { MODE_HELP, MODE_NAMES } from '../cutlist/layoutText';
-import { exportFileName, isoDate, PAGE_SIZES } from '../cutlist/format';
+import { OUTPUT_NAMES, outputSummaries } from '../cutlist/outputTabs';
+import type { OutputView } from '../cutlist/outputTabs';
+import { dxfFolderName, dxfJobPart, exportFileName, isoDate, PAGE_SIZES } from '../cutlist/format';
 import { useIncludeFronts } from '../cutlist/prefs';
 import { takePrintRequest } from '../cutlist/printRequest';
 import { cabinetSpec } from '../data/jobSession';
-import { changedMaterialCount, effectiveJobMaterials, engineMaterials, priceChanges, pricesAsOf, withCurrentPrices, withSlotMaterial } from '../data/materials';
+import { changedMaterialCount, effectiveJobMaterials, engineMaterials, priceChanges, pricesAsOf, roughPriced, withCurrentPrices, withSlotMaterial } from '../data/materials';
 import { layoutChanges, layoutsFixed, savedLayout } from '../data/layouts';
 import { jobSawProfile } from '../data/sawProfiles';
 import { jobSession } from '../data/storage';
@@ -26,9 +30,9 @@ import { keepJobLayout, keepLayouts } from '../layout/keep';
 import { useLayoutMode } from '../layout/prefs';
 import { useJobLayout } from '../layout/useJobLayout';
 import { useModeLayouts } from '../layout/useModeLayouts';
-import { cx, useDelayedFlag } from '../lib/interaction';
-import { canShowInFolder, printSheets, saveCsv, savePdf, showInFolder, toExportError } from '../platform/export';
-import type { SavedFile } from '../platform/export';
+import { cx, useDelayedFlag, usePinnedBar } from '../lib/interaction';
+import { canShowInFolder, printSheets, saveCsv, saveFolder, savePdf, showInFolder, toExportError } from '../platform/export';
+import type { SavedFile, SavedFolder } from '../platform/export';
 import { navigate, routeHref } from '../routes';
 import { useStore } from '../state/createStore';
 import { useJob } from '../state/jobs';
@@ -42,6 +46,7 @@ import { MissingJob } from './MissingJob';
 import styles from './cutlist/CutList.module.css';
 import { EstimateSheet } from './cutlist/EstimateSheet';
 import { LayoutPages } from './cutlist/LayoutPages';
+import { OUTPUT_PANEL_ID, OutputTabs, outputTabId } from './cutlist/OutputTabs';
 import { LayoutsView } from './cutlist/LayoutsView';
 import type { ShownLayout } from './cutlist/LayoutsView';
 import ls from './cutlist/Layouts.module.css';
@@ -54,13 +59,15 @@ import type { CabinetChip, SheetData, SheetInteraction } from './cutlist/Sheets'
 import ws from './workspace/Workspace.module.css';
 import { SymbolMark } from '../components/InfoTip';
 
-type ExportKind = 'csv' | 'pdf';
+type ExportKind = 'csv' | 'pdf' | 'dxf';
 /** The sheets on screen, which Print, Save PDF and Export CSV act on. */
-type View = 'cutlist' | 'estimate' | 'layouts';
+type View = OutputView;
 
 interface EstimateData {
   estimate: Estimate;
   pricesAsOf: string | null;
+  /** Materials priced at a rough starting price. */
+  rough: readonly string[];
 }
 type ExportPhase = 'idle' | 'busy' | 'done';
 
@@ -69,11 +76,26 @@ const DONE_MS = 4000;
 
 const DEFAULT_SORT: CutListOptions['sort'] = { key: 'length', dir: 'desc' };
 
-/** Export CSV / Save PDF: icon → spinner "Saving…" (only after 300 ms) → check "PDF saved". */
-function ExportButton({ kind, phase, onRun }: { kind: ExportKind; phase: ExportPhase; onRun: () => void }) {
+/*
+ * Every Output page ends its options row the same way:
+ *   Export CSV… or Export DXF… · Save PDF… · Print… (primary, Ctrl+P)
+ * Each opens a dialog, hence the "…". Each export goes icon → spinner "Saving…"
+ * (only after 300 ms) → check "CSV saved" / "PDF saved" / "DXF saved" for 4 s.
+ * On a page with nothing to put out yet, all three are disabled with the same reason.
+ */
+const EXPORT_LABELS = {
+  csv: { idle: 'Export CSV…', done: 'CSV saved' },
+  pdf: { idle: 'Save PDF…', done: 'PDF saved' },
+  dxf: { idle: 'Export DXF…', done: 'DXF saved' },
+} as const;
+
+function exportLabel(kind: ExportKind, phase: ExportPhase, slow: boolean): string {
+  return phase === 'done' ? EXPORT_LABELS[kind].done : slow ? 'Saving…' : EXPORT_LABELS[kind].idle;
+}
+
+/** Export CSV… / Save PDF…. */
+function ExportButton({ kind, phase, disabledReason, onRun }: { kind: 'csv' | 'pdf'; phase: ExportPhase; disabledReason: string | null; onRun: () => void }) {
   const slow = useDelayedFlag(phase === 'busy');
-  const idleLabel = kind === 'csv' ? 'Export CSV' : 'Save PDF';
-  const label = phase === 'done' ? (kind === 'csv' ? 'CSV saved' : 'PDF saved') : slow ? 'Saving…' : idleLabel;
   return (
     <Button
       className={cx(phase === 'done' && styles.done)}
@@ -81,30 +103,85 @@ function ExportButton({ kind, phase, onRun }: { kind: ExportKind; phase: ExportP
       busy={slow}
       aria-busy={phase === 'busy' || undefined}
       icon={phase === 'done' ? <CheckIcon draw /> : <ImportIcon />}
+      {...(disabledReason ? { disabled: true, disabledReason } : {})}
       onClick={onRun}
     >
-      {label}
+      {exportLabel(kind, phase, slow)}
     </Button>
+  );
+}
+
+/** Export DXF…: a menu of units, then a folder. One file per sheet pattern. */
+function DxfButton({ phase, disabledReason, onRun }: { phase: ExportPhase; disabledReason: string | null; onRun: (units: DxfUnits) => void }) {
+  const slow = useDelayedFlag(phase === 'busy');
+  const label = exportLabel('dxf', phase, slow);
+  const icon = phase === 'done' ? <CheckIcon draw /> : <ImportIcon />;
+  if (disabledReason) {
+    return (
+      <Button size="lg" icon={icon} disabled disabledReason={disabledReason}>
+        {label}
+      </Button>
+    );
+  }
+  return (
+    <Menu
+      label="DXF units"
+      align="end"
+      width={280}
+      items={[
+        {
+          type: 'group',
+          id: 'units',
+          label: 'Units',
+          items: (['in', 'mm'] as const).map((units) => ({
+            id: units,
+            label: `${DXF_UNIT_NAMES[units]}…`,
+            note: 'One file per sheet pattern, into a folder',
+            onSelect: () => onRun(units),
+          })),
+        },
+      ]}
+      trigger={(props) => (
+        <Button
+          {...props}
+          className={cx(phase === 'done' && styles.done)}
+          size="lg"
+          busy={slow}
+          aria-busy={phase === 'busy' || undefined}
+          icon={icon}
+        >
+          {label}
+        </Button>
+      )}
+    />
   );
 }
 
 /** What Save PDF names the file, by view. */
 const PDF_WHAT = { cutlist: 'cut list', estimate: 'estimate', layouts: 'sheet layouts' } as const;
 
-function useExports(job: JobRecord, sheetData: SheetData, estimateData: EstimateData, view: View, afterLayoutsPdf: () => Promise<void>) {
-  const [phase, setPhase] = useState<Record<ExportKind, ExportPhase>>({ csv: 'idle', pdf: 'idle' });
+function useExports(
+  job: JobRecord,
+  sheetData: SheetData,
+  estimateData: EstimateData,
+  view: View,
+  afterLayoutsPdf: () => Promise<void>,
+  layouts: readonly MaterialLayout[],
+) {
+  const [phase, setPhase] = useState<Record<ExportKind, ExportPhase>>({ csv: 'idle', pdf: 'idle', dxf: 'idle' });
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
   const set = (kind: ExportKind, value: ExportPhase) => setPhase((p) => (p[kind] === value ? p : { ...p, [kind]: value }));
-  const busy = useRef<Record<ExportKind, boolean>>({ csv: false, pdf: false });
+  const busy = useRef<Record<ExportKind, boolean>>({ csv: false, pdf: false, dxf: false });
 
-  const saved = (kind: ExportKind, file: SavedFile) => {
+  /** `what`: "“Kitchen – cut list.csv”" for one file, "4 DXF files" for a folder. `note` follows it. */
+  const saved = (kind: ExportKind, file: SavedFile | SavedFolder, what: string, note = '') => {
     set(kind, 'done');
     timers.current.push(window.setTimeout(() => set(kind, 'idle'), DONE_MS));
     const where = file.folder ? ` to ${file.folder}` : '';
     const path = file.path;
     showToast(
-      file.path ? `Saved “${file.name}”${where}` : `Downloaded “${file.name}”`,
+      (file.path ? `Saved ${what}${where}` : `Downloaded ${what}`) + note,
       path && canShowInFolder()
         ? {
             label: 'Show in folder',
@@ -120,9 +197,9 @@ function useExports(job: JobRecord, sheetData: SheetData, estimateData: Estimate
   };
 
   // Read the latest data when run, so Try again saves what's on screen now.
-  const latest = useRef({ job, sheetData, estimateData, view, afterLayoutsPdf });
+  const latest = useRef({ job, sheetData, estimateData, view, afterLayoutsPdf, layouts });
   useEffect(() => {
-    latest.current = { job, sheetData, estimateData, view, afterLayoutsPdf };
+    latest.current = { job, sheetData, estimateData, view, afterLayoutsPdf, layouts };
   });
 
   const exportCsv = async (): Promise<void> => {
@@ -137,10 +214,10 @@ function useExports(job: JobRecord, sheetData: SheetData, estimateData: Estimate
         date: d.printed,
         revision: j.revision,
       };
-      const csv = v === 'estimate' ? estimateCsv(e.estimate, d.list, { ...meta, pricesAsOf: e.pricesAsOf }) : cutListCsv(d.list, meta);
+      const csv = v === 'estimate' ? estimateCsv(e.estimate, d.list, { ...meta, pricesAsOf: e.pricesAsOf, rough: e.rough }) : cutListCsv(d.list, meta);
       const what = v === 'estimate' ? 'estimate' : 'cut list';
       const file = await saveCsv(exportFileName(j.name, 'csv', what), csv, () => set('csv', 'busy'));
-      if (file) saved('csv', file);
+      if (file) saved('csv', file, `“${file.name}”`);
       else set('csv', 'idle');
     } catch (error) {
       failed('csv', error, () => void exportCsv());
@@ -157,7 +234,7 @@ function useExports(job: JobRecord, sheetData: SheetData, estimateData: Estimate
       const result = await savePdf(exportFileName(j.name, 'pdf', PDF_WHAT[v]), d.page, () => set('pdf', 'busy'));
       // Layouts saved as PDF are kept with the job, so the sheets cut match the paper.
       if (v === 'layouts' && result.kind !== 'cancelled') await keep();
-      if (result.kind === 'saved') saved('pdf', result.file);
+      if (result.kind === 'saved') saved('pdf', result.file, `“${result.file.name}”`);
       else set('pdf', 'idle');
       if (result.kind === 'printDialog') showToast('To save a PDF, pick “Microsoft Print to PDF” as the printer.');
     } catch (error) {
@@ -167,7 +244,28 @@ function useExports(job: JobRecord, sheetData: SheetData, estimateData: Estimate
     }
   };
 
-  return { phase, exportCsv, exportPdf };
+  const exportDxf = async (units: DxfUnits): Promise<void> => {
+    if (busy.current.dxf) return;
+    busy.current.dxf = true;
+    const { job: j, layouts: shown, afterLayoutsPdf: keep } = latest.current;
+    try {
+      const files = dxfFiles(j.name, shown, units);
+      const result = await saveFolder(dxfFolderName(j.name), files, () => set('dxf', 'busy'), dxfJobPart(j.name));
+      if (!result) {
+        set('dxf', 'idle');
+        return;
+      }
+      // Like a printout, exported layouts are kept with the job, so the files match what's cut.
+      await keep();
+      saved('dxf', result, result.count === 1 ? '1 DXF file' : `${result.count} DXF files`, staleNote(result));
+    } catch (error) {
+      failed('dxf', error, () => void exportDxf(units));
+    } finally {
+      busy.current.dxf = false;
+    }
+  };
+
+  return { phase, exportCsv, exportPdf, exportDxf };
 }
 
 async function print(): Promise<void> {
@@ -264,7 +362,8 @@ function CutListView({ job }: { job: JobRecord }) {
     return at ? isoDate(new Date(at)) : null;
   }, [record, usedSlots]);
   const changes = useMemo(() => priceChanges(record, catalog, usedSlots), [record, catalog, usedSlots]);
-  const estimateData = useMemo<EstimateData>(() => ({ estimate, pricesAsOf: asOf }), [estimate, asOf]);
+  const rough = useMemo(() => roughPriced(record, usedSlots), [record, usedSlots]);
+  const estimateData = useMemo<EstimateData>(() => ({ estimate, pricesAsOf: asOf, rough }), [estimate, asOf, rough]);
 
   /** Commit new materials, with Undo back to what the job had. */
   const commitMaterials = (next: JobMaterialsRecord, message: string) => {
@@ -346,6 +445,13 @@ function CutListView({ job }: { job: JobRecord }) {
   const [layoutMaterial, setLayoutMaterial] = useState<string | null>(null);
   const shown = shownLayouts.find((s) => s.materialId === layoutMaterial) ?? shownLayouts[0] ?? null;
   const layoutsReady = shownLayouts.length > 0 && shownLayouts.every((s) => s.layout !== null && s.final);
+  /** Why this page can't be exported or printed yet; null when it can. */
+  const notReady = view !== 'layouts' || layoutsReady ? null : shownLayouts.length === 0 ? 'Nothing to lay out yet' : 'Still laying out…';
+  const summaries = outputSummaries(
+    list.totals,
+    { materials: shownLayouts.length, ready: layoutsReady, sheets: shownLayouts.reduce((sum, s) => sum + (s.layout?.stats.sheets ?? 0), 0) },
+    estimate,
+  );
   /** Keep the layouts being printed that the job doesn't keep yet. */
   const keepPrinted = async (): Promise<void> => {
     const fresh = new Set(shownLayouts.filter((s) => s.source === 'live').map((s) => s.materialId));
@@ -392,11 +498,14 @@ function CutListView({ job }: { job: JobRecord }) {
     return { nearMisses: mine(s.nearMisses), fragile: mine(s.fragile), risks: mine(s.risks), lightSheets: mine(s.lightSheets) };
   }, [shown, live.sensitivity]);
 
-  const { phase, exportCsv, exportPdf } = useExports(job, data, estimateData, view, keepPrinted);
+  const dxfLayouts = useMemo(() => shownLayouts.flatMap((s) => (s.layout && s.final ? [s.layout] : [])), [shownLayouts]);
+  const { phase, exportCsv, exportPdf, exportDxf } = useExports(job, data, estimateData, view, keepPrinted, dxfLayouts);
   const viewRef = useRef(view);
   useEffect(() => {
     viewRef.current = view;
   });
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  usePinnedBar(toolbarRef);
   const printLayoutsRef = useRef(printLayouts);
   useEffect(() => {
     printLayoutsRef.current = printLayouts;
@@ -432,29 +541,14 @@ function CutListView({ job }: { job: JobRecord }) {
   const catalogEmpty = catalog.length === 0;
   const unpriced = [...new Set(estimate.lines.flatMap((l) => (l.material && l.price === null ? [l.material.name] : [])))];
   const showUnpriced = view === 'estimate' && unpriced.length > 0;
-  const noticeCount = list.blocked.length + list.jobIssues.length + list.materialIssues.length + dupes.length + unassigned.length + (showUnpriced ? 1 : 0);
+  const noticeCount =
+    list.blocked.length + list.jobIssues.length + list.materialIssues.length + dupes.length + unassigned.length + (showUnpriced ? 1 : 0) + (view === 'estimate' && rough.length > 0 ? 1 : 0);
 
   return (
     <div className={styles.root}>
-      <div role="toolbar" aria-label="Cut list options" className={styles.toolbar}>
-        <ButtonLink size="lg" href={routeHref({ name: 'workspace', jobId: job.id })} icon={<ChevronLeftIcon />}>
-          Workspace
-        </ButtonLink>
-        <div className={styles.viewLabel}>
-          <span className="cap" aria-hidden="true">
-            Show
-          </span>
-          <Segmented<View>
-            label="Show"
-            value={view}
-            onChange={setView}
-            options={[
-              { value: 'cutlist', label: 'Cut list' },
-              { value: 'layouts', label: 'Layouts' },
-              { value: 'estimate', label: 'Estimate' },
-            ]}
-          />
-        </div>
+      <div ref={toolbarRef} className={styles.toolbar}>
+      <OutputTabs value={view} onChange={setView} summaries={summaries} />
+      <div role="toolbar" aria-label={`${OUTPUT_NAMES[view]} options`} className={styles.options}>
         {view === 'layouts' ? (
           <>
             <div className={styles.listLabel}>
@@ -521,38 +615,26 @@ function CutListView({ job }: { job: JobRecord }) {
         )}
         <div className={styles.toolbarEnd}>
           {view === 'layouts' ? (
-            <>
-              {layoutsReady ? (
-                <ExportButton kind="pdf" phase={phase.pdf} onRun={() => void exportPdf()} />
-              ) : (
-                <Button size="lg" icon={<ImportIcon />} disabled disabledReason={shownLayouts.length === 0 ? 'Nothing to lay out yet' : 'Still laying out…'}>
-                  Save PDF
-                </Button>
-              )}
-              <Button
-                variant="primary"
-                size="lg"
-                icon={<PrintIcon />}
-                tooltip="Ctrl + P"
-                disabled={!layoutsReady}
-                disabledReason={shownLayouts.length === 0 ? 'Nothing to lay out yet' : 'Still laying out…'}
-                onClick={() => void printLayouts()}
-              >
-                Print layouts…
-              </Button>
-            </>
+            <DxfButton phase={phase.dxf} disabledReason={notReady} onRun={(units) => void exportDxf(units)} />
           ) : (
-            <>
-              <ExportButton kind="csv" phase={phase.csv} onRun={() => void exportCsv()} />
-              <ExportButton kind="pdf" phase={phase.pdf} onRun={() => void exportPdf()} />
-              <Button variant="primary" size="lg" icon={<PrintIcon />} tooltip="Ctrl + P" onClick={() => void print()}>
-                Print…
-              </Button>
-            </>
+            <ExportButton kind="csv" phase={phase.csv} disabledReason={notReady} onRun={() => void exportCsv()} />
           )}
+          <ExportButton kind="pdf" phase={phase.pdf} disabledReason={notReady} onRun={() => void exportPdf()} />
+          <Button
+            variant="primary"
+            size="lg"
+            icon={<PrintIcon />}
+            tooltip="Ctrl + P"
+            {...(notReady ? { disabled: true, disabledReason: notReady } : {})}
+            onClick={() => void (view === 'layouts' ? printLayouts() : print())}
+          >
+            Print…
+          </Button>
         </div>
       </div>
+      </div>
 
+      <div id={OUTPUT_PANEL_ID} role="tabpanel" aria-labelledby={outputTabId(view)}>
       {(noticeCount > 0 || job.cabinets.length === 0) && (
         <div className={styles.notices}>
           {list.blocked.length > 0 && (
@@ -623,6 +705,14 @@ function CutListView({ job }: { job: JobRecord }) {
               <a href={materialsHref}>Add prices in Settings → Materials</a>
             </p>
           )}
+          {view === 'estimate' && rough.length > 0 && (
+            <p className={cx(styles.notice, styles.noticeWarn)} role="note" data-notice="rough-prices">
+              <span>
+                <strong>{roughPricesText(rough)}</strong> KERFuffle filled these in so the estimate has a total; the printout says so too.
+              </span>
+              <a href={materialsHref}>Enter your prices in Settings → Materials</a>
+            </p>
+          )}
           {list.jobIssues.map(({ ref, issue }) => (
             <p key={`${ref}:${issue.field}`} className={cx(styles.notice, styles.noticeWarn)} role="note">
               <SymbolMark symbol="warning" decorative />{' '}
@@ -655,7 +745,7 @@ function CutListView({ job }: { job: JobRecord }) {
         {view === 'cutlist' ? (
           <Sheets data={data} ui={ui} onPaginated={onPaginated} />
         ) : view === 'estimate' ? (
-          <EstimateSheet estimate={estimate} list={list} rules={job.rules} job={data.job} printed={printed} pricesAsOf={asOf} page={data.page} />
+          <EstimateSheet estimate={estimate} list={list} rules={job.rules} job={data.job} printed={printed} pricesAsOf={asOf} rough={rough} page={data.page} />
         ) : (
           <>
             <div className={ls.screenOnly}>
@@ -680,7 +770,7 @@ function CutListView({ job }: { job: JobRecord }) {
             {layoutsReady && <LayoutPages job={data.job} layouts={shownLayouts} jobUnplaced={live.layout?.unplaced ?? []} printed={printed} page={data.page} />}
           </>
         )}
-        <PartSketch line={view === 'estimate' ? undefined : (sketchLine ?? null)} source={source} totals={list.totals}>
+        <PartSketch line={view === 'estimate' ? undefined : (sketchLine ?? null)} source={source} totals={list.totals} byCabinet={mode === 'by-cabinet'}>
           <MaterialsPanel
             jobId={job.id}
             record={record}
@@ -695,6 +785,7 @@ function CutListView({ job }: { job: JobRecord }) {
           />
           <SawProfilePanel profile={sawProfile} usingDefault={!job.sawProfile} profiles={sawSettings.profiles} onChoose={chooseSawProfile} />
         </PartSketch>
+      </div>
       </div>
     </div>
   );
@@ -718,7 +809,7 @@ export function CutListScreen({ jobId }: { jobId: string }) {
   if (!summary || status === 'missing') return <MissingJob jobId={jobId} />;
   return (
     <>
-      <h1 className="visually-hidden">Cut list: {summary.name}</h1>
+      <h1 className="visually-hidden">Output: {summary.name}</h1>
       {status === 'ready' && job ? (
         <CutListView job={job} />
       ) : (

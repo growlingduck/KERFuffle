@@ -220,7 +220,7 @@ describe('the job session saves a changed construction', () => {
 // ---------------------------------------------------------------------------
 
 describe('construction and run commands', () => {
-  const content = { cabinets: [B1, B4, W1], status: 'draft' as const, rules: DEFAULT_RULES };
+  const content = { cabinets: [B1, B4, W1], status: 'draft' as const, rules: DEFAULT_RULES, name: 'Kitchen', customer: null, notes: null };
 
   it('changes the construction as one step, and refuses after Draft', () => {
     const result = applyCommand(content, { type: 'setConstruction', choice: 'B' })!;

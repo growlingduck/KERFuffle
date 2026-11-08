@@ -36,13 +36,13 @@ number of shelves, and how many of that cabinet to build. **Add cabinet** (or
 
 ## 5. Check the cut list, layouts and estimate
 
-Click **Cut list →**. The **Cut list** lists every part. **Layouts** shows the
+Click **Cut list →** (or the **Output** tab). The **Cut list** lists every part. **Layouts** shows the
 parts placed on sheets, and **Estimate** shows what to buy and what it costs.
 
 ## 6. Print or save as PDF
 
-On the cut list, **Print…** (or **Ctrl+P**) prints what's showing: the cut
-list, the layouts or the estimate. **Save PDF** saves the same pages as a file.
+On **Output**, **Print…** (or **Ctrl+P**) prints what's showing: the cut
+list, the layouts or the estimate. **Save PDF…** saves the same pages as a file.
 
 ## Want to look around first?
 

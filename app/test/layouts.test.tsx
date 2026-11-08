@@ -47,7 +47,7 @@ async function openLayouts() {
   const user = userEvent.setup();
   const rendered = render(<App />);
   await waitFor(() => expect(document.querySelector('[data-sheet="1"]')).not.toBeNull());
-  await user.click(screen.getByRole('button', { name: 'Layouts' }));
+  await user.click(screen.getByRole('tab', { name: 'Layouts' }));
   return { user, ...rendered };
 }
 
@@ -143,7 +143,7 @@ describe('the Layouts tab', () => {
     quietLayouts();
     await openLayouts();
     expect(layoutStatus()).toBe('Laying out…');
-    expect(screen.getByRole('button', { name: /Print layouts/ })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: 'Print…' })).toHaveAttribute('aria-disabled', 'true');
   });
 });
 
@@ -166,7 +166,7 @@ describe('the layouts printout', () => {
     }
     expect((await db.getJob('j-0014')).layouts ?? []).toEqual([]);
 
-    await user.click(screen.getByRole('button', { name: 'Print layouts…' }));
+    await user.click(screen.getByRole('button', { name: 'Print…' }));
     await waitFor(() => expect(print).toHaveBeenCalledOnce());
     await waitFor(async () => expect((await db.getJob('j-0014')).layouts?.length).toBeGreaterThan(0));
     const kept = (await db.getJob('j-0014')).layouts!;
@@ -235,8 +235,8 @@ describe('the Layouts tab from the keyboard', () => {
   it('reaches the tab, its toolbar and the marks from the keyboard, in visual order', async () => {
     const { user } = await openLayouts();
     await finished();
-    const layoutsTab = screen.getByRole('button', { name: 'Layouts' });
-    expect(layoutsTab).toHaveAttribute('aria-pressed', 'true');
+    const layoutsTab = screen.getByRole('tab', { name: 'Layouts' });
+    expect(layoutsTab).toHaveAttribute('aria-selected', 'true');
     layoutsTab.focus();
     const reached: string[] = [];
     for (let i = 0; i < 12; i++) {
@@ -247,7 +247,7 @@ describe('the Layouts tab from the keyboard', () => {
     const at = (pattern: RegExp) => reached.findIndex((r) => pattern.test(r));
     expect(at(/^Cost$/)).toBeGreaterThanOrEqual(0);
     expect(at(/^Cost$/)).toBeLessThan(at(/^Grain$/));
-    expect(at(/Print layouts/)).toBeGreaterThan(at(/^Time$/));
+    expect(at(/^Print…/)).toBeGreaterThan(at(/^Time$/));
   }, 30_000);
 
 });
@@ -359,5 +359,40 @@ describe('saved layout records', () => {
     if (!without.ok) throw new Error(without.message);
     expect(without.job).not.toHaveProperty('layouts');
     expect(canonicalJson(JSON.parse(await writeJobFile(testJob(), header)))).not.toContain('"layouts"');
+  });
+});
+
+describe('Export DXF…', () => {
+  it('writes one DXF per sheet pattern in the units picked, confirms it, and keeps the layouts with the job', async () => {
+    const saved: { name: string; blob: Blob }[] = [];
+    let last: Blob | null = null;
+    Object.assign(URL, {
+      createObjectURL: vi.fn((blob: Blob) => {
+        last = blob;
+        return 'blob:dxf';
+      }),
+      revokeObjectURL: vi.fn(),
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      saved.push({ name: this.download, blob: last! });
+    });
+    const { user } = await openLayouts();
+    await finished();
+    expect((await db.getJob('j-0014')).layouts ?? []).toEqual([]);
+
+    await user.click(screen.getByRole('button', { name: 'Export DXF…' }));
+    await user.click(screen.getByRole('menuitem', { name: /^Millimeters…/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'DXF saved' })).toBeInTheDocument());
+
+    const kept = (await db.getJob('j-0014')).layouts!;
+    const patterns = kept.reduce((n, r) => n + r.layout.patterns.length, 0);
+    expect(patterns).toBeGreaterThan(1);
+    expect(saved).toHaveLength(patterns);
+    expect(toastText()).toContain(`Downloaded ${patterns} DXF files`);
+    expect(saved.map((s) => s.name)).toContain('Kitchen remodel – Birch plywood 3-4″ – pattern 1.dxf');
+    const text = await saved[0]!.blob.text();
+    expect(text.startsWith('0\r\nSECTION\r\n2\r\nHEADER\r\n9\r\n$ACADVER\r\n1\r\nAC1009\r\n')).toBe(true);
+    expect(text).toContain('$INSUNITS\r\n70\r\n4\r\n');
+    expect(text).toContain('OUTSIDE_CUT');
   });
 });

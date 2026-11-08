@@ -29,7 +29,7 @@
     background-color var(--dur-fast) var(--ease-out);
 }
 .symOn {
-  color: var(--white);
+  color: var(--on-blue);
   background: var(--blue);
   border-color: var(--blue);
 }

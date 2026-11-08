@@ -98,14 +98,32 @@ export function isoDate(date: Date): string {
 
 /** "Kitchen remodel – cut list.pdf", safe as a Windows file name. */
 export function exportFileName(jobName: string, extension: 'pdf' | 'csv', what: 'cut list' | 'estimate' | 'sheet layouts' = 'cut list'): string {
-  const safe = jobName
-    // Characters Windows forbids in names, and control characters.
+  return `${safeName(jobName) || 'Job'} – ${what}.${extension}`;
+}
+
+/** Text made safe inside a Windows file name: forbidden and control characters become "-". */
+export function safeName(text: string): string {
+  return text
     .replace(/[<>:"/\\|?*]/g, '-')
     .replace(/\p{Cc}/gu, '-')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/[. ]+$/, '');
-  return `${safe || 'Job'} – ${what}.${extension}`;
+}
+
+/** The job's part of its DXF names: "Kitchen remodel". */
+export const dxfJobPart = (jobName: string): string => safeName(jobName) || 'Job';
+
+/** "Kitchen remodel – DXF": the folder the DXFs go in. */
+export const dxfFolderName = (jobName: string): string => `${dxfJobPart(jobName)} – DXF`;
+
+/**
+ * "Kitchen remodel – Birch plywood 3-4″ – pattern 2.dxf". The desktop app
+ * recognizes this shape to clear out a job's older DXFs (is_dxf_of in
+ * app/src-tauri/src/export.rs): keep the two in step.
+ */
+export function dxfFileName(jobName: string, materialName: string, pattern: number): string {
+  return `${dxfJobPart(jobName)} – ${safeName(materialName) || 'Material'} – pattern ${pattern}.dxf`;
 }
 
 export type PageSizeName = 'letter' | 'a4';

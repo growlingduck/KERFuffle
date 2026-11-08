@@ -134,3 +134,21 @@ export const PrintIcon = (p: IconProps) => (
     <path d="M4 6V1.5h8V6M4 12H2V6h12v6h-2M4 9.5h8v5H4z" />
   </Svg>
 );
+export const SunIcon = (p: IconProps) => (
+  <Svg strokeWidth={1.4} {...p}>
+    <circle cx="8" cy="8" r="2.8" />
+    <path d="M8 1.2v1.8M8 13v1.8M1.2 8h1.8M13 8h1.8M3.2 3.2l1.3 1.3M11.5 11.5l1.3 1.3M3.2 12.8l1.3-1.3M11.5 4.5l1.3-1.3" />
+  </Svg>
+);
+export const MoonIcon = (p: IconProps) => (
+  <Svg strokeWidth={1.4} {...p}>
+    <path d="M13.6 9.8A5.9 5.9 0 016.2 2.4a5.9 5.9 0 107.4 7.4z" />
+  </Svg>
+);
+/** System theme: a half-filled circle, light and dark sides. */
+export const SystemThemeIcon = (p: IconProps) => (
+  <Svg strokeWidth={1.4} {...p}>
+    <circle cx="8" cy="8" r="6" />
+    <path d="M8 2a6 6 0 010 12z" fill="currentColor" stroke="none" />
+  </Svg>
+);

@@ -1,6 +1,6 @@
 import { SLOT_INFO, ticks } from '@kerfuffle/engine';
 import type { CutList, Estimate, EstimateLine, JobSlot } from '@kerfuffle/engine';
-import { formatMoney, priceUnit } from '../data/materials';
+import { formatMoney, priceUnit, ROUGH_PRICE_NOTE } from '../data/materials';
 import { displayInches } from '../lib/dimensions';
 import { BOM, csvField } from './csv';
 import { blockedText, optionsText } from './format';
@@ -101,8 +101,15 @@ export function totalText(estimate: Estimate): string {
   return `Incomplete: ${reasons.join('; ')}`;
 }
 
-/** Numbered notes printed on the estimate. */
-export function estimateNotes(estimate: Estimate, list: CutList): string[] {
+/** "Rough starting prices (Omaha, NE, Nov 2026) for MDF 3/4″ and HPL laminate 48 × 96: check them with your supplier." */
+export function roughPricesText(names: readonly string[]): string | null {
+  if (names.length === 0) return null;
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `${ROUGH_PRICE_NOTE.replace('Rough starting price', 'Rough starting prices')} for ${list}: check them with your supplier.`;
+}
+
+/** Numbered notes printed on the estimate. `rough`: materials priced at a rough starting price. */
+export function estimateNotes(estimate: Estimate, list: CutList, rough: readonly string[] = []): string[] {
   const trim = displayInches(estimate.options.edgeTrim);
   const sheets = estimate.lines.filter((l) => l.unit === 'sheet' && l.material !== null);
   const layout = sheets.filter((l) => l.basis === 'layout').length;
@@ -118,6 +125,7 @@ export function estimateNotes(estimate: Estimate, list: CutList): string[] {
     'Edge banding covers the exposed front edges of sides, top or front stretcher, bottom and shelves, rounded up to the foot.',
     'Hardware is the construction method’s own (leveling legs and kick clips). Hinges, slides, pulls, screws and glue are not included.',
     `Material cost to buy only: no markup, labor or tax. Prices are the job’s copies. Parts as on the cut list: ${optionsText(list.options).split(' · ')[1]}.`,
+    ...(rough.length > 0 ? [roughPricesText(rough)!] : []),
   ];
 }
 
@@ -129,6 +137,8 @@ export interface EstimateCsvMeta {
   construction?: string;
   /** "prices as of 2026-11-02". */
   pricesAsOf?: string | null;
+  /** Materials priced at a rough starting price. */
+  rough?: readonly string[];
 }
 
 export const ESTIMATE_CSV_COLUMNS = [
@@ -162,6 +172,7 @@ export function estimateCsv(estimate: Estimate, list: CutList, meta: EstimateCsv
     `Rev. ${meta.revision}`,
     `printed ${meta.date}`,
     meta.pricesAsOf ? `prices as of ${meta.pricesAsOf}` : null,
+    roughPricesText(meta.rough ?? []),
     sheetsBasisText(estimate),
     blockedText(list.blocked),
   ]

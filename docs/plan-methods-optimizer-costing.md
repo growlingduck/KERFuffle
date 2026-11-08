@@ -288,9 +288,25 @@ materials already filled in:
 | PVC edge banding 15/16″ | banding | per foot | — |
 | Leveling leg, kick clip | hardware | each | — |
 
-The seeded materials have **no price**. Prices vary too much by supplier and
-region to guess, so each material shows "needs a price". An estimate that uses an
-unpriced material says so instead of showing a wrong total.
+The seeded materials start with **rough prices** (schema v7,
+`app/src-tauri/src/db/rough_prices.json`): best guesses for the Omaha, NE area in
+November 2026, so a new shop sees an estimate with a total right away. Each is
+flagged `priceEstimated` and shown with a dashed **Rough** tag. Typing a price,
+or "keep it as yours", clears the flag. A job's copy keeps the flag, and the
+estimate (screen, printout and CSV) names the materials still at a rough price.
+Migration 7 fills only standard materials that had no price, so a shop's own
+prices are never replaced. A material with no price at all still shows "needs a
+price", and an estimate that uses one says so instead of showing a wrong total.
+
+| Material | Rough price |
+|---|---|
+| Birch plywood 3/4″ · 1/2″ · 1/4″ | $72 · $58 · $35 a sheet |
+| Maple plywood, prefinished 3/4″ | $110 a sheet |
+| Melamine, white 3/4″ · MDF 3/4″ (49 × 97) | $52 · $48 a sheet |
+| Plywood 1″ (shelves) | $115 a sheet |
+| HPL laminate 48 × 96 · 60 × 144 | $95 · $230 a sheet |
+| PVC edge banding 15/16″ | $0.11 a foot |
+| Leveling leg · kick clip | $3.00 · $0.75 each |
 
 **Adding a material** uses a form that asks only for what matters to its kind:
 

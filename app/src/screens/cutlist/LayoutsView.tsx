@@ -200,7 +200,7 @@ export function LayoutsView(props: LayoutsViewProps) {
     status = `Kept with the job ${shown.record.createdAt.slice(0, 10)} · ${MODE_NAMES[shown.mode]} mode · ${shown.profile.name}, kerf ${exactInches(shown.profile.kerf)}, trim ${exactInches(shown.profile.edgeTrim)}.`;
   } else if (!layout) status = 'Laying out…';
   else if (!shown.final) status = 'Searching for a better layout. The best so far is shown.';
-  else if (fixed) status = 'Not kept with the job yet: it’s kept when the layouts are printed or saved as PDF.';
+  else if (fixed) status = 'Not kept with the job yet: it’s kept when the layouts are printed, saved as PDF or exported as DXF.';
   else status = 'Draft: worked out again whenever the job changes. Kept with the job when printed, saved as PDF or marked Ready to cut.';
 
   const hovered = pointed ? pieceNames.get(pointed.pieceId) : undefined;

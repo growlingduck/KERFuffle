@@ -6,7 +6,7 @@ import { parseHash, routeHref } from '../src/routes';
 import { jobSession } from '../src/data/storage';
 import { jobsStore } from '../src/state/jobs';
 import type { MemoryStorageClient } from '../src/data/memoryClient';
-import { useTestDatabase } from './storage';
+import { testJob, useTestDatabase } from './storage';
 
 function go(hash: string) {
   act(() => {
@@ -56,7 +56,7 @@ describe('App shell', () => {
 
     for (const [tab, heading] of [
       ['Workspace', 'Workspace: Kitchen remodel'],
-      ['Cut list', 'Cut list: Kitchen remodel'],
+      ['Output', 'Output: Kitchen remodel'],
       ['Settings', 'Settings'],
       ['Jobs', 'Jobs'],
     ] as const) {
@@ -80,9 +80,27 @@ describe('App shell', () => {
     press('2');
     expect(currentTab()).toHaveTextContent('Workspace');
     press('3');
-    expect(currentTab()).toHaveTextContent('Cut list');
+    expect(currentTab()).toHaveTextContent('Output');
     press('1');
     expect(currentTab()).toHaveTextContent('Jobs');
+  });
+
+  it('grays out Workspace and Output until a job has been opened', async () => {
+    // Forget the opened job: loading no jobs clears it, then the list comes back.
+    const jobs = Object.values(jobsStore.getState().jobs);
+    jobsStore.dispatch({ type: 'jobs/loaded', jobs: [] });
+    jobsStore.dispatch({ type: 'jobs/loaded', jobs });
+    render(<App />);
+    const nav = screen.getByRole('navigation', { name: 'Sections' });
+    for (const tab of ['Workspace', 'Output']) {
+      const link = within(nav).getByRole('link', { name: tab });
+      expect(link).toHaveAttribute('aria-disabled', 'true');
+      expect(link).not.toHaveAttribute('href');
+    }
+    expect(within(nav).getByRole('link', { name: 'Settings' })).not.toHaveAttribute('aria-disabled');
+
+    act(() => jobsStore.dispatch({ type: 'job/opened', id: 'j-0014' }));
+    expect(within(nav).getByRole('link', { name: 'Workspace' })).toHaveAttribute('href', '#/jobs/j-0014/workspace');
   });
 
   it('does not switch screens while typing', () => {
@@ -105,7 +123,7 @@ describe('App shell', () => {
     expect(header().queryByText('Customer')).toBeNull();
     go('#/jobs/j-0014/workspace');
     expect(header().getByText('Customer')).toBeInTheDocument();
-    expect(header().getByText('Kitchen remodel', { selector: 'span' })).toBeInTheDocument();
+    expect(header().getByText('Kitchen remodel', { selector: 'button' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Undo/ })).toHaveAttribute('aria-disabled', 'true');
     go('#/settings');
     expect(header().queryByText('Customer')).toBeNull();
@@ -153,6 +171,55 @@ describe('App shell', () => {
     await act(() => jobSession.flush());
     expect((await db.getJob('j-0014')).status).toBe('ready');
     expect(screen.getByText(/^Saved \d/)).toBeInTheDocument();
+  });
+
+  it('edits the open job’s details from the header, as one step with Undo', async () => {
+    go('#/jobs/j-0014/workspace');
+    const user = userEvent.setup();
+    render(<App />);
+    await waitFor(() => expect(jobSession.getState().status).toBe('ready'));
+    await user.click(screen.getByRole('button', { name: /Edit job details: Kitchen remodel/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Job details' });
+    const name = within(dialog).getByLabelText('Job name');
+    expect(name).toHaveFocus();
+    await user.clear(name);
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(within(dialog).getByText('Give the job a name')).toBeInTheDocument();
+
+    await user.type(name, 'Pantry wall');
+    const customer = within(dialog).getByLabelText(/Customer or project/);
+    await user.clear(customer);
+    await user.type(customer, 'Lee');
+    await user.selectOptions(within(dialog).getByLabelText('Status'), 'ready');
+    expect(within(dialog).getByText(/construction/i)).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText(/Notes/), 'Call first');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    expect(screen.queryByRole('dialog', { name: 'Job details' })).toBeNull();
+    expect(screen.getByRole('button', { name: /Edit job details: Pantry wall/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Customer: Lee/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Job status: .*Ready to cut/ })).toBeInTheDocument();
+    expect(document.querySelector('.toast')).toHaveTextContent('Edit job details');
+    await act(() => jobSession.flush());
+    expect(await db.getJob('j-0014')).toMatchObject({ name: 'Pantry wall', customer: 'Lee', notes: 'Call first', status: 'ready' });
+
+    await user.click(within(document.querySelector<HTMLElement>('.toast')!).getByRole('button', { name: 'Undo' }));
+    expect(screen.getByRole('button', { name: /Edit job details: Kitchen remodel/ })).toBeInTheDocument();
+    await act(() => jobSession.flush());
+    expect(await db.getJob('j-0014')).toMatchObject({ name: 'Kitchen remodel', status: 'draft' });
+  });
+
+  it('Cancel leaves the job as it was, and an empty customer offers to add one', async () => {
+    db = await useTestDatabase([testJob({ customer: null })]);
+    go('#/jobs/j-0014/workspace');
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: /Customer: Add customer/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Job details' });
+    await user.type(within(dialog).getByLabelText('Job name'), ' changed');
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Job details' })).toBeNull();
+    expect(screen.getByRole('button', { name: /Edit job details: Kitchen remodel$/ })).toBeInTheDocument();
   });
 
   it('shows a save failure with a Retry that saves again', async () => {

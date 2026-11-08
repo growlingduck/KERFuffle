@@ -7,7 +7,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use super::backup::{create_and_rotate, BackupPolicy};
 use super::error::{DbError, DbResult};
-use super::materials::{insert_material, STANDARD_MATERIALS_JSON};
+use super::materials::{rough_prices, STANDARD_MATERIALS_JSON};
 use super::models::Material;
 
 struct Migration {
@@ -30,17 +30,57 @@ const MIGRATIONS: &[Migration] = &[
     Migration { version: 4, name: "saw profiles", sql: include_str!("0004_saw_profiles.sql"), then: None },
     Migration { version: 5, name: "saved layouts", sql: include_str!("0005_layouts.sql"), then: None },
     Migration { version: 6, name: "defaults checked", sql: include_str!("0006_defaults_checked.sql"), then: None },
+    Migration {
+        version: 7,
+        name: "rough prices",
+        sql: include_str!("0007_rough_prices.sql"),
+        then: Some(fill_rough_prices),
+    },
 ];
 
 /// Must equal the last entry in `MIGRATIONS` (checked by a test).
-pub const LATEST_VERSION: i64 = 6;
+pub const LATEST_VERSION: i64 = 7;
 
-/// The standard materials (plan §3.1), added once when the catalog is created.
-/// They have no prices: prices vary too much by supplier to guess.
+/// The standard materials (plan §3.1), added once when the catalog is created,
+/// without prices (migration 7 adds rough ones). Written as the catalog was at
+/// version 3, so a new database can still run every migration in order.
 fn seed_standard_materials(conn: &Connection) -> DbResult<()> {
     let materials: Vec<Material> = serde_json::from_str(STANDARD_MATERIALS_JSON)?;
     for (position, material) in materials.iter().enumerate() {
-        insert_material(conn, material, position as i64)?;
+        let m = material.normalized();
+        m.check()?;
+        conn.execute(
+            "INSERT INTO materials (position, id, kind, name, thickness, length, width, grain, banding_width,
+               roll_feet, unit, price_cents, supplier, sku, notes, on_hand, archived, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, NULL, NULL, NULL, NULL, NULL, 0,
+               strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+            params![
+                position as i64,
+                m.id,
+                m.kind.as_str(),
+                m.name,
+                m.thickness,
+                m.length,
+                m.width,
+                m.grain.as_str(),
+                m.banding_width,
+                m.roll_feet,
+                m.unit,
+            ],
+        )?;
+    }
+    Ok(())
+}
+
+/// Rough starting prices on the standard materials that have none, flagged as
+/// rough, so a new shop sees an estimate right away. A price the shop entered
+/// is never touched.
+fn fill_rough_prices(conn: &Connection) -> DbResult<()> {
+    for (id, cents) in rough_prices()? {
+        conn.execute(
+            "UPDATE materials SET price_cents = ?2, price_estimated = 1 WHERE id = ?1 AND price_cents IS NULL",
+            params![id, cents],
+        )?;
     }
     Ok(())
 }
@@ -48,6 +88,23 @@ fn seed_standard_materials(conn: &Connection) -> DbResult<()> {
 #[cfg(test)]
 pub fn listed_versions() -> Vec<i64> {
     MIGRATIONS.iter().map(|m| m.version).collect()
+}
+
+/// A new database brought up to `version` only (SQL and data), for testing a later migration.
+#[cfg(test)]
+pub fn build_through(conn: &Connection, version: i64) -> DbResult<()> {
+    for m in MIGRATIONS.iter().filter(|m| m.version <= version) {
+        conn.execute_batch(m.sql)?;
+        if let Some(then) = m.then {
+            then(conn)?;
+        }
+    }
+    conn.execute(
+        "INSERT INTO meta (key, value) VALUES ('schema_version', ?1)
+         ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+        params![version.to_string()],
+    )?;
+    Ok(())
 }
 
 /// The SQL of migrations 1..=`version`, for building an older database in tests.

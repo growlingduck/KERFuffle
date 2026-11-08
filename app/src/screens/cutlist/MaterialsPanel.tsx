@@ -108,6 +108,7 @@ export function MaterialsPanel({ jobId, record, usingDefaults, catalog, slots, i
                 {current && slotIssues.length === 0 && (
                   <span className="mono">
                     {current.price === null ? 'needs a price' : `${formatMoney(current.price)} ${priceUnit(current)}`}
+                    {current.priceEstimated && <span className={styles.roughPrice}> · rough price</span>}
                   </span>
                 )}
               </div>

@@ -31,6 +31,8 @@ export interface EstimateSheetProps {
   job: SheetJob;
   printed: string;
   pricesAsOf: string | null;
+  /** Materials priced at a rough starting price; named in the notes. */
+  rough?: readonly string[];
   page: PageSize;
 }
 
@@ -39,7 +41,7 @@ export interface EstimateSheetProps {
  * title block and print rules: material · needed · on hand · to buy · price ·
  * cost, then the job total. Shown on screen as the Estimate panel.
  */
-export function EstimateSheet({ estimate, list, rules, job, printed, pricesAsOf, page }: EstimateSheetProps) {
+export function EstimateSheet({ estimate, list, rules, job, printed, pricesAsOf, rough = [], page }: EstimateSheetProps) {
   const excludes = blockedText(list.blocked);
   const status = STATUS_INFO[job.status];
   const complete = estimate.total.cost !== null;
@@ -162,7 +164,7 @@ export function EstimateSheet({ estimate, list, rules, job, printed, pricesAsOf,
             <div className={styles.notes}>
               <div className={cx('cap', styles.notesTitle)}>General notes</div>
               <ol>
-                {estimateNotes(estimate, list).map((note) => (
+                {estimateNotes(estimate, list, rough).map((note) => (
                   <li key={note}>{note}</li>
                 ))}
               </ol>

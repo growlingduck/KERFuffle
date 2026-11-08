@@ -15,7 +15,8 @@ import { testCabinet, testJob, useTestDatabase } from './storage';
 const b1 = testCabinet('c-b1', 'B1', { height: inches(36), finishedEnds: 'left' });
 const b2 = testCabinet('c-b2', 'B2', { width: inches(42) });
 const w1 = testCabinet('c-w1', 'W1', { type: 'wall', height: inches(30), depth: inches(12), shelfCount: 2 });
-const content = (): JobContent => ({ cabinets: [b1, b2, w1], status: 'draft', rules: DEFAULT_RULES });
+const details = { name: 'Kitchen', customer: null, notes: null };
+const content = (): JobContent => ({ cabinets: [b1, b2, w1], status: 'draft', rules: DEFAULT_RULES, ...details });
 
 describe('command reducers', () => {
   const cases: [string, Command, (c: JobContent) => void, string][] = [
@@ -36,6 +37,11 @@ describe('command reducers', () => {
     ['removeCabinet', { type: 'removeCabinet', cabinetId: 'c-b2' }, (c) => expect(c.cabinets.map((x) => x.id)).toEqual(['c-b1', 'c-w1']), 'Remove B2'],
     ['reorderCabinet', { type: 'reorderCabinet', cabinetId: 'c-w1', toIndex: 0 }, (c) => expect(c.cabinets.map((x) => x.id)).toEqual(['c-w1', 'c-b1', 'c-b2']), 'Move W1'],
     ['setStatus', { type: 'setStatus', status: 'ready' }, (c) => expect(c.status).toBe('ready'), 'Mark job ready to cut'],
+    ['setDetails (name)', { type: 'setDetails', details: { ...details, name: ' Pantry ', status: 'draft' } }, (c) => expect(c.name).toBe('Pantry'), 'Rename job to Pantry'],
+    ['setDetails (customer)', { type: 'setDetails', details: { ...details, customer: 'Smith', status: 'draft' } }, (c) => expect(c.customer).toBe('Smith'), 'Change customer to Smith'],
+    ['setDetails (several)', { type: 'setDetails', details: { name: 'Pantry', customer: 'Smith', notes: 'Call first', status: 'ready' } }, (c) => {
+      expect(c).toMatchObject({ name: 'Pantry', customer: 'Smith', notes: 'Call first', status: 'ready' });
+    }, 'Edit job details'],
   ];
 
   it.each(cases)('%s changes the job and names the step', (_name, command, check, label) => {
@@ -51,6 +57,9 @@ describe('command reducers', () => {
   it('returns null when nothing would change', () => {
     expect(applyCommand(content(), { type: 'setDimension', cabinetId: 'c-b1', field: 'width', value: b1.width })).toBeNull();
     expect(applyCommand(content(), { type: 'setStatus', status: 'draft' })).toBeNull();
+    // Blank customer and notes are none; a blank name is refused.
+    expect(applyCommand(content(), { type: 'setDetails', details: { name: 'Kitchen ', customer: '  ', notes: '', status: 'draft' } })).toBeNull();
+    expect(applyCommand(content(), { type: 'setDetails', details: { ...details, name: '  ', status: 'ready' } })).toBeNull();
     expect(applyCommand(content(), { type: 'reorderCabinet', cabinetId: 'c-b1', toIndex: 0 })).toBeNull();
     expect(applyCommand(content(), { type: 'setShelves', cabinetId: 'c-b1', value: -1 })).toBeNull();
     expect(applyCommand(content(), { type: 'setQuantity', cabinetId: 'c-b1', value: 0 })).toBeNull();
@@ -58,7 +67,7 @@ describe('command reducers', () => {
   });
 
   it('never removes the last cabinet', () => {
-    expect(applyCommand({ cabinets: [b1], status: 'draft', rules: DEFAULT_RULES }, { type: 'removeCabinet', cabinetId: 'c-b1' })).toBeNull();
+    expect(applyCommand({ cabinets: [b1], status: 'draft', rules: DEFAULT_RULES, ...details }, { type: 'removeCabinet', cabinetId: 'c-b1' })).toBeNull();
   });
 
   it('removing selects the next cabinet, or the previous at the end', () => {
@@ -93,6 +102,18 @@ describe('undo and redo', () => {
     { type: 'reorderCabinet', cabinetId: 'c-w1', toIndex: 0 },
     { type: 'setStatus', status: 'completed' },
   ];
+
+  it('job details round-trip through undo and redo, and update the header at once', () => {
+    const details = { name: 'Pantry', customer: 'Lee', notes: 'Call first', status: 'draft' as const };
+    act(() => void runCommand({ type: 'setDetails', details }));
+    expect(jobSession.getJob()).toMatchObject(details);
+    expect(jobsStore.getState().jobs['j-0014']).toMatchObject({ name: 'Pantry', customer: 'Lee', notes: 'Call first' });
+    act(() => void undo());
+    expect(jobSession.getJob()).toMatchObject({ name: 'Kitchen remodel', customer: '[Customer name]', notes: null });
+    expect(jobsStore.getState().jobs['j-0014']).toMatchObject({ name: 'Kitchen remodel', customer: '[Customer name]', notes: '' });
+    act(() => void redo());
+    expect(jobSession.getJob()).toMatchObject(details);
+  });
 
   it.each(commands.map((c) => [c.type, c] as const))('%s round-trips through undo and redo', (_type, command) => {
     const before = jobSession.getJob()!;

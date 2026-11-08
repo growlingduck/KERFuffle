@@ -1,7 +1,8 @@
 //! Cut-list output: the Save dialog, CSV files, print-to-PDF and the print
 //! dialog. Errors come back as `{ kind, message }` with a message written for
 //! the person at the saw; the TypeScript side is app/src/platform/export.ts.
-//! Job files (.kerfjob) are saved through the same dialog and writer.
+//! Job files (.kerfjob) are saved through the same dialog and writer. Sheet
+//! layouts as DXF go into a folder, one file per sheet pattern.
 //!
 //! The PDF and the printout are both drawn by WebView2 from the page the user
 //! is looking at, with the same print stylesheet. There is no second renderer.
@@ -165,6 +166,154 @@ fn replace(temp: &Path, path: &Path) -> Result<(), ExportError> {
     std::fs::rename(temp, path).map_err(|error| {
         let _ = std::fs::remove_file(temp);
         ExportError::from_io(&error, path)
+    })
+}
+
+/// Characters Windows forbids in a file or folder name, and control characters, as "-".
+fn safe_name(name: &str) -> String {
+    let replaced: String = name
+        .chars()
+        .map(|c| if c.is_control() || r#"<>:"/\|?*"#.contains(c) { '-' } else { c })
+        .collect();
+    let trimmed = replaced.trim().trim_end_matches(['.', ' ']);
+    if trimmed.is_empty() { "Export".into() } else { trimmed.into() }
+}
+
+/// Ask for a folder to export several files into (the DXFs). It starts in
+/// `Documents\KERFuffle\{folder_name}`, made for the dialog and removed again
+/// if the user cancels and nothing was put in it. `None` when cancelled.
+#[tauri::command]
+pub async fn choose_export_folder(app: AppHandle, folder_name: String) -> Result<Option<String>, ExportError> {
+    let suggested = default_export_dir(&app).map(|dir| dir.join(safe_name(&folder_name)));
+    let made = match &suggested {
+        Some(dir) if !dir.exists() => std::fs::create_dir_all(dir).is_ok(),
+        _ => false,
+    };
+    let mut dialog = app.dialog().file().set_title("Export sheet layouts as DXF: choose a folder");
+    if let Some(dir) = suggested.as_ref().filter(|d| d.is_dir()) {
+        dialog = dialog.set_directory(dir);
+    }
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    dialog.pick_folder(move |path| {
+        let _ = tx.send(path);
+    });
+    let picked = rx.await.ok().flatten().map(|p| p.into_path());
+    let picked = match picked {
+        Some(Ok(path)) => Some(path),
+        Some(Err(e)) => {
+            return Err(ExportError::new(ExportErrorKind::Failed, format!("That folder can’t be used ({e}). Pick another folder.")))
+        }
+        None => None,
+    };
+    if made {
+        if let Some(dir) = &suggested {
+            // Only removes it while it's still empty.
+            if picked.as_deref() != Some(dir.as_path()) {
+                let _ = std::fs::remove_dir(dir);
+            }
+        }
+    }
+    Ok(picked.map(|p| p.to_string_lossy().into_owned()))
+}
+
+/// One file of a folder export.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ExportFile {
+    name: String,
+    contents: String,
+}
+
+/// What a folder export wrote, and the older files it cleared out.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct WrittenFiles {
+    /// Each file's full path, in the order given.
+    paths: Vec<String>,
+    /// Names of this job's DXFs from an earlier export that this one didn't write, now removed.
+    removed: Vec<String>,
+    /// Names of such files that couldn't be removed (open in another program, read-only).
+    not_removed: Vec<String>,
+}
+
+/// Is `name` one of job `job`'s DXFs, "{job} – {material} – pattern {n}.dxf"
+/// (dxfFileName in app/src/cutlist/format.ts)? Case doesn't matter, as on
+/// Windows. The material part may not contain " – ", so job "Kitchen" never
+/// matches "Kitchen – annex – Birch – pattern 1.dxf" from job "Kitchen – annex".
+fn is_dxf_of(name: &str, job: &str) -> bool {
+    let name = name.to_lowercase();
+    let Some(rest) = name.strip_prefix(&format!("{} – ", job.to_lowercase())) else {
+        return false;
+    };
+    let Some(rest) = rest.strip_suffix(".dxf") else {
+        return false;
+    };
+    let Some((material, number)) = rest.rsplit_once(" – pattern ") else {
+        return false;
+    };
+    !material.trim().is_empty() && !material.contains(" – ") && !number.is_empty() && number.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// Write several text files into `dir` (made if needed), replacing files of
+/// the same name. Every file is written to a temp file first, so a failure
+/// part way leaves nothing half-written.
+///
+/// With `stale_dxf_of` (the job part of the DXF names), this job's DXFs from
+/// an earlier export that this one didn't write are removed afterwards: a job
+/// that went from 5 sheet patterns to 4 mustn't leave an old "pattern 5" in
+/// the folder for the CNC to cut. Nothing else in the folder is touched.
+#[tauri::command]
+pub async fn write_export_files(dir: String, files: Vec<ExportFile>, stale_dxf_of: Option<String>) -> Result<WrittenFiles, ExportError> {
+    let dir = PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).map_err(|e| ExportError::from_io(&e, &dir))?;
+    let mut staged: Vec<(PathBuf, PathBuf)> = Vec::with_capacity(files.len());
+    let discard = |staged: &[(PathBuf, PathBuf)]| {
+        for (temp, _) in staged {
+            let _ = std::fs::remove_file(temp);
+        }
+    };
+    for file in &files {
+        let path = dir.join(safe_name(&file.name));
+        let temp = temp_path(&path);
+        if let Err(error) = std::fs::write(&temp, file.contents.as_bytes()) {
+            let _ = std::fs::remove_file(&temp);
+            discard(&staged);
+            return Err(ExportError::from_io(&error, &path));
+        }
+        staged.push((temp, path));
+    }
+    for (i, (temp, path)) in staged.iter().enumerate() {
+        if let Err(error) = replace(temp, path) {
+            discard(&staged[i + 1..]);
+            return Err(error);
+        }
+    }
+    let written: Vec<String> = staged
+        .iter()
+        .filter_map(|(_, path)| path.file_name().map(|n| n.to_string_lossy().to_lowercase()))
+        .collect();
+    let mut removed = Vec::new();
+    let mut not_removed = Vec::new();
+    if let Some(job) = stale_dxf_of.as_deref().filter(|job| !job.trim().is_empty()) {
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                let is_file = entry.file_type().map(|t| t.is_file()).unwrap_or(false);
+                if !is_file || !is_dxf_of(&name, job) || written.contains(&name.to_lowercase()) {
+                    continue;
+                }
+                match std::fs::remove_file(entry.path()) {
+                    Ok(()) => removed.push(name),
+                    Err(_) => not_removed.push(name),
+                }
+            }
+        }
+        removed.sort();
+        not_removed.sort();
+    }
+    Ok(WrittenFiles {
+        paths: staged.into_iter().map(|(_, path)| path.to_string_lossy().into_owned()).collect(),
+        removed,
+        not_removed,
     })
 }
 
@@ -379,6 +528,68 @@ mod tests {
             ExportError::from_io(&io::Error::from(io::ErrorKind::PermissionDenied), path).kind,
             ExportErrorKind::Denied
         );
+    }
+
+    #[test]
+    fn makes_names_windows_can_use() {
+        assert_eq!(safe_name("Kitchen: \"A/B\" – DXF. "), "Kitchen- -A-B- – DXF");
+        assert_eq!(safe_name(r"..\..\x"), "..-..-x");
+        assert_eq!(safe_name("  "), "Export");
+    }
+
+    #[test]
+    fn writes_every_file_of_a_folder_export() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("Job – DXF");
+        let files = vec![
+            ExportFile { name: "a.dxf".into(), contents: "one".into() },
+            ExportFile { name: "b/c.dxf".into(), contents: "two".into() },
+        ];
+        let written = tauri::async_runtime::block_on(write_export_files(out.to_string_lossy().into_owned(), files, None)).unwrap();
+        assert_eq!(written.paths.len(), 2);
+        assert!(written.removed.is_empty() && written.not_removed.is_empty());
+        assert_eq!(std::fs::read_to_string(out.join("a.dxf")).unwrap(), "one");
+        assert_eq!(std::fs::read_to_string(out.join("b-c.dxf")).unwrap(), "two", "no path separators in a name");
+        assert_eq!(std::fs::read_dir(&out).unwrap().count(), 2, "no temp files left behind");
+    }
+
+    #[test]
+    fn knows_a_jobs_dxf_names_and_nothing_else() {
+        assert!(is_dxf_of("Kitchen – Birch plywood 3-4″ – pattern 5.dxf", "Kitchen"));
+        assert!(is_dxf_of("KITCHEN – Birch – pattern 12.DXF", "Kitchen"), "case doesn't matter, as on Windows");
+        assert!(is_dxf_of("Kitchen – annex – Birch – pattern 1.dxf", "Kitchen – annex"));
+        assert!(!is_dxf_of("Kitchen – annex – Birch – pattern 1.dxf", "Kitchen"), "another job's file");
+        assert!(!is_dxf_of("Kitchen – Birch – pattern 1.dxf.bak", "Kitchen"));
+        assert!(!is_dxf_of("Kitchen – Birch – pattern 1a.dxf", "Kitchen"));
+        assert!(!is_dxf_of("Kitchen – pattern 1.dxf", "Kitchen"), "no material part");
+        assert!(!is_dxf_of("Kitchen – Birch – edited.dxf", "Kitchen"));
+        assert!(!is_dxf_of("Kitchen – cut list.csv", "Kitchen"));
+    }
+
+    #[test]
+    fn clears_out_the_jobs_older_dxfs_and_leaves_everything_else() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path();
+        for name in [
+            "Kitchen – Birch – pattern 1.dxf",
+            "Kitchen – Birch – pattern 5.dxf",
+            "Kitchen – Old name – pattern 2.dxf",
+            "Kitchen – annex – Birch – pattern 9.dxf",
+            "Kitchen – Birch – pattern 5 (edited).dxf",
+            "notes.txt",
+        ] {
+            std::fs::write(out.join(name), "old").unwrap();
+        }
+        std::fs::create_dir(out.join("Kitchen – Sub – pattern 3.dxf")).unwrap();
+        let files = vec![ExportFile { name: "Kitchen – Birch – pattern 1.dxf".into(), contents: "new".into() }];
+        let written =
+            tauri::async_runtime::block_on(write_export_files(out.to_string_lossy().into_owned(), files, Some("Kitchen".into()))).unwrap();
+        assert_eq!(written.removed, vec!["Kitchen – Birch – pattern 5.dxf".to_string(), "Kitchen – Old name – pattern 2.dxf".to_string()]);
+        assert!(written.not_removed.is_empty());
+        assert_eq!(std::fs::read_to_string(out.join("Kitchen – Birch – pattern 1.dxf")).unwrap(), "new");
+        for kept in ["Kitchen – annex – Birch – pattern 9.dxf", "Kitchen – Birch – pattern 5 (edited).dxf", "notes.txt", "Kitchen – Sub – pattern 3.dxf"] {
+            assert!(out.join(kept).exists(), "{kept} is left alone");
+        }
     }
 
     #[test]

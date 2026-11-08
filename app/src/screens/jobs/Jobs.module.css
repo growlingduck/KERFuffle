@@ -40,12 +40,18 @@
 }
 
 /* ---- Search and Show ---- */
+/* Pinned under the app header while the list scrolls (usePinnedBar). */
 .controls {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
-  margin-bottom: 14px;
+  margin: -10px 0 4px;
+  padding: 10px 0;
+  background: var(--paper);
 }
 
 /* ---- Check shop defaults (first run) ---- */
@@ -719,7 +725,7 @@
   padding: 8px 10px;
   border: 1px solid var(--amber);
   border-left-width: 4px;
-  background: #fdf8ea;
+  background: var(--amber-tint);
   color: var(--ink);
 }
 .importError {
@@ -776,7 +782,7 @@
   align-items: center;
   justify-content: center;
   border: 2px dashed var(--blue);
-  background: rgb(227 235 247 / 86%);
+  background: color-mix(in srgb, var(--blue-tint) 86%, transparent);
   font: 700 20px var(--font-cond);
   letter-spacing: 0.06em;
   text-transform: uppercase;

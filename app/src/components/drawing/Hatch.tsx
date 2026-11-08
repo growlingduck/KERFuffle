@@ -36,7 +36,7 @@ export function HatchDefs({ ids }: { ids: HatchIds }) {
       </pattern>
       <pattern id={ids.light} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
         <rect width="8" height="8" style={{ fill: 'var(--white)' }} />
-        <line x1="0" y1="0" x2="0" y2="8" stroke="#cfcfc9" strokeWidth="0.8" />
+        <line x1="0" y1="0" x2="0" y2="8" style={{ stroke: 'var(--rule-divider)' }} strokeWidth="0.8" />
       </pattern>
     </defs>
   );
