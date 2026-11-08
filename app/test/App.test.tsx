@@ -85,7 +85,7 @@ describe('App shell', () => {
     expect(currentTab()).toHaveTextContent('Jobs');
   });
 
-  it('grays out Workspace and Output until a job has been opened', async () => {
+  it('grays out Workspace and Output until a job has been opened', () => {
     // Forget the opened job: loading no jobs clears it, then the list comes back.
     const jobs = Object.values(jobsStore.getState().jobs);
     jobsStore.dispatch({ type: 'jobs/loaded', jobs: [] });
