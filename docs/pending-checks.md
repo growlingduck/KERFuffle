@@ -176,9 +176,9 @@ feed. Install, update, Restart now, uninstall and reinstall all worked; see
 `docs/release.md`. Still needs you:
 
 - [ ] **Back up the updater private key**
-      (`%USERPROFILE%\.tauri\kerfuffle-updater.key`, no password). Without it,
-      installed copies can never update again. Or replace it with a
-      password-protected key before the first release (`docs/release.md`).
+      (`%USERPROFILE%\.tauri\kerfuffle-updater.key`) **and its password**.
+      Without both, installed copies can never update again. v0.1.0 is out
+      and signed with this key, so it can't be replaced (`docs/release.md`).
 - [ ] **Code signing:** set up Azure Artifact Signing (or buy an OV
       certificate) and the GitHub `release` environment. Until then, tag
       builds stop at signing; branch builds still make unsigned installers.

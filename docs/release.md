@@ -38,31 +38,80 @@ How the app updates (code in `app/src-tauri/src/updates.rs`):
 
 ### 1. The updater key pair (done 2026-11-01)
 
-A key pair was generated with `npx -w app tauri signer generate`:
+The key pair was made with `npx -w app tauri signer generate`, with a
+password, on 2026-11-01 at 5:09 PM. That replaced an earlier key with no
+password. v0.1.0 (published 2026-11-02) was signed with it, so every
+installed copy trusts **only this key**.
 
 - Private key: `%USERPROFILE%\.tauri\kerfuffle-updater.key` on the
-  development PC. **No password.**
-- Public key: already in `tauri.conf.json`.
+  development PC. Key ID `86A37341134209E4`. **Password-protected.**
+- Public key: already in `tauri.conf.json` (same key ID).
 
 To do now:
 
-1. **Back up the private key** somewhere safe that isn't the repo, like a
-   password manager or an encrypted USB stick. If it's lost, installed copies
-   can never update again; the shop would have to reinstall by hand.
+1. **Back up the private key *and its password*** somewhere safe that isn't
+   the repo, like a password manager. If either is lost, installed copies can
+   never update again (see "Lost the key or its password" below).
 2. Add it to GitHub: repo → Settings → Environments → `release` (create it,
    see step 4) → secret `TAURI_SIGNING_PRIVATE_KEY`, set to the file's
-   *contents*. Leave `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` unset, or empty.
+   *contents*, and secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, set to its
+   password.
 
-To replace it with a password-protected key **before the first public
-release** (afterwards, a new key strands existing installs):
-
-```powershell
-npx -w app tauri signer generate -w "$env:USERPROFILE\.tauri\kerfuffle-updater.key" -f
-# paste the new .pub file's contents into tauri.conf.json → plugins.updater.pubkey
-```
+**Never generate a new key** (`tauri signer generate … -f`) to get past a
+password error. Installed copies would reject every update signed with it.
 
 `scripts/release.mjs` refuses to finish if the installer's update signature
 doesn't match the public key in `tauri.conf.json`.
+
+#### Unlocking the updater key for a release
+
+There's no account to log into. The key is a local file, and the release
+script reads its password from `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. If that
+variable isn't set, it tries an empty password, and the build stops near the
+end with:
+
+```
+failed to decode secret key: incorrect updater private key password: Wrong password for that key
+```
+
+That means the password wasn't given, or was mistyped. To fix it:
+
+1. In the PowerShell window you'll release from, enter the password. It is
+   kept for that window only, and nothing is saved to disk or history:
+   ```powershell
+   $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host 'Updater key password' -AsSecureString)).Password
+   ```
+2. Check it in a few seconds, before a full build:
+   ```powershell
+   "check" | Out-File "$env:TEMP\kf-keycheck.txt"
+   npx -w app tauri signer sign -f "$env:USERPROFILE\.tauri\kerfuffle-updater.key" "$env:TEMP\kf-keycheck.txt"
+   ```
+   It works if it prints a signature and writes
+   `kf-keycheck.txt.sig`. If you see "Wrong password" again, repeat step 1.
+   Delete the two `kf-keycheck` files afterwards.
+3. In **the same window**, run the release again (`npm run release:unsigned`,
+   or `node scripts/release.mjs …`). A new window needs step 1 again.
+4. When you're done, clear the password, or close the window:
+   ```powershell
+   Remove-Item Env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+   ```
+
+Also check that `TAURI_SIGNING_PRIVATE_KEY` isn't set to a different key.
+`echo $env:TAURI_SIGNING_PRIVATE_KEY` should print nothing (the script then
+uses the default file) or that file's path.
+
+#### Lost the key or its password
+
+Neither can be recovered, and a new key can't sign updates the installed
+copies will accept. Last resort:
+
+1. Generate a new pair (`npx -w app tauri signer generate -w
+   "$env:USERPROFILE\.tauri\kerfuffle-updater.key" -f`), put the new `.pub`
+   contents in `tauri.conf.json` → `plugins.updater.pubkey`, and back up both
+   the key and its password straight away.
+2. Release the next version as usual.
+3. On **each shop PC**, download that installer from GitHub Releases and run
+   it by hand. Jobs are kept. From then on, updates work again.
 
 ### 2. Code signing: Azure Artifact Signing (recommended)
 
@@ -139,8 +188,9 @@ values.** Everything above is read from environment variables.
    ```
 3. **CI** runs the tests, signs the build and creates a **draft** release
    `v0.3.0` with `KERFuffle_0.3.0_x64-setup.exe`, its `.sig`, `latest.json`
-   and `SHA256SUMS.txt`. (Without CI: run `node scripts/release.mjs` with the
-   signing variables set, then upload those four files from
+   and `SHA256SUMS.txt`. (Without CI: unlock the updater key (see
+   "Unlocking the updater key for a release"), run `node scripts/release.mjs`
+   with the signing variables set, then upload those four files from
    `release\v0.3.0\` to a new draft release.)
 4. **Test the draft** on a PC or VM with the previous version installed:
    - Download the installer from the draft. In its Properties → Digital
@@ -160,6 +210,9 @@ writes them to `SHA256SUMS.txt`.
 
 To try the whole update flow (download, "Update ready", install on close,
 Restart now, backups) without publishing anything:
+
+Test builds are signed with the updater key too, so unlock it first (see
+"Unlocking the updater key for a release").
 
 ```powershell
 # two test builds that update from a local folder over http
@@ -204,7 +257,7 @@ own. So a rollback is a new, higher version.
 
 ## Still to do by hand
 
-- Back up the updater private key (above).
+- Back up the updater private key and its password (above).
 - Set up Artifact Signing and the `release` environment. Until then, a tag
   build fails at "Build, sign and check". Branch builds are unaffected.
 - The first signed release: test on a clean Windows 11 VM with a standard
